@@ -1,0 +1,236 @@
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 18px;
+  overflow: visible;
+  position: relative;
+  z-index: 100;
+}
+
+.page-title {
+  font-size: 40px;
+  font-weight: 700;
+  color: #1a1f2c;
+}
+
+/* Top bar (search, filter, add new) */
+.toolbar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  position: relative;
+  gap: 12px;
+  overflow: visible;
+}
+
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.search-box {
+  display: flex;
+  align-items: center;
+  background: #ffffff;
+  padding: 6px 12px;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+  border: 1px solid #9f9f9f;
+  height: 36px;
+}
+
+.search-box input {
+  border: none;
+  outline: none;
+  margin-left: 8px;
+  font-size: 14px;
+  width: 200px;
+}
+
+.search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-box input {
+  padding-right: 25px; /* เผื่อพื้นที่ให้ปุ่ม clear */
+}
+
+.search-icon {
+  color: #8b8b8b;
+}
+
+.clear-btn {
+  position: absolute;
+  right: 8px;
+  background: none;
+  border: none;
+  color: #999;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.clear-btn:hover {
+  color: #333;
+}
+
+.filter-btn {
+  background: #ffffff;
+  color: #9f9f9f;
+  border: 1px solid #9f9f9f;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-weight: 500;
+  font-size: 14px;
+  position: relative;
+  cursor: pointer;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 10;
+}
+
+.filter-btn:hover {
+  background: #f5f7fa;
+}
+
+/* Filter dropdown */
+.filter-wrap {
+  position: relative; /* ✅ ทำให้ dropdown อ้างอิงกล่องนี้ */
+  display: inline-flex;
+  align-items: center;
+}
+
+.filter-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0; /* ✅ ชิดขวาของปุ่ม Filter */
+  z-index: 50;
+
+  background: #ffffff;
+  border: 1px solid #d0d7e2;
+  border-radius: 10px;
+  padding: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  min-width: 180px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.filter-dropdown-2 {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: #ffffff;
+  border: 1px solid #d0d7e2;
+  border-radius: 10px;
+  padding: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  min-width: 180px;
+  max-height: 400px;
+  overflow-y: auto;
+  z-index: 10000;
+}
+
+.filter-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: #1a1f2c;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e0e6f1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.filter-clear-btn {
+  font-size: 12px;
+  font-weight: 500;
+  color: #e53e3e;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.filter-clear-btn:hover {
+  background: #fff5f5;
+}
+
+.filter-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 4px;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.2s;
+}
+
+.filter-option:hover {
+  background: #f5f7fa;
+}
+
+.filter-option input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: #c1d6ed;
+}
+
+.filter-option span {
+  font-size: 14px;
+  color: #000000;
+  user-select: none;
+}
+
+.select {
+  width: 100% !important;
+}
+
+/* 2) react-select จะมี div ชั้นในชื่อ select__container */
+.select__container {
+  width: 100% !important;
+  flex: 1; /* กันกรณีอยู่ใน flex row */
+}
+
+.select .css-13cymwt-control {
+  width: 100% !important;
+}
+
+.select__control {
+  min-height: 42px !important;
+  height: 42px !important;
+  border-radius: 8px !important; /* ถ้าจะให้เหมือน input */
+  width: 100% !important;
+}
+
+.select__value-container {
+  height: 42px !important;
+  padding: 0 14px !important; /* ให้ฟีลเดียวกับ input */
+}
+
+.select__input-container {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.select__indicator {
+  padding: 0 10px !important;
+}
+
+.select__single-value {
+  line-height: 42px !important; /* จัดกึ่งกลางแนวตั้ง */
+}
+
+.select__placeholder {
+  line-height: 42px !important;
+}

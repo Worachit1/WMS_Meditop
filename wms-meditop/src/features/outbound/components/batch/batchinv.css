@@ -1,0 +1,476 @@
+.batchinv-page {
+  padding: 22px 24px;
+  background: #ffffff;
+  min-height: calc(100vh - 40px);
+}
+
+/* ===== Header ===== */
+.batchinv-header {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.batchinv-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.batchinv-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 25px; /* ให้ตรงกับตำแหน่งของ title */
+
+}
+
+.batchinv-title {
+  font-size: 40px;
+  font-weight: 800;
+  color: #111;
+}
+
+.batchinv-meta {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  font-size: 18px;
+  color: #333;
+}
+
+.batchinv-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.batchinv-meta-label {
+  font-weight: 700;
+  font-size: 18px;
+  color: #222;
+}
+
+.batchinv-meta-value {
+  color: #444;
+}
+
+.batchinv-meta-remark {
+  align-items: flex-start !important;
+}
+
+.batchinv-remark-input {
+  min-width: 400px;
+  max-width: 600px;
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  color: #1f2937;
+  background: #f9fafb;
+  resize: vertical;
+  line-height: 1.5;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.batchinv-remark-input:focus {
+  outline: none;
+  border-color: #1a73e8;
+  box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.15);
+  background: #fff;
+}
+
+.batchinv-remark-input::placeholder {
+  color: #9ca3af;
+  font-style: italic;
+}
+
+/* เส้นคั่นใต้ meta แบบในภาพ */
+.batchinv-divider {
+  width: 100%;
+  height: 1px;
+  background: #e6e6e6;
+  margin-top: 6px;
+}
+
+
+/* ===== Toolbar ===== */
+.batchinv-toolbar {
+  margin-top: 18px;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+}
+
+.batchinv-section-label {
+  font-size: 18px;
+  font-weight: 700;
+  color: #222;
+}
+
+.batchinv-toolbar-center {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: center;
+}
+
+.batchinv-total {
+  font-size: 18px;
+  color: #333;
+}
+
+/* ===== Main layout ===== */
+.batchinv-content {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: 1fr 70px 1fr;
+  gap: 16px;
+  align-items: center;
+}
+
+.batchinv-panel {
+  background: #fff;
+  border: 1px solid #dedede;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.batchinv-table-wrap {
+  width: 100%;
+  overflow: auto;
+}
+
+.batchinv-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.batchinv-table thead th {
+  background: #C1D6ED;
+  border-bottom: 1px solid #e2e2e2;
+  padding: 10px 12px;
+  font-size: 18px;
+  text-align: left;
+  color: #222;
+}
+
+.batchinv-th-select {
+  width: 70px;
+  text-align: center !important;
+}
+
+.batchinv-table tbody td {
+  border-bottom: 1px solid #f0f0f0;
+  padding: 10px 12px;
+  font-size: 18px;
+  color: #222;
+}
+
+.batchinv-td-select {
+  text-align: center;
+}
+.batchinv-td-select input[type="checkbox"] {
+  accent-color: #333; 
+  cursor: pointer;
+  width: 22px;
+  height: 22px;
+}
+.batchinv-td-select input[type="checkbox"]:hover {
+  accent-color: #99a299;
+}
+
+.batchinv-td-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  position: relative;
+  cursor: default;
+}
+
+.batchinv-td-text:hover::after {
+  content: attr(title);
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 0;
+  background: #333;
+  color: #fff;
+  padding: 4px 10px;
+  border-radius: 5px;
+  white-space: nowrap;
+  font-size: 14px;
+  z-index: 100;
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+}
+
+.batchinv-empty {
+  text-align: center;
+  color: #666;
+  padding: 18px 12px !important;
+}
+
+/* ===== Transfer buttons ===== */
+.batchinv-transfer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
+}
+
+.batchinv-transfer-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 5px;
+  border: 1px solid #d7d7d7;
+  background: #ffffff;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+  transition: transform 0.06s ease, opacity 0.1s ease;
+}
+
+.batchinv-transfer-btn:active {
+  transform: scale(0.98);
+}
+
+.batchinv-transfer-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.batchinv-transfer-icon {
+  font-size: 20px;
+  font-weight: 900;
+  color: #333;
+}
+
+/* ===== Buttons ===== */
+.batchinv-btn {
+  border: none;
+  border-radius: 5px;
+  padding: 10px 18px;
+  font-weight: 800;
+  cursor: pointer;
+  font-size: 18px;
+  transition: transform 0.06s ease, opacity 0.1s ease;
+}
+
+.batchinv-btn:active {
+  transform: scale(0.98);
+}
+
+.batchinv-btn-scan {
+  background: #3FB239;
+  color: #fff;
+  padding: 9px 16px;
+  white-space: nowrap;
+}
+.batchinv-btn-scan.active,
+.batchinv-btn-scan:active {
+  background-color: #ef6c00;   /* เข้มกว่าอีก */
+  border-color: #ef6c00;
+}
+
+.batchinv-btn-cancel {
+  background: #f44336;
+  color: #fff;
+  padding: 11px 22px;
+  transition: all 0.2s ease;
+}
+.batchinv-btn-cancel:hover {
+  transform: translateY(-1px);
+}
+
+.batchinv-btn-create {
+  background: #3FB239;
+  color: #fff;
+  padding: 11px 26px;
+  transition: all 0.2s ease;
+}
+.batchinv-btn-create:hover {
+  transform: translateY(-1px);
+}
+
+/* ===== Head row aligned with table top ===== */
+.batchinv-grid-head {
+  margin-top: 18px;
+  display: grid;
+  grid-template-columns: 1fr 70px 1fr; /* ให้ตรงกับ content columns */
+  gap: 16px;
+  align-items: end;
+}
+
+/* ให้ฝั่งซ้ายเป็น 2 แถว */
+.batchinv-head-left{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  width:100%;
+}
+
+/* แถวบน: label ซ้าย + actions ขวา */
+.batchinv-head-toprow{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+}
+
+/* กลุ่มปุ่มสแกน + total */
+.batchinv-head-actions{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  flex-shrink:0;
+}
+
+.batchinv-head-mid {
+  /* ช่องกลางว่างไว้ตรงกับปุ่ม + - */
+  display: flex;
+}
+
+.batchinv-head-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+/* ===== Main layout (เดิม) ===== */
+.batchinv-content {
+  margin-top: 10px; /* ระยะห่างจากหัวลงมาที่กรอบ table */
+  display: grid;
+  grid-template-columns: 1fr 70px 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+/* total ให้เล็กเหมือนในภาพ */
+.batchinv-total {
+  font-size: 18px;
+  color: #333;
+}
+
+
+/* ===== Footer ===== */
+.batchinv-footer {
+  margin-top: 18px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 14px;
+}
+
+
+.batchinv-search-inline {
+  position: relative;
+  flex: 1;           /* ตัวสำคัญ */
+  max-width: 500px;  /* จำกัดไม่ให้ยาวเกิน */
+}
+
+.batchinv-search-input{
+  width:100%;
+  padding:8px 34px 8px 34px;
+  border:1px solid #ddd;
+  border-radius:10px;
+  outline:none;
+}
+
+.batchinv-search-icon{
+  position:absolute;
+  left:10px;
+  top:50%;
+  transform:translateY(-50%);
+  opacity:0.6;
+}
+
+.batchinv-search-clear{
+  position:absolute;
+  right:8px;
+  top:50%;
+  transform:translateY(-50%);
+  border:none;
+  background:transparent;
+  cursor:pointer;
+  opacity:0.7;
+  padding:4px;
+}
+
+/* แถวล่าง: search เต็มกว้าง */
+.batchinv-head-searchrow{
+  width:100%;
+}
+
+.batchinv-search-inline{
+  position:relative;
+  width:100%;
+  max-width:none; /* ✅ ยาวเต็ม */
+}
+
+.batchinv-search-clear:hover{ opacity:1; }
+
+/* Responsive */
+@media (max-width: 920px) {
+  .batchinv-toolbar {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .batchinv-toolbar-right {
+    justify-self: start;
+  }
+
+  .batchinv-content {
+    grid-template-columns: 1fr;
+  }
+
+  .batchinv-transfer {
+    flex-direction: row;
+    justify-content: center;
+  }
+
+  .batchinv-footer {
+    justify-content: center;
+  }
+}
+
+
+.batchinv-scan-form {
+  margin-top: 10px;
+  width: 100%;
+}
+
+.batchinv-scan-input {
+  width: 260px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid #cfcfcf;
+  border-radius: 6px;
+  outline: none;
+}
+
+.batchinv-scan-input:focus {
+  border-color: #4caf50;
+  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.15);
+}
+
+
+
+
+.batchinv-scan-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.batchinv-scan-form {
+  margin: 0;
+}

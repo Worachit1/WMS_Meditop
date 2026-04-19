@@ -1,0 +1,92 @@
+/* src/components/Table/table.css */
+
+.table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.app-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+  overflow: visible;
+}
+
+.app-table thead th {
+  background: #C1D6ED;
+  padding: 16px 18px;
+  text-align: left;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.9);
+  font-size: 18px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.app-table tbody td {
+  padding: 18px;
+  font-size: 18px;
+  border-bottom: 1px solid rgba(41, 22, 111, 0.08);
+  background: #ffffff;
+  vertical-align: middle;
+  line-height: 1.5;
+}
+
+.app-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* filter inputs inside table */
+.table-filters input {
+  min-width: 150px;
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: #ffffff;
+  color: #000000;
+  font-size: 18px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.table-filters input:focus {
+  outline: none;
+  border-color: #29166f;
+  box-shadow: 0 0 0 2px rgba(41, 22, 111, 0.15);
+}
+
+/* empty state */
+.table-empty {
+  text-align: center;
+  padding: 48px 24px;
+  font-weight: 500;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.table__actions {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+}
+
+.table__wrapper {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;   /* ✅ เพิ่ม */
+  position: relative;
+}
+
+
+.action-buttons {
+  display: flex;
+  gap: 5px;
+}
+
+.no-data {
+  text-align: center;
+  padding: 20px;
+  color: #777;
+}

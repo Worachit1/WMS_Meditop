@@ -1,0 +1,164 @@
+/* ==============================
+   Detail Report Movement Page
+   Prefix: dt-rp-mv-
+   ============================== */
+
+.dt-rp-mv-container {
+  padding: 0;
+}
+
+/* Header */
+.dt-rp-mv-header {
+  margin-bottom: 0;
+}
+
+.dt-rp-mv-title {
+  font-size: 28px;
+  font-weight: 600;
+  color: #333;
+  margin: 0;
+}
+
+/* Info Panel */
+.dt-rp-mv-info {
+  background-color: white;
+  padding: 20px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.dt-rp-mv-info-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 14px;
+}
+
+.dt-rp-mv-info-row:last-of-type {
+  margin-bottom: 0;
+}
+
+.dt-rp-mv-info-item {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.dt-rp-mv-info-item label {
+  font-weight: 600;
+  color: #333;
+  min-width: 120px;
+  white-space: nowrap;
+}
+
+.dt-rp-mv-info-item span {
+  color: #666;
+  flex: 1;
+}
+
+.dt-rp-mv-divider {
+  border: none;
+  border-top: 1px solid #e0e0e0;
+  margin: 20px 0;
+}
+
+/* Search Row */
+.dt-rp-mv-search-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.dt-rp-mv-search-label {
+  font-weight: 600;
+  color: #333;
+  white-space: nowrap;
+}
+
+.dt-rp-mv-search-input-wrap {
+  position: relative;
+  width: 280px;
+}
+
+.dt-rp-mv-search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #999;
+  font-size: 14px;
+  pointer-events: none;
+}
+
+.dt-rp-mv-search-input {
+  width: 100%;
+  padding: 8px 12px 8px 36px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.dt-rp-mv-search-input:focus {
+  outline: none;
+  border-color: #1a73e8;
+  box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.1);
+}
+
+.dt-rp-mv-search-input::placeholder {
+  color: #999;
+  font-style: italic;
+}
+
+/* Sort button in table header */
+.dt-rp-mv-sort-btn {
+  all: unset;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  user-select: none;
+}
+
+.dt-rp-mv-sort-btn:hover {
+  opacity: 0.85;
+}
+
+.dt-rp-mv-sort-btn i {
+  font-size: 14px;
+}
+
+/* No data */
+.dt-rp-mv-no-data {
+  text-align: center;
+  padding: 40px;
+  color: #999;
+  font-size: 16px;
+}
+
+/* Footer */
+.dt-rp-mv-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.dt-rp-mv-btn-back {
+  padding: 10px 28px;
+  background-color: #858789;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.dt-rp-mv-btn-back:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+}

@@ -1,0 +1,178 @@
+.pagination-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+
+  gap: 16px;
+  padding: 14px 16px;
+
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 3px;
+
+  /* ให้ดูเหมือนเป็น footer ของ table */
+  box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+}
+
+.pagination-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pagination-limit-select {
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #ffffff;
+  font-size: 13px;
+  color: #111827;
+  cursor: pointer;
+}
+
+.pagination-center {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+
+  /* ทำให้ตรงกลางดูเป็นแถบแบบรูป 2 */
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  
+  /* ป้องกันไม่ให้เนื้อหาหลุดออกมา */
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.pagination-number {
+  min-width: 30px;
+  height: 30px;
+  padding: 0 10px;
+
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: #8d939f;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.pagination-number:hover {
+  background: rgba(193, 214, 237, 0.35);
+  color: #111827;
+}
+
+.pagination-number.active {
+  background: rgb(208, 230, 249);
+  color: #111827;
+  box-shadow: 0 6px 9px rgba(56, 64, 67, 0.15);
+}
+
+.pagination-ellipsis {
+  padding: 0 6px;
+  color: #9ca3af;
+  font-size: 13px;
+}
+
+.pagination-right {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.pagination-btn {
+  height: 34px;
+  padding: 0 14px;
+
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #9ca3af;
+
+  font-size: 13px;
+  font-weight: 500;
+
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #d1d5db;
+  color: #111827;
+}
+
+.pagination-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ให้ไอคอนดูบาลานซ์ */
+.pagination-btn i {
+  font-size: 12px;
+}
+
+.pagination-jump {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 12px;
+  flex-shrink: 0;
+}
+
+.pagination-jump-input {
+  width: 50px;
+  height: 30px;
+  padding: 4px 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #ffffff;
+  font-size: 13px;
+  text-align: center;
+  color: #111827;
+  flex-shrink: 0;
+}
+
+.pagination-jump-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
+.pagination-jump-label {
+  font-size: 13px;
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+
+/* responsive */
+@media (max-width: 768px) {
+  .pagination-container {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .pagination-left,
+  .pagination-center,
+  .pagination-right {
+    justify-content: center;
+  }
+}
+
+

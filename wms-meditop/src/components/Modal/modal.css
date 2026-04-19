@@ -1,0 +1,208 @@
+/* overlay */
+.app-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px; 
+  z-index: 1000;
+}
+
+/* box */
+.app-modal-content {
+  background: #ffffff;
+  width: min(95vw, 700px);
+  max-height: 92vh;
+  overflow-y: auto;
+  border-radius: 12px;;
+
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: appModalSlideIn 0.3s ease;
+  z-index: 1001;
+}
+
+/* header */
+.app-modal-header {
+  padding: 16px 20px;
+  background: #F5F5F5;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-radius: 12px 12px 0 0;
+}
+
+.app-modal-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #000000;
+}
+
+/* close btn */
+.app-modal-close {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #6b7280;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  font-size: 18px;
+}
+
+.app-modal-close:hover {
+  background: #e5e7eb;
+}
+
+/* body */
+.app-modal-body {
+  padding: 28px 32px;   /* จาก 20 -> 28/32 */
+  overflow-y: auto;
+  max-height: calc(92vh - 130px);
+}
+
+/* footer */
+.app-modal-footer {
+  padding: 14px 20px;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+/* animation */
+@keyframes appModalSlideIn {
+  from {
+    transform: translateY(12px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* แถวที่มี 2 ช่อง (ชื่อ/นามสกุล) */
+.form-row-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.form-row {
+  margin-bottom: 20px;
+}
+
+/* แต่ละช่อง: label ซ้าย input ขวา */
+.form-group {
+  display: flex;
+  align-items: center;
+  gap: 40px;
+  width: 100%;
+}
+
+/* ให้ label กว้างเท่ากันทุกช่อง */
+.form-group > label {
+  width: 85px;              /* ปรับได้ เช่น 60-90 */
+  flex: 0 0 85px;
+  margin: 0;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 500;
+  color: #1a1f2c;
+}
+
+/* input กินพื้นที่ที่เหลือ */
+.form-group > input {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  padding: 10px 14px;
+  font-size: 14px;
+  border-radius: 8px;
+  border: 1px solid #d0d7e2;
+}
+
+/* แถว Email เต็มบรรทัด */
+.form-group-full {
+  width: 100%;
+}
+
+/* ให้ textarea ได้ style เหมือน input */
+.form-group > textarea {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  padding: 10px 14px;
+  font-size: 14px;
+  border-radius: 8px;
+  border: 1px solid #d0d7e2;
+  outline: none;
+  resize: vertical;
+}
+
+/* สำคัญ: แถว textarea ให้ชิดบน ไม่ใช่ center */
+.form-group.textarea {
+  align-items: flex-start;
+}
+
+/* ดัน label ลงมานิด ให้ตรงกับขอบบน textarea */
+.form-group.textarea > label {
+  padding-top: 10px;
+}
+
+/* Button Styles */
+.btn-cancel,
+.btn-submit {
+  padding: 8px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s ease;
+}
+
+.btn-cancel {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.btn-cancel:hover {
+  background: #d1d5db;
+}
+
+.btn-submit {
+  background: #3FB239;
+  color: #ffffff;
+}
+
+.btn-submit:hover {
+  background: #36a130;
+}
+
+.btn-submit:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+  .app-modal-content {
+    width: 96%;
+    max-width: 96%;
+  }
+
+  .app-modal-body {
+    padding: 18px;
+  }
+}

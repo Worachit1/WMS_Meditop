@@ -1,0 +1,137 @@
+.main-layout {
+  display: flex;
+}
+
+/* เนื้อหาหลัก */
+.main-content-wrapper {
+  margin-left: 200px;
+  width: calc(100% - 200px);
+  height: 100vh;
+  overflow-y: auto;
+  transition: margin-left 0.25s ease, width 0.25s ease;
+  background: #ffffff;
+}
+
+/* เมื่อ sidebar ปิด */
+.main-layout.sidebar-collapsed .main-content-wrapper {
+  margin-left: 60px;
+  width: calc(100% - 60px);
+}
+
+.top-header {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  left: auto;
+  z-index: 999;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  color: #29166f;
+  pointer-events: none;
+}
+
+.top-header > * {
+  pointer-events: auto;
+}
+
+.top-header .mobile-menu-btn,
+.top-header > :not(.user-profile) {
+  display: none;
+}
+
+.mobile-menu-btn {
+  display: none;
+}
+
+.user-profile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: #005171;
+  color: #ffffff;
+  cursor: pointer;
+  position: relative;
+  font-size: 16px;
+  line-height: 1.3;
+  font-weight: 500;
+}
+
+.user-profile:hover {
+  box-shadow: 0 8px 20px rgba(255, 255, 255, 0.15);
+  background: #00405a;
+}
+
+.user-profile i.fa-chevron-down {
+  color: #ffffff;
+  font-size: 12px;
+}
+
+.user-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 20px;
+  background: #005171;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(41, 22, 111, 0.18);
+  padding: 8px 0;
+  min-width: 200px;
+  z-index: 10;
+}
+
+.dropdown-menu button {
+  width: 100%;
+  padding: 10px 16px;
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.dropdown-menu button:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.content {
+  flex: 1;
+  padding: 24px;
+  background: #ffffff;
+}
+
+@media (max-width: 992px) {
+  .main-layout {
+    flex-direction: column;
+  }
+
+  .top-header {
+    top: 16px;
+    right: 16px;
+  }
+
+  .content {
+    padding: 16px;
+  }
+  .main-content-wrapper {
+    margin-left: 0;
+    width: 100%;
+    transition: none; /* จะได้ไม่กระตุกเกินตอนเปิดเมนู mobile */
+    background: #ffffff;
+  }
+}

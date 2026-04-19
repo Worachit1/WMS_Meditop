@@ -1,0 +1,20 @@
+.bor-title {
+  font-size: 0.7em;
+  color: #727272;
+}
+
+.bor-table-btn {
+  padding: 6px 12px;
+  background-color: #1a73e8;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+
+.bor-table-btn:hover {
+  transform: translateY(-1px);
+}

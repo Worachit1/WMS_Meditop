@@ -1,0 +1,44 @@
+@import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap');
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+
+@font-face {
+  font-family: 'AppFont';
+  src: url('/src/assets/font/Kanit/Kanit-Regular.ttf') format('truetype');
+  unicode-range: U+0E00-0E7F; /* Thai */
+}
+
+@font-face {
+  font-family: 'AppFont';
+  src: url('/src//assets/font/Roboto/static/Roboto-Regular.ttf') format('truetype');
+  unicode-range: U+0000-00FF; /* Latin */
+}
+
+body, input, button, select, textarea {
+  font-family: 'AppFont', sans-serif;
+}
+
+.main-content-wrapper {
+  padding: 15px 25px;
+}
+
+
+.swal2-custom-popup {
+  border-radius: 12px;
+  font-family: 'Roboto', sans-serif;
+}
+
+.required {
+  color: red;
+}
+
+.disabled {
+  background-color: #f5f5f5;
+  pointer-events: none;
+  opacity: 0.7;
+}

@@ -1,0 +1,264 @@
+.Add-tf-M-page {
+  padding: 16px 18px;
+}
+
+.Add-tf-M-top {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.Add-tf-M-title {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.Add-tf-M-title-strong {
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.Add-tf-M-title-sub {
+  font-size: 12px;
+  color: #777;
+}
+
+.Add-tf-M-form {
+  display: grid;
+  gap: 10px;
+  max-width: 520px;
+}
+
+.Add-tf-M-form-row {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  align-items: center;
+  gap: 10px;
+}
+
+.Add-tf-M-label {
+  font-weight: 700;
+  font-size: 13px;
+  color: #333;
+}
+
+.Add-tf-M-select {
+  height: 34px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 0 10px;
+  background: #fff;
+}
+
+.Add-tf-M-table-wrap {
+  margin-top: 14px;
+  border: 1px solid #e6e6e6;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.Add-tf-M-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.Add-tf-M-table thead th {
+  background: #C1D6ED;
+  border-bottom: 1px solid #e6e6e6;
+  font-size: 12px;
+  font-weight: 800;
+  color: #333;
+  padding: 10px 10px;
+  white-space: nowrap;
+}
+
+.Add-tf-M-table tbody td {
+  border-top: 1px solid #f0f0f0;
+  padding: 10px 10px;
+  font-size: 12px;
+  vertical-align: middle;
+}
+
+.Add-tf-M-th-no { width: 48px; text-align: center; }
+.Add-tf-M-th-action { width: 80px; text-align: center; }
+
+.Add-tf-M-td-center {
+  text-align: center;
+}
+
+.Add-tf-M-select-sm {
+  height: 30px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 0 8px;
+  background: #fff;
+  width: 100%;
+}
+
+.Add-tf-M-input-sm {
+  height: 30px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 0 8px;
+  width: 100%;
+}
+
+.Add-tf-M-text-auto {
+  color: #666;
+}
+
+.Add-tf-M-td-action {
+  position: relative;
+  text-align: center;
+}
+
+.Add-tf-M-kebab {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  padding: 4px 8px;
+  border-radius: 8px;
+}
+
+.Add-tf-M-kebab:hover {
+  background: #f1f3f6;
+}
+
+.Add-tf-M-action-menu {
+  position: absolute;
+  right: 8px;
+  top: 36px;
+  width: 120px;
+  border: 1px solid #e6e6e6;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 10px 26px rgba(0,0,0,.12);
+  overflow: hidden;
+  z-index: 50;
+}
+
+.Add-tf-M-action-item {
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border: none;
+  background: #fff;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.Add-tf-M-action-item:hover {
+  background: #f6f7f9;
+}
+
+.Add-tf-M-action-item.danger {
+  color: #c62828;
+}
+
+.Add-tf-M-addrow-cell {
+  padding: 10px;
+  background: #fff;
+}
+
+.Add-tf-M-addrow {
+  border: none;
+  background: transparent;
+  color: #1976d2;
+  font-weight: 800;
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: 8px;
+}
+
+.Add-tf-M-addrow:hover {
+  background: #eef5ff;
+}
+
+.Add-tf-M-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.Add-tf-M-btn {
+  border: 1px solid #ddd;
+  background: #fff;
+  border-radius: 4px;
+  padding: 10px 14px;
+  cursor: pointer;
+  font-weight: 800;
+  font-size: 12px;
+  transition: all 0.2s ease;
+}
+
+.Add-tf-M-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.Add-tf-M-btn.primary {
+  background: #4caf50;
+  color: #fff;
+}
+
+.Add-tf-M-btn.danger {
+  background: #f44336;
+  color: #fff;
+}
+
+.Add-tf-M-btn.ghost {
+  background: #eeeeee;
+  border-color: #eeeeee;
+  color: #333;
+}
+
+.Add-tf-M-btn:disabled {
+  opacity: .65;
+  cursor: not-allowed;
+}
+
+.Add-tf-M-react-select {
+  font-size: 12px;
+}
+
+.Add-tf-M-rs__control {
+  min-height: 34px !important;
+  border-radius: 6px !important;
+  border: 1px solid #ddd !important;
+}
+
+.Add-tf-M-rs__control--is-focused {
+  border-color: #0a408a !important;
+  box-shadow: 0 0 0 2px rgba(10, 64, 138, 0.15) !important;
+}
+
+.Add-tf-M-rs__menu {
+  z-index: 9999 !important;
+}
+
+.Add-tf-M-rs__option--is-focused {
+  background-color: #eef5ff !important;
+}
+
+.Add-tf-M-rs__option--is-selected {
+  background-color: #0a408a !important;
+}
+
+.Add-tf-M-rs__menu-portal {
+  z-index: 99999 !important;
+}
+
+.Add-tf-M-rs__control--is-disabled {
+  background-color: #f3f4f6 !important;
+  opacity: 1 !important;
+  cursor: not-allowed !important;
+}
+
+.Add-tf-M-rs__single-value--is-disabled {
+  color: #666 !important;
+}

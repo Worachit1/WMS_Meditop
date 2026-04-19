@@ -1,0 +1,255 @@
+.edit_borrow_stock_page {
+  width: 100%;
+  background: #fff;
+}
+
+.edit_borrow_stock_page__card {
+  width: 100%;
+  background: #fff;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+}
+
+.edit_borrow_stock_page__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.edit_borrow_stock_page__title {
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.edit_borrow_stock_page__close {
+  border: none;
+  background: transparent;
+  font-size: 18px;
+  cursor: pointer;
+  opacity: 0.8;
+}
+
+.edit_borrow_stock_page__close:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.edit_borrow_stock_page__body {
+  padding: 16px;
+  background: #fff;
+}
+
+.editborrow_form {
+  display: grid;
+  gap: 12px;
+}
+
+.editborrow_row {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: 12px;
+  align-items: center;
+}
+
+.editborrow_label {
+  font-weight: 800;
+  color: #111;
+}
+
+.editborrow_inputwrap {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.editborrow_input {
+  flex: 1;
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  outline: none;
+}
+
+.editborrow_input:disabled {
+  background: rgba(0, 0, 0, 0.04);
+  cursor: not-allowed;
+}
+
+.editborrow_iconwrap {
+  display: flex;
+  gap: 8px;
+}
+
+.editborrow_iconbtn {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  background: #fff;
+  cursor: pointer;
+}
+
+.editborrow_iconbtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.editborrow_iconbtn_warn {
+  border-color: rgba(255, 99, 71, 0.35);
+}
+
+.editborrow_sectiontitle {
+  margin-top: 18px;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.editborrow_filterrow {
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+
+.editborrow_filterinput {
+  width: 260px;
+  height: 38px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  outline: none;
+}
+
+.editborrow_tablewrap {
+  width: 100%;
+  overflow: auto;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.editborrow_table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 860px;
+  background: #fff;
+}
+
+.editborrow_table thead th {
+  text-align: left;
+  font-weight: 900;
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.03);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.editborrow_table tbody td {
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  vertical-align: top;
+  background: #fff;
+}
+
+.editborrow_center {
+  text-align: center;
+}
+
+.editborrow_nodata {
+  text-align: center;
+  padding: 20px 12px;
+  color: rgba(0, 0, 0, 0.65);
+}
+
+.editborrow_sku_code {
+  font-weight: 900;
+}
+
+.editborrow_sku_name {
+  font-size: 12px;
+  opacity: 0.75;
+  margin-top: 2px;
+}
+
+.editborrow_sku_meta {
+  font-size: 12px;
+  opacity: 0.65;
+  margin-top: 4px;
+}
+
+.editborrow_qtyinput {
+  width: 100%;
+  height: 38px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  padding: 0 10px;
+  outline: none;
+}
+
+.editborrow_qtyinput:disabled {
+  background: rgba(0, 0, 0, 0.04);
+  cursor: not-allowed;
+}
+
+.editborrow_actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.editborrow_btn {
+  color: white;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 4px;
+  font-weight: 900;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.editborrow_btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.editborrow_btn_primary {
+  background-color: #198604;
+  transition: all 0.2s ease;
+}
+
+.editborrow_btn_primary:hover {
+  transform: translateY(-1px);
+}
+
+.editborrow_btn_ghost {
+  background-color: red;
+  transition: all 0.2s ease;
+}
+
+.editborrow_btn_ghost:hover {
+  transform: translateY(-1px);
+}
+
+.editborrow_footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 16px 16px;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  background: #fff;
+}
+
+@media (max-width: 768px) {
+  .editborrow_row {
+    grid-template-columns: 1fr;
+  }
+
+  .editborrow_filterinput {
+    width: 100%;
+  }
+}

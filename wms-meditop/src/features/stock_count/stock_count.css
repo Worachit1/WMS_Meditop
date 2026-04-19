@@ -1,0 +1,200 @@
+.stockCount-btn-start {
+  background-color: #4caf50;
+  color: white;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.3s;
+}
+
+.stockCount-btn-start i {
+  margin-right: 6px;
+}
+
+.stockCount-btn-overwrite {
+  background-color: #FFB020;
+  color: white;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+   transition: all 0.3s;
+}
+
+.stockCount-btn-overwrite:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(255, 176, 32, 0.3);
+}
+
+.stockCount-btn-start:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(149, 216, 133, 0.3);
+}
+
+/* OverWrite Style */
+
+/* Modal Overlay */
+.edit-OVW-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+/* Modal Content */
+.edit-OVW-modal-content {
+  background: white;
+  border-radius: 8px;
+  padding: 24px;
+  width: 90%;
+  max-width: 450px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  animation: appModalSlideIn 0.3s ease;
+}
+
+/* Title */
+.edit-OVW-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0 0 20px 0;
+  color: #333;
+}
+
+/* Info Section (Display current values) */
+.edit-OVW-info-section {
+  margin-bottom: 16px;
+}
+
+.edit-OVW-info-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.edit-OVW-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+  min-width: 80px;
+  margin-right: 8px;
+}
+
+.edit-OVW-value {
+  font-size: 14px;
+  color: #666;
+}
+
+/* Divider */
+.edit-OVW-divider {
+  border: none;
+  border-top: 1px solid #e0e0e0;
+  margin: 16px 0;
+}
+
+/* Input Section */
+.edit-OVW-input-section {
+  margin-bottom: 16px;
+}
+
+.edit-OVW-form-group {
+  margin-bottom: 16px;
+}
+
+.edit-OVW-input-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 6px;
+}
+
+.edit-OVW-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d0d0d0;
+  border-radius: 4px;
+  font-size: 14px;
+  color: #333;
+  box-sizing: border-box;
+  transition: border-color 0.2s;
+}
+
+.edit-OVW-input:focus {
+  outline: none;
+  border-color: #4caf50;
+}
+
+.edit-OVW-input::placeholder {
+  color: #999;
+}
+
+/* Footer Info (User and Timestamp) */
+.edit-OVW-footer-info {
+  margin-bottom: 20px;
+}
+
+.edit-OVW-loading {
+  text-align: center;
+  padding: 20px;
+  color: #666;
+}
+
+/* Action Buttons */
+.edit-OVW-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.edit-OVW-btn-cancel {
+  padding: 10px 20px;
+  border: 1px solid #C91313;
+  border-radius: 4px;
+  background-color: white;
+  color: #C91313;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.edit-OVW-btn-cancel:hover {
+  background-color: #FDEDED;
+  border-color: #C91313;
+  transform: translateY(-1px);
+}
+
+.edit-OVW-btn-cancel:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.edit-OVW-btn-confirm {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  background-color: #4caf50;
+  color: white;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.edit-OVW-btn-confirm:hover {
+  background-color: #45a049;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+}
+
+.edit-OVW-btn-confirm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

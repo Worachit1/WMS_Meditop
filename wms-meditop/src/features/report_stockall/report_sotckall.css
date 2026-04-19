@@ -1,0 +1,26 @@
+.rpAll-ckeckbox {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  accent-color: #000000;
+  cursor: pointer;
+}
+
+.rpAll-sort-btn {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: inherit;
+  font-weight: 700;
+  color: inherit;
+  cursor: pointer;
+}
+
+.rpAll-sort-btn i {
+  font-size: 12px;
+  opacity: 0.75;
+}

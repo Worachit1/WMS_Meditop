@@ -1,0 +1,649 @@
+/* Group Order Container */
+.scanbox-container {
+  padding: 30px;
+  min-height: 100vh;
+}
+
+/* Header */
+.scanbox-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.scanbox-header h2 {
+  font-size: 32px;
+  font-weight: bold;
+  margin: 0;
+  color: #333;
+  margin-bottom: 20px;
+}
+
+
+.user-info {
+  background-color: #2196F3;
+  color: white;
+  padding: 10px 20px;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 16px;
+}
+
+/* Order Meta */
+.order-meta {
+  display: flex;
+  gap: 40px;
+  margin-bottom: 20px;
+  padding: 0;
+  background-color: transparent;
+}
+
+.meta-item {
+  display: flex;
+  gap: 10px;
+  font-size: 16px;
+}
+
+.meta-label {
+  font-weight: bold;
+  color: #333;
+}
+
+.meta-value {
+  color: #666;
+}
+
+/* Scan Section */
+.scan-section {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 20px;
+  padding: 0;
+  background-color: transparent;
+}
+
+.scan-button {
+  padding: 12px 24px;
+  border: none;
+  border-radius: 5px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.3s ease;
+  background-color: #3FB239;
+  color: white;
+  white-space: nowrap;
+}
+
+.scan-button.active {
+  background-color: #FF9800;
+}
+
+.scan-button:hover {
+  opacity: 0.9;
+}
+
+.barcode-form {
+  display: flex;
+  gap: 10px;
+  flex: 1;
+}
+
+.scanbox-barcode-input {
+  flex: 1;
+  padding: 12px 20px;
+  border: 2px solid #ddd;
+  border-radius: 5px;
+  font-size: 16px;
+  background-color: white;
+  width: 50%;
+  max-width: 500px;
+}
+
+.scanbox-barcode-input:focus {
+  outline: none;
+  border-color: #888585;
+}
+
+.submit-barcode {
+  padding: 12px 30px;
+  background-color: #3FB239;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: bold;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+
+.submit-barcode:hover {
+  transform: translateY(-1px);
+  background-color: #36a130;
+}
+
+/* Content Layout - Vertical Stack (Top-Bottom) */
+.scanbox-doc-list {
+  margin-bottom: 30px;
+  border-radius: 5px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  overflow-x: auto;
+  background-color: white;
+  width: 85%;
+}
+
+.scanbox-doc-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.scanbox-doc-table thead {
+  background-color: #C1D6ED4D;
+}
+
+.scanbox-doc-table th {
+  padding: 15px 20px;
+  text-align: center;
+  font-weight: bold;
+  border-bottom: 2px solid #ddd;
+}
+
+.scanbox-doc-table td {
+  padding: 15px 20px;
+  text-align: center;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.scanbox-doc-table tbody tr:hover {
+  background-color: #f5f5f5;
+}
+
+.scanbox-doc-table input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  accent-color: black;
+}
+
+/* Panel Styles */
+.batch-panel {
+  margin-bottom: 30px;
+  border-radius: 5px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  overflow-x: auto;
+}
+
+.panel-header {
+  color: black;
+  padding: 15px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.panel-title {
+  font-weight: bold;
+  font-size: 16px;
+}
+
+.total-badge {
+  background-color: white;;
+  padding: 5px 15px;
+  border-radius: 20px;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+/* Invoice List */
+.list-container {
+  padding: 0;
+}
+
+.scanlist-container {
+  padding: 0;
+}
+
+.scanbox-list-header {
+  display: grid;
+  grid-template-columns: 80px 60px 1fr 100px;
+  padding: 15px 20px;
+  background-color: #C1D6ED4D;
+  font-weight: bold;
+  border-bottom: 2px solid #ddd;
+  gap: 10px;
+}
+
+.scan-list-header {
+  display: grid;
+  grid-template-columns: 80px 60px 1fr 100px;
+  padding: 15px 20px;
+  background-color: #C1D6ED4D;
+  font-weight: bold;
+  border-bottom: 2px solid #ddd;
+  gap: 10px;
+  text-align: center;
+}
+
+.list-body {
+  max-height: 500px;
+  overflow-y: auto;
+  background-color: #C1D6ED4D;
+}
+
+.scanbox-list-item {
+  display: grid;
+  grid-template-columns: 80px 60px 1fr 100px;
+  padding: 15px 20px;
+  border-bottom: 1px solid #e0e0e0;
+  align-items: center;
+  background-color: white;
+  gap: 10px;
+  text-align: center;
+}
+
+.scanbox-list-item:hover {
+  background-color: #f5f5f5;
+}
+
+.scanbox-list-item input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  accent-color: black;
+}
+
+
+
+.batch-btn {
+  background-color: transparent;
+  border: none;
+  padding: 0;
+  cursor: default;
+  font-weight: bold;
+  font-size: 16px;
+}
+
+.batch-id-display {
+  background-color: #FFF9C4;
+  padding: 15px;
+  margin: 15px 20px;
+  border-radius: 5px;
+  font-weight: bold;
+  text-align: center;
+  border: 2px solid #FBC02D;
+  font-size: 16px;
+}
+
+.batch-table-container {
+  padding: 20px;
+  overflow-x: auto;
+  background-color: white;
+}
+
+.batch-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.batch-table thead {
+  background-color: #E3F2FD;
+}
+
+.batch-table th {
+  padding: 12px;
+  text-align: center;
+  font-weight: bold;
+  background-color: #C1D6ED4D;
+}
+
+.batch-table td {
+  padding: 12px;
+  text-align: center;
+}
+
+.batch-table th:nth-child(2),
+.batch-table th:nth-child(3),
+.batch-table td:nth-child(2),
+.batch-table td:nth-child(3) {
+  text-align: left;
+}
+
+/* Default row - white */
+.batch-table tbody tr {
+  background-color: #ffffff;
+}
+
+/* Row colors based on Pick status */
+.batch-table tbody tr.row-white {
+  background-color: #ffffff;
+}
+
+.batch-table tbody tr.row-yellow {
+  background-color: #FFF9C4;
+}
+
+.batch-table tbody tr.row-green {
+  background-color: #C8E6C9;
+}
+
+.sub-header {
+  font-size: 11px;
+  color: #666;
+  font-weight: normal;
+  margin-top: 2px;
+}
+.sub-header input[type="checkbox"] {
+  width: 12px;
+  height: 12px;
+  cursor: pointer;
+  accent-color: black;
+}
+
+.sub-text {
+  font-size: 11px;
+  color: #666;
+  margin-top: 2px;
+}
+
+ qty-cell {
+  font-weight: bold;
+  color: #333;
+}
+
+/* Action Buttons */
+.action-buttons {
+  display: flex;
+  gap: 5px;
+  justify-content: center;
+}
+
+.btn-detail,
+.btn-start {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.scanbox-undo-btn {
+  padding: 6px 12px;
+  background-color: #ffdf87;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 18px;
+}
+.scanbox-undo-btn:hover {
+  transform: translateY(-1px);
+}
+
+.scanbox-clear-btn {
+  padding: 6px 12px;
+  background-color: #d95555;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 18px;
+}
+.scanbox-clear-btn:hover {
+  transform: translateY(-1px);
+}
+
+/* Footer */
+.order-footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 15px;
+  padding-top: 20px;
+  margin-top: 30px;
+  border-top: 2px solid #e0e0e0;
+}
+
+/* Scanbox Step Section */
+.scanbox-step-section {
+  margin: 30px 0;
+  padding: 20px;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  transition: all 0.3s ease;
+  width: 50%;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.scanbox-step-section.step-active {
+  background-color: #E3F2FD;
+  border: 2px solid #2196F3;
+  box-shadow: 0 4px 8px rgba(33, 150, 243, 0.2);
+}
+
+.scanbox-step-section.step-inactive {
+  opacity: 0.6;
+}
+
+.step-badge-active {
+  background-color: #4CAF50;
+  color: white;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: bold;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.scanbox-step-section h3 {
+  font-size: 18px;
+  font-weight: bold;
+  margin: 0 0 20px 0;
+  color: #333;
+  
+}
+
+.collapse-btn {
+  background-color: transparent;
+  border: 2px solid #2196F3;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #2196F3;
+  transition: all 0.3s ease;
+  font-size: 14px;
+}
+
+.collapse-btn:hover {
+  background-color: #2196F3;
+  color: white;
+  transform: scale(1.1);
+}
+
+.scanbox-box-display {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.scanbox-box-title {
+  font-size: 24px;
+  font-weight: bold;
+  color: black;
+}
+
+.scanbox-scan-row {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.scanbox-scan-row label {
+  font-weight: bold;
+  min-width: 60px;
+}
+
+.scanbox-scan-row form {
+  flex: 1;
+}
+
+.scanbox-scan-input {
+  width: 100%;
+  padding: 12px 20px;
+  border: 2px solid #ddd;
+  border-radius: 5px;
+  font-size: 16px;
+  background-color: white;
+}
+
+.scanbox-scan-input:focus {
+  outline: none;
+  border-color: #2196F3;
+}
+
+.scanbox-scan-input:disabled {
+  background-color: #f5f5f5;
+  cursor: not-allowed;
+}
+
+.scanbox-info-row {
+  display: flex;
+  gap: 30px;
+  font-size: 14px;
+  color: #666;
+  margin-top:20px;
+}
+
+.scanbox-undo-btn,
+.scanbox-clear-btn {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.scanbox-undo-btn {
+  background-color: #FF9800;
+  color: white;
+}
+
+.scanbox-undo-btn:hover {
+  transform: translateY(-1px);
+  background-color: #F57C00;
+}
+
+.scanbox-clear-btn {
+  background-color: #f44336;
+  color: white;
+}
+
+.scanbox-clear-btn:hover {
+  transform: translateY(-1px);
+  background-color: #d32f2f;
+}
+
+.scanbox-btn-cancel,
+.scanbox-btn-draft,
+.scanbox-btn-submit {
+  padding: 12px 35px;
+  border: none;
+  border-radius: 5px;
+  font-size: 16px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.scanbox-btn-cancel {
+  background: #dc3545;
+  color: white;
+}
+
+.scanbox-btn-cancel:hover {
+  background: #c82333;
+  transform: translateY(-1px);
+}
+
+.scanbox-btn-draft {
+  background: #6c757d;
+  color: white;
+}
+
+.scanbox-btn-draft:hover {
+  background: #5a6268;
+  transform: translateY(-1px);
+}
+
+.scanbox-btn-submit {
+  background: #28a745;
+  color: white;
+}
+
+.scanbox-btn-submit:hover {
+  background: #218838;
+  transform: translateY(-1px);
+}
+
+.scanbox-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.scanbox-tab {
+  border: 1px solid #d0d7de;
+  background: #fff;
+  padding: 8px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.scanbox-tab.active {
+  border-color: #111;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.08);
+}
+
+.scanbox-tab.green { border-color: #4CAF50; }
+.scanbox-tab.yellow { border-color: #FFC107; }
+.scanbox-tab.white { border-color: #9E9E9E; }
+
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .scanbox-content-container {
+    gap: 15px;
+  }
+}

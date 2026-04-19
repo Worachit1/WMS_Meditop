@@ -1,0 +1,400 @@
+/* Toggle switch */
+.toggle-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.toggle-label {
+  font-weight: 600;
+  color: #1a1f2c;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.toggle-label .required {
+  color: #e11d48; /* สีแดง * */
+}
+
+label.toggle-switch {
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+  cursor: pointer;
+  width: max-content;
+}
+
+/* ซ่อน checkbox จริง */
+.toggle-switch input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+/* เม็ดยา (พื้นเทา/เขียว) */
+.toggle-slider {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  width: 98px;          
+  height: 32px;
+  padding: 0 20px;
+  background: #e5e7eb;   
+  border-radius: 999px; 
+  transition: background 0.25s ease;
+  margin: 0;
+}
+
+/* ข้อความ ACTIVATE/DEACTIVATE ที่อยู่ในเม็ด */
+.toggle-text {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase; 
+  color: #111827;        /* สีเข้มตอน Deactivate */
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;            /* ให้อยู่เหนือพื้นหลัง */
+  width: 100%;
+  text-align: start;
+  padding-left: 10px;
+  pointer-events: none;
+}
+
+/* จุดกลมสีขาวด้านขวา */
+.toggle-slider::before {
+  content: "";
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #ffffff;
+  right: 4px;           /* ชิดขวา */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: transform 0.25s ease;
+  z-index: 3;
+}
+
+/* ---------- สถานะตอน Activate (ติ๊กแล้ว) ---------- */
+
+/* พื้นหลังเป็นเขียว */
+.toggle-switch input[type="checkbox"]:checked + .toggle-slider {
+  background: #17DB94; /* เขียวเข้มแบบใหม่ */
+}
+
+/* ข้อความเปลี่ยนเป็นสีขาว */
+.toggle-switch input[type="checkbox"]:checked + .toggle-slider .toggle-text {
+  color: #ffffff;
+}
+
+/* 1) ตั้งให้ลูกกลมเริ่มที่ซ้าย */
+.toggle-slider::before {
+  left: 4px;
+  right: auto;
+}
+
+/* 2) แล้วตอน checked ให้เลื่อนขวา */
+.toggle-switch input[type="checkbox"]:checked + .toggle-slider::before {
+  transform: translateX(68px); /* ปรับให้พอดีกับ width ของเม็ด */
+}
+
+/* ข้อความ ACTIVATE / DEACTIVATE */
+.toggle-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1a1f2c;
+  position: relative;
+  z-index: 3;        /* ให้ข้อความอยู่บนสุด ไม่ถูกบัง */
+}
+
+/* React-Select Dropdown - แก้ให้ทึบ */
+.css-26l3qy-menu,
+.css-1nmdiq5-menu {
+  background-color: #ffffff !important;
+  opacity: 1 !important;
+  z-index: 9999 !important;
+}
+
+.css-4ljt47-MenuList {
+  background-color: #ffffff !important;
+}
+
+.css-1n7v3ny-option,
+.css-9gakcf-option {
+  background-color: #ffffff !important;
+}
+
+.css-1n7v3ny-option:hover,
+.css-9gakcf-option:hover {
+  background-color: #f3f4f6 !important;
+}
+
+/* Image Upload Styles */
+.image-upload-container {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.image-upload-label {
+  display: block;
+  width: 150px;
+  height: 150px;
+  border: 2px dashed #d1d5db;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.image-upload-label:hover {
+  border-color: #3b82f6;
+  background-color: #f9fafb;
+}
+
+.upload-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 8px;
+}
+
+.upload-icon {
+  font-size: 32px;
+}
+
+.upload-text {
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+}
+
+.upload-hint {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.image-preview-wrapper {
+  position: relative;
+  width: 150px;
+  height: 150px;
+}
+
+.image-preview {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 2px solid #e5e7eb;
+}
+
+.btn-remove-image {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background-color: #ef4444;
+  color: white;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  transition: background-color 0.2s ease;
+}
+
+.btn-remove-image:hover {
+  background-color: #dc2626;
+}
+
+@media (max-width: 768px) {
+  .form-row-2col {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+.pinmodal-backdrop{
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.45);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index: 1000;
+  padding: 16px;
+}
+
+.pinmodal{
+  width: min(520px, 100%);
+  background:#fff;
+  border-radius: 14px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.25);
+  overflow:hidden;
+  animation: modalSlideIn 0.3s ease;
+}
+
+.pinmodal-header{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  padding: 16px 18px;
+  border-bottom: 1px solid #eee;
+}
+
+.pinmodal-title{
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.pinmodal-sub{
+  margin-top: 2px;
+  font-size: 13px;
+  color:#666;
+}
+
+.pinmodal-close{
+  border: none;
+  background: transparent;
+  font-size: 18px;
+  cursor:pointer;
+  color:#444;
+}
+
+.pinmodal-body{
+  padding: 18px;
+}
+
+.pinmodal-label{
+  font-size: 13px;
+  color:#666;
+  margin-bottom: 6px;
+}
+
+.pinmodal-pinbox{
+  display:flex;
+  gap: 10px;
+  align-items:center;
+  justify-content:space-between;
+  border: 1px solid #eee;
+  border-radius: 12px;
+  padding: 12px 12px;
+}
+
+.pinmodal-pin{
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 3px;
+}
+
+.pinmodal-actions{
+  display:flex;
+  justify-content:flex-end;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.pinmodal-empty{
+  padding: 14px;
+  background: #fafafa;
+  border: 1px dashed #ddd;
+  border-radius: 12px;
+  color:#555;
+}
+
+.pinmodal-btn{
+  border: 1px solid #e6e6e6;
+  background: #fff;
+  border-radius: 12px;
+  padding: 10px 12px;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.pinmodal-cancel-btn{
+  border: 1px solid #e6e6e6;
+  background: #dc2626;
+  color: #fff;
+  border-radius: 12px;
+  padding: 10px 12px;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  gap: 8px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+.pinmodal-cancel-btn:hover{
+  background: #dc2626;
+  color: #fff;
+  opacity: .9;
+  transform: translateY(-1px);
+}
+
+.pinmodal-btn.primary{
+  background:#0a408a;
+  color:#fff;
+  border-color:#0a408a;
+  transition: all 0.3s ease;
+}
+
+.pinmodal-btn.primary:hover{
+  background:#0a408a;
+  color:#fff;
+  border-color:#0a408a;
+  opacity: .9;
+  transform: translateY(-1px);
+}
+
+.pinmodal-btn.ghost{
+  background: transparent;
+}
+
+.pinmodal-btn:disabled{
+  opacity: .6;
+  cursor: not-allowed;
+}
+
+.pinotp {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.pinotp-input {
+  width: 46px;
+  height: 54px;
+  border-radius: 12px;
+  border: 1px solid #e6e6e6;
+  font-size: 22px;
+  font-weight: 800;
+  text-align: center;
+  letter-spacing: 2px;
+  outline: none;
+}
+
+.pinotp-input:focus {
+  border-color: #0a408a;
+  box-shadow: 0 0 0 3px rgba(10, 64, 138, 0.15);
+}
+
+.pinotp-hint {
+  margin-top: 10px;
+  font-size: 12px;
+  color: #666;
+}
