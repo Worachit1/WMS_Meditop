@@ -1,0 +1,40 @@
+{
+  "params": {
+    "transfers": [
+      {
+        "picking_id": 596433,
+        "no": "MDT/SV26-00159",
+        "location_id": 524,
+        "location": "WH/SER/SD005",
+        "location_owner": "ปราการ ดิษฐอำนาจ",
+        "location_owner_display": "S-DIA005 | ปราการ ดิษฐอำนาจ",
+        "location_dest_id": 17,
+        "location_dest": "Partners/Customers Goods Adjust",
+        "location_dest_owner": [],
+        "location_dest_owner_display": [],
+        "department_id": 6,
+        "department": "DIA - Diagnostic Division",
+        "reference": false,
+        "origin": "BS26-00096",
+        "invoice": false,
+        "items": [
+          {
+            "sequence": 10,
+            "product_id": 1566,
+            "code": "DAD-B4218-20",
+            "name": "Actin FS 10X2 ml  ",
+            "unit": "PACK",
+            "tracking": "lot",
+            "lot_id": 130107,
+            "lot_serial": "562525",
+            "qty": 1,
+            "barcodes": []
+          }
+        ]
+      }
+    ]
+  },
+  "jsonrpc": "2.0"
+}
+
+
