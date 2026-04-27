@@ -5,7 +5,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import Swal from "sweetalert2";
 import { toast } from "react-toastify";
 
@@ -23,6 +23,8 @@ import { socket } from "../../../services/socket";
 
 import Loading from "../../../components/Loading/Loading";
 import "../transfer-exp-ncr.css";
+
+import DetailNavigator from "../../../components/DetailNavigator/DetailNavigator";
 
 type ConfirmedLocation = { id: number; full_name: string };
 type LocKey = string;
@@ -75,6 +77,14 @@ const DetailTransferExpNcr = () => {
   const params = useParams();
   const no = decodeURIComponent(String(params.no ?? "").trim());
 
+  const locationState = useLocation();
+
+  const stateDetailList = Array.isArray(
+    (locationState.state as any)?.detailList,
+  )
+    ? (locationState.state as any)?.detailList
+    : [];
+
   // refs
   const scanLocationInputRef = useRef<HTMLInputElement>(null);
   const scanBarcodeInputRef = useRef<HTMLInputElement>(null);
@@ -92,6 +102,8 @@ const DetailTransferExpNcr = () => {
   // ui
   const [viewMode, setViewMode] = useState<ViewMode>("pending");
   const [searchFilter, setSearchFilter] = useState("");
+
+  const [detailList, setDetailList] = useState<any[]>(stateDetailList);
 
   // local count store (เหมือน inboundById)
   const [countByLoc, setCountByLoc] = useState<CountByLoc>({});
@@ -116,6 +128,12 @@ const DetailTransferExpNcr = () => {
     });
   }, []);
 
+  const location = (transfer as any)?.location;
+  const locationDest = (transfer as any)?.location_dest;
+
+  const isExpNcrReturn =
+    location === "WH/M_EXP&NCR" && locationDest === "WH/MDT";
+
   // =========================
   // scan helpers (STRICT เหมือน ScanBox)
   // barcode_text + lot_serial + exp(6ท้าย)
@@ -127,7 +145,10 @@ const DetailTransferExpNcr = () => {
 
   // =========================
   const allItems: TransferItemType[] = useMemo(() => {
-    const raw = (transfer as any)?.items;
+    const raw =
+      (transfer as any)?.items ??
+      (transfer as any)?.lines ??
+      (transfer as any)?.details;
     return Array.isArray(raw) ? (raw as TransferItemType[]) : [];
   }, [transfer]);
 
@@ -318,7 +339,16 @@ const DetailTransferExpNcr = () => {
 
     try {
       const resp = await transferApi.getDetailExpNcr(no);
-      const row = pickTransferFromAnyShape(resp.data);
+      let row = pickTransferFromAnyShape(resp.data);
+
+      // Normalize: ensure items field exists
+      if (row && !row.items && (row.lines || row.details)) {
+        row = {
+          ...row,
+          items: row.lines ?? row.details ?? [],
+        };
+      }
+
       setTransfer(row);
 
       // reset scan context (ไม่ reset countByLoc)
@@ -342,6 +372,32 @@ const DetailTransferExpNcr = () => {
   useEffect(() => {
     fetchDetail();
   }, [fetchDetail]);
+
+  // Fetch transfers list for navigation
+  useEffect(() => {
+    if (stateDetailList.length > 0) {
+      setDetailList(stateDetailList);
+      return;
+    }
+
+    const fetchTransfersList = async () => {
+      try {
+        const response = await transferApi.getExpNcrPaginated({
+          page: 1,
+          limit: 100,
+          columns: "no,department,date",
+        });
+
+        const { data = [] } = response.data as any;
+        setDetailList(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error("Error fetching transfers list for navigation:", error);
+        setDetailList([]);
+      }
+    };
+
+    fetchTransfersList();
+  }, [stateDetailList]);
 
   useEffect(() => {
     if (!no) return;
@@ -611,10 +667,12 @@ const DetailTransferExpNcr = () => {
       return;
     }
 
-    const payloadLocations = [{
-      location_full_name: confirmedLocation?.full_name ?? "",
-      lines: linesFromItems,
-    }];
+    const payloadLocations = [
+      {
+        location_full_name: confirmedLocation?.full_name ?? "",
+        lines: linesFromItems,
+      },
+    ];
 
     const totalLines = linesFromItems.length;
 
@@ -634,12 +692,44 @@ const DetailTransferExpNcr = () => {
       setLoading(false);
 
       await successAlert("ยืนยันสำเร็จแล้ว");
-      navigate(-1);
+      navigate(`/tf-exp-ncr-put/${encodeURIComponent(no)}`);
     } catch (err: any) {
       toast.error(err?.response?.data?.message || "Confirm ไม่สำเร็จ");
     } finally {
       setLoading(false);
     }
+  };
+
+  // ✅ วางตรงนี้
+  const currentIndex =
+    detailList.findIndex((x) => String(x.no) === String(no)) + 1;
+
+  const total = detailList.length;
+
+  const handlePrev = () => {
+    const idx = detailList.findIndex((x) => String(x.no) === String(no));
+    if (idx <= 0) return;
+
+    const prevItem = detailList[idx - 1];
+    navigate(`/tf-exp-ncr/${encodeURIComponent(prevItem.no)}`, {
+      state: {
+        detailList,
+        fromTab: (locationState.state as any)?.fromTab ?? "waiting",
+      },
+    });
+  };
+
+  const handleNext = () => {
+    const idx = detailList.findIndex((x) => String(x.no) === String(no));
+    if (idx < 0 || idx >= detailList.length - 1) return;
+
+    const nextItem = detailList[idx + 1];
+    navigate(`/tf-exp-ncr/${encodeURIComponent(nextItem.no)}`, {
+      state: {
+        detailList,
+        fromTab: (locationState.state as any)?.fromTab ?? "waiting",
+      },
+    });
   };
 
   const tableHeaders = [
@@ -668,148 +758,166 @@ const DetailTransferExpNcr = () => {
   return (
     <div className="transfer-exp-ncr-detail-container">
       <div className="transfer-exp-ncr-detail-header">
-        <h1 className="transfer-exp-ncr-detail-title">
-          PICK : {(transfer as any)?.no || no || "PICK"}
-        </h1>
+        <div className="detail-header-with-nav">
+          <h1 className="transfer-exp-ncr-detail-title">
+            PICK : {(transfer as any)?.no || no || "PICK"}
+            {isExpNcrReturn && (
+              <span className="transfer-exp-ncr-detail-title-sub">
+                {" "}
+                - นำสินค้ากลับจาก EXP&NCR{" "}
+                <i className="fa-solid fa-arrow-rotate-right"></i>
+              </span>
+            )}
+          </h1>
+
+          <DetailNavigator
+            currentIndex={currentIndex}
+            total={total}
+            onPrev={handlePrev}
+            onNext={handleNext}
+            disablePrev={currentIndex <= 1}
+            disableNext={currentIndex >= total}
+          />
+        </div>
       </div>
 
-      <div className="transfer-exp-ncr-detail-info">
+<div className="transfer-exp-ncr-main-layout">
         {/* row 1 */}
-        <div className="transfer-exp-ncr-info-row">
-          <div className="transfer-exp-ncr-info-item">
-            <label>Department :</label>
-            <span>{(transfer as any)?.department || "data"}</span>
-          </div>
+       <div className="transfer-exp-ncr-meta-panel">
+    <div className="transfer-exp-ncr-info-row">
+      <div className="transfer-exp-ncr-info-item">
+        <label>Department :</label>
+        <span>{(transfer as any)?.department || "data"}</span>
+      </div>
 
-          <div className="transfer-exp-ncr-info-item">
-            <label>PO No. :</label>
-            <span>{(transfer as any)?.origin || "data"}</span>
-          </div>
+      <div className="transfer-exp-ncr-info-item">
+        <label>PO No. :</label>
+        <span>{(transfer as any)?.origin || "data"}</span>
+      </div>
+    </div>
 
-          <div className="transfer-exp-ncr-info-item">
-            <label>Scan Location :</label>
+    <div className="transfer-exp-ncr-info-row">
+      <div className="transfer-exp-ncr-info-item">
+        <label>INV. Sup:</label>
+        <span>{(transfer as any)?.reference || "data"}</span>
+      </div>
 
-            <input
-              ref={scanLocationInputRef}
-              type="text"
-              className="transfer-exp-ncr-scan-input"
-              value={scanLocation}
-              onChange={(e) => setScanLocation(e.target.value)}
-              onKeyDown={handleScanLocationKeyDown}
-              placeholder={
-                isAllDoneBackend ? "ดำเนินการเสร็จสิ้นแล้ว" : "Scan Location"
-              }
-              disabled={!isLocationScanOpen || isAllDoneBackend}
-              style={{
-                borderColor: confirmedLocation ? "#4CAF50" : undefined,
-                opacity: isLocationScanOpen && !isAllDoneBackend ? 1 : 0.6,
-              }}
-            />
+      <div className="transfer-exp-ncr-info-item">
+        <label>เวลารับเข้าเอกสาร:</label>
+        <span>{formatDateTime((transfer as any)?.date) || "data"}</span>
+      </div>
+    </div>
+  </div>
 
-            <button
-              type="button"
-              className={`transfer-exp-ncr-btn-scan-toggle ${isLocationScanOpen ? "active" : ""}`}
-              onClick={toggleLocationScan}
-              disabled={isAllDoneBackend}
-              title={
-                isAllDoneBackend
-                  ? "ดำเนินการเสร็จสิ้นแล้ว ไม่สามารถสแกนได้"
-                  : undefined
-              }
-            >
-              {isLocationScanOpen ? (
-                <i className="fa-solid fa-xmark"></i>
-              ) : (
-                <i className="fa-solid fa-qrcode"></i>
-              )}
-            </button>
-          </div>
+  {!isAllDoneBackend && (
+    <div
+      className={`transfer-exp-ncr-scan-sticky-wrap ${
+        viewMode === "done" ? "no-sticky" : ""
+      }`}
+    >
+      <div className="transfer-exp-ncr-scan-panel">
+        <div className="transfer-exp-ncr-scan-row">
+          <label>Scan Location :</label>
+
+          <input
+            ref={scanLocationInputRef}
+            type="text"
+            className="transfer-exp-ncr-scan-input"
+            value={scanLocation}
+            onChange={(e) => setScanLocation(e.target.value)}
+            onKeyDown={handleScanLocationKeyDown}
+            placeholder="Scan Location"
+            disabled={!isLocationScanOpen || isAllDoneBackend}
+            style={{
+              borderColor: confirmedLocation ? "#4CAF50" : undefined,
+              opacity: isLocationScanOpen && !isAllDoneBackend ? 1 : 0.6,
+            }}
+          />
+
+          <button
+            type="button"
+            className={`transfer-exp-ncr-btn-scan-toggle ${
+              isLocationScanOpen ? "active" : ""
+            }`}
+            onClick={toggleLocationScan}
+            disabled={isAllDoneBackend}
+          >
+            {isLocationScanOpen ? (
+              <i className="fa-solid fa-xmark"></i>
+            ) : (
+              <i className="fa-solid fa-qrcode"></i>
+            )}
+          </button>
         </div>
 
-        {/* row 2 */}
-        <div className="transfer-exp-ncr-info-row">
-          <div className="transfer-exp-ncr-info-item">
-            <label>INV. Sup:</label>
-            <span>{(transfer as any)?.reference || "data"}</span>
-          </div>
+        <div className="transfer-exp-ncr-scan-row">
+          <label>Scan Barcode/Serial :</label>
 
-          <div className="transfer-exp-ncr-info-item">
-            <label>User :</label>
-            <span>{"User"}</span>
-          </div>
-
-          <div className="transfer-exp-ncr-info-item">
-            <label>Scan Barcode/Serial :</label>
-            <input
-              ref={scanBarcodeInputRef}
-              type="text"
-              className="transfer-exp-ncr-scan-input"
-              onKeyDown={handleScanBarcodeKeyDown}
-              placeholder={
-                isAllDoneBackend
-                  ? "ดำเนินการเสร็จสิ้นแล้ว"
-                  : "Scan Barcode/Serial"
-              }
-              disabled={!confirmedLocation || isAllDoneBackend}
-            />
-          </div>
-          <div className="transfer-exp-ncr-info-item">
-            <label>เวลารับเข้าเอกสาร:</label>
-            <span>{formatDateTime((transfer as any)?.date) || "data"}</span>
-          </div>
-        </div>
-
-        <br />
-        <hr className="transfer-exp-ncr-detail-divider" />
-
-        {/* Tabs + Search */}
-        <div className="transfer-exp-ncr-info-row">
-          <div className="transfer-exp-ncr-search-bar">
-            <div className="transfer-exp-ncr-search-left">
-              <div className="transfer-exp-ncr-view-tabs">
-                <button
-                  type="button"
-                  className={`transfer-exp-ncr-tab ${viewMode === "pending" ? "active" : ""}`}
-                  onClick={() => setViewMode("pending")}
-                >
-                  รอการดำเนินการ <span className="badge">{pendingCount}</span>
-                </button>
-
-                <button
-                  type="button"
-                  className={`transfer-exp-ncr-tab ${viewMode === "done" ? "active" : ""}`}
-                  onClick={() => setViewMode("done")}
-                >
-                  ดำเนินการเสร็จสิ้น <span className="badge">{doneCount}</span>
-                </button>
-              </div>
-
-              {confirmedLocation ? (
-                <div className="transfer-exp-ncr-hint-loc">
-                  Location ปัจจุบัน: <b>{confirmedLocation.full_name}</b>
-                </div>
-              ) : null}
-            </div>
-
-            <div className="transfer-exp-ncr-search-right">
-              <label className="transfer-exp-ncr-search-label">Search</label>
-              <div className="transfer-exp-ncr-search-input-container">
-                <i className="fa-solid fa-magnifying-glass transfer-exp-ncr-search-icon"></i>
-                <input
-                  type="text"
-                  className="transfer-exp-ncr-search-input"
-                  value={searchFilter}
-                  onChange={(e) => setSearchFilter(e.target.value)}
-                  placeholder="Filter Search"
-                />
-              </div>
-            </div>
-          </div>
+          <input
+            ref={scanBarcodeInputRef}
+            type="text"
+            className="transfer-exp-ncr-scan-input"
+            onKeyDown={handleScanBarcodeKeyDown}
+            placeholder="Scan Barcode/Serial"
+            disabled={!confirmedLocation || isAllDoneBackend}
+          />
         </div>
       </div>
+    </div>
+  )}
+
+  <div className="transfer-exp-ncr-search-section">
+    <hr className="transfer-exp-ncr-detail-divider" />
+
+    <div className="transfer-exp-ncr-search-bar">
+      <div className="transfer-exp-ncr-search-left">
+        <div className="transfer-exp-ncr-view-tabs">
+          <button
+            type="button"
+            className={`transfer-exp-ncr-tab ${
+              viewMode === "pending" ? "active" : ""
+            }`}
+            onClick={() => setViewMode("pending")}
+          >
+            รอการดำเนินการ <span className="badge">{pendingCount}</span>
+          </button>
+
+          <button
+            type="button"
+            className={`transfer-exp-ncr-tab ${
+              viewMode === "done" ? "active" : ""
+            }`}
+            onClick={() => setViewMode("done")}
+          >
+            ดำเนินการเสร็จสิ้น <span className="badge">{doneCount}</span>
+          </button>
+        </div>
+
+        {confirmedLocation ? (
+          <div className="transfer-exp-ncr-hint-loc">
+            Location ปัจจุบัน: <b>{confirmedLocation.full_name}</b>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="transfer-exp-ncr-search-right">
+        <label className="transfer-exp-ncr-search-label">Search</label>
+        <div className="transfer-exp-ncr-search-input-container">
+          <i className="fa-solid fa-magnifying-glass transfer-exp-ncr-search-icon"></i>
+          <input
+            type="text"
+            className="transfer-exp-ncr-search-input"
+            value={searchFilter}
+            onChange={(e) => setSearchFilter(e.target.value)}
+            placeholder="Filter Search"
+          />
+        </div>
+      </div>
+    </div>
+  </div>
 
       {/* Table */}
-      <div className="table__wrapper">
+      <div className="table__wrapper transfer-exp-ncr-table-section">
         <Table headers={tableHeaders as any}>
           {rowsToRender.length === 0 ? (
             <tr>
@@ -871,15 +979,17 @@ const DetailTransferExpNcr = () => {
           )}
         </Table>
       </div>
+</div>
+
 
       {/* Footer */}
       <div className="transfer-exp-ncr-detail-footer">
         <button
           className="transfer-exp-ncr-btn-cancel"
-          onClick={() => navigate(-1)}
+          onClick={() => navigate("/tf-exp-ncr")}
           disabled={isConfirming}
         >
-          ยกเลิก
+          ย้อนกลับ
         </button>
 
         <button

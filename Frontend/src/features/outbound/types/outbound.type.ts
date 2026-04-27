@@ -237,6 +237,7 @@ export interface PackedItemsResponse {
     limit: number;
     total: number;
     totalPages: number;
+    statusCounts?: {process: number; completed: number};
   };
 }
 
@@ -437,6 +438,7 @@ export interface PackProductListResponse {
     limit: number;
     total: number;
     totalPages: number;
+    statusCounts?: {process: number; completed: number};
   };
 }
 

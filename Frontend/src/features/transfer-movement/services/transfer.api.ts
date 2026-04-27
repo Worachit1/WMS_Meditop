@@ -24,34 +24,35 @@ export type ConfirmTransferPutBody = {
 };
 
 export const transferApi = {
-  getAll: (params?: any) => http.get("/transfers_movements/getAll", { params }),
-  getExpNcrPaginated: (params: {
-    page: number;
-    limit: number;
-    search?: string;
-    columns?: string; // comma-separated
-  }) => http.get<TransferListResponse>("/transfers_movements/get", { params }),
+  getAll: (params?: any) => http.get("/transfers-movements/getAll", { params }),
+ getMovementPaginated: (params: {
+  page: number;
+  limit: number;
+  search?: string;
+  columns?: string;
+  status?: "pick" | "put" | "completed";
+}) => http.get<TransferListResponse>("/transfers-movements/get", { params }),
 
   getDetailExpNcr: (no: string) =>
     http.get<TransferListResponse>(
-      `/transfers_movements/get/${encodeURIComponent(no)}`,
+      `/transfers-movements/get/${encodeURIComponent(no)}`,
     ),
 
   scanLocation: (no: string, data: { location_full_name: string }) =>
     http.post(
-      `/transfers_movements/${encodeURIComponent(no)}/scan/location/ncr`,
+      `/transfers-movements/${encodeURIComponent(no)}/scan/location/ncr`,
       data,
     ),
 
   scanLocationPick: (no: string, data: { location_full_name: string }) =>
     http.post(
-      `/transfers_movements/${encodeURIComponent(no)}/scan/location`,
+      `/transfers-movements/${encodeURIComponent(no)}/scan/location`,
       data,
     ),
 
      scanLocationPut: (no: string, data: { location_full_name: string }) =>
     http.post(
-      `/transfers_movements/${encodeURIComponent(no)}/scan/location/put`,
+      `/transfers-movements/${encodeURIComponent(no)}/scan/location/put`,
       data,
     ),
 
@@ -65,7 +66,7 @@ export const transferApi = {
     },
   ) =>
     http.post(
-      `/transfers_movements/${encodeURIComponent(no)}/scan/barcode`,
+      `/transfers-movements/${encodeURIComponent(no)}/scan/barcode`,
       data,
     ),
   // scanBarcode: (
@@ -78,30 +79,30 @@ export const transferApi = {
   data: { transfer_item_id: string; location_full_name: string; value: number },
 ) =>
   http.post(
-    `/transfers_movements/${encodeURIComponent(no)}/scan/put-qty`,
+    `/transfers-movements/${encodeURIComponent(no)}/scan/put-qty`,
     data,
   ),
 
   // ✅ FIX: ใช้ transfer_item_id ให้ตรง transfer
   confirmToPick: (no: string, data: ConfirmTransferPickBody) =>
     http.post(
-      `/transfers_movements/${encodeURIComponent(no)}/scan/confirm`,
+      `/transfers-movements/${encodeURIComponent(no)}/scan/confirm`,
       data,
     ),
 
   confirmToPut: (no: string, data: ConfirmTransferPutBody) =>
     http.post(
-      `/transfers_movements/${encodeURIComponent(no)}/scan/confirm/put`,
+      `/transfers-movements/${encodeURIComponent(no)}/scan/confirm/put`,
       data,
     ),
 
   createMovementInvoice: (data: any) =>
-    http.post("/transfers_movements/create", data),
+    http.post("/transfers-movements/create", data),
 
   getById: (no: string) =>
-    http.get(`/transfers_movements/${encodeURIComponent(no)}`),
+    http.get(`/transfers-movements/${encodeURIComponent(no)}`),
 
   // ✅ NEW: update header/items (edit)
  updateMovement: (id: number, data: any) =>
-  http.patch(`/transfers_movements/update/${id}`, data),
+  http.patch(`/transfers-movements/update/${id}`, data),
 };

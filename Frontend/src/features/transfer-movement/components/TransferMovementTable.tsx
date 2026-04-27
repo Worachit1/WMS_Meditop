@@ -32,6 +32,13 @@ type Props = {
 
   currentPage?: number;
   itemsPerPage?: number;
+  statusTab: "pick" | "put" | "completed";
+  statusCounts: {
+    pick: number;
+    put: number;
+    completed: number;
+  };
+  onChangeStatusTab: (tab: "pick" | "put" | "completed") => void;
 };
 
 type TabKey = "pick" | "put" | "completed";
@@ -93,7 +100,7 @@ const renderUsers_Work = (t: any) => {
   if (full) return full;
 
   return t?.user_work_id ? `User #${t.user_work_id}` : "-";
-}
+};
 
 // const getItems = (t: any) => (Array.isArray(t?.items) ? t.items : []);
 
@@ -163,14 +170,14 @@ const isVisibleToOperator = (t: any, currentUserId: number) => {
   return false;
 };
 
-const getStatus = (t: any): TabKey => {
-  const s = String(t?.status ?? "")
-    .trim()
-    .toLowerCase();
-  if (s === "pick") return "pick";
-  if (s === "put") return "put";
-  return "completed";
-};
+// const getStatus = (t: any): TabKey => {
+//   const s = String(t?.status ?? "")
+//     .trim()
+//     .toLowerCase();
+//   if (s === "pick") return "pick";
+//   if (s === "put") return "put";
+//   return "completed";
+// };
 
 const TransferMovementTable = ({
   transfers,
@@ -184,12 +191,14 @@ const TransferMovementTable = ({
   onClearAllColumns,
   currentPage = 1,
   itemsPerPage = 10,
+  statusTab,
+  statusCounts,
+  onChangeStatusTab,
 }: Props) => {
   const navigate = useNavigate();
   const { id: currentUserId, isOperator } = useMemo(() => getCurrentUser(), []);
 
   // ✅ 3 tabs
-  const [activeTab, setActiveTab] = useState<TabKey>("pick");
   const [selectedDepartments, setSelectedDepartments] = useState<string[]>([
     "all",
   ]);
@@ -218,16 +227,9 @@ const TransferMovementTable = ({
     return list.filter((t: any) => isVisibleToOperator(t, currentUserId));
   }, [transfers, isOperator, currentUserId]);
 
-  // ✅ แยกตาม tab (status)
-  const tabRows = useMemo(() => {
-    return baseRows.filter((t: any) => getStatus(t) === activeTab);
-  }, [baseRows, activeTab]);
+  const tabRows = baseRows;
 
-  const counts = useMemo(() => {
-    const c = { pick: 0, put: 0, completed: 0 };
-    for (const t of baseRows) c[getStatus(t)]++;
-    return c;
-  }, [baseRows]);
+  const counts = statusCounts;
 
   const departmentOptions = useMemo(() => {
     const depts = new Set<string>();
@@ -239,7 +241,9 @@ const TransferMovementTable = ({
           if (name) depts.add(name);
         });
       } else {
-        const name = String(t?.department?.short_name ?? t?.department ?? "").trim();
+        const name = String(
+          t?.department?.short_name ?? t?.department ?? "",
+        ).trim();
         if (name) depts.add(name);
       }
     });
@@ -266,6 +270,7 @@ const TransferMovementTable = ({
       const singleDept = String(
         t?.department?.short_name ?? t?.department ?? "",
       ).trim();
+
       return singleDept ? selectedDepartments.includes(singleDept) : false;
     });
   }, [tabRows, selectedDepartments]);
@@ -280,15 +285,34 @@ const TransferMovementTable = ({
       "เจ้าหน้าที่ปฏิบัติงาน",
       "Action",
     ];
-    if (!isOperator) base.push("Edit");
+
+    if (!isOperator && statusTab === "pick") {
+      base.push("Edit");
+    }
+
     return base;
-  }, [isOperator]);
+  }, [isOperator, statusTab]);
+
+  const getDetailTotal = () => Number(statusCounts?.[statusTab] ?? 0);
+
+const getDetailList = () =>
+  filteredTabRows.map((x: any) => ({
+    no: String(x?.no ?? "").trim(),
+  }));
 
   const openDetail = (t: TransferType) => {
-    const no = String((t as any)?.no ?? "").trim();
-    if (!no) return;
-    navigate(`/detail-transfer-movement/${encodeURIComponent(no)}`);
-  };
+  const no = String((t as any)?.no ?? "").trim();
+  if (!no) return;
+
+  navigate(`/detail-transfer-movement/${encodeURIComponent(no)}`, {
+    state: {
+      view: "transfer-movement",
+      status: statusTab, // pick | put | completed
+      detailList: getDetailList(),
+      detailTotal: getDetailTotal(),
+    },
+  });
+};
 
   const openEdit = (t: TransferType) => {
     const no = String((t as any)?.no ?? "").trim();
@@ -305,7 +329,9 @@ const TransferMovementTable = ({
   return (
     <>
       <div className="page-header">
-        <div className="page-title">Transfer - <span className="transfer-movement-title">Movement</span></div>
+        <div className="page-title">
+          Transfer - <span className="transfer-movement-title">Movement</span>
+        </div>
 
         <div className="toolbar">
           {departmentOptions.length > 1 && (
@@ -320,7 +346,10 @@ const TransferMovementTable = ({
                   {selectedDepartments.includes("all")
                     ? "ทั้งหมด"
                     : selectedDepartments.join(", ")}
-                  <i className="fa fa-chevron-down" style={{ marginLeft: 6 }} />
+                  <i
+                    className="fa fa-chevron-down"
+                    style={{ marginLeft: 45 }}
+                  />
                 </button>
 
                 {showDeptDropdown && (
@@ -367,7 +396,7 @@ const TransferMovementTable = ({
                 className="clear-btn"
                 onClick={onClearSearch}
               >
-                  <i className="fa fa-xmark"></i>
+                <i className="fa fa-xmark"></i>
               </button>
             )}
           </div>
@@ -438,8 +467,8 @@ const TransferMovementTable = ({
           <button
             key={k}
             type="button"
-            className={`dt-tf-mv-tab ${activeTab === k ? "active" : ""}`}
-            onClick={() => setActiveTab(k)}
+            className={`dt-tf-mv-tab ${statusTab === k ? "active" : ""}`}
+            onClick={() => onChangeStatusTab(k)}
             title={tabLabel(k)}
           >
             {tabLabel(k)} <span className="dt-tf-mv-badge">{counts[k]}</span>
@@ -465,9 +494,7 @@ const TransferMovementTable = ({
                   <td>{(currentPage - 1) * itemsPerPage + index + 1}</td>
                   <td>{t?.created_at ? formatDateTime(t.created_at) : "-"}</td>
                   <td>{t?.no ?? "-"}</td>
-                  <td>
-                    {renderDepartments(t)}
-                  </td>
+                  <td>{renderDepartments(t)}</td>
                   <td>{asText(t?.status)}</td>
                   <td>{renderUsers_Work(t)}</td>
                   <td>
@@ -479,8 +506,7 @@ const TransferMovementTable = ({
                       Details
                     </button>
                   </td>
-
-                  {!isOperator && (
+                  {!isOperator && statusTab === "pick" && (
                     <td>
                       <button
                         className={`transfer-movement-edit-btn ${!canEdit ? "disabled" : ""}`}

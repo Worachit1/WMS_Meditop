@@ -23,36 +23,11 @@ function firstNonEmpty(...values: any[]): string | null {
 }
 
 function getItemExp(item: any): string | null {
-  return firstNonEmpty(item?.exp);
+  return firstNonEmpty(item?.exp, item?.expiration_date);
 }
 
 function getItemZoneType(item: any): string | null {
   return firstNonEmpty(item?.zone_type);
-}
-
-function getInQty(row: ReportMovementListRow): number | null {
-  if (row.source === "inbound") return row.qty ?? null;
-  if (row.source === "adjustment" && row.location === "Inventory adjustment") {
-    return row.qty ?? null;
-  }
-  return null;
-}
-
-function getOutQty(row: ReportMovementListRow): number | null {
-  if (
-    row.source === "outbound" ||
-    row.source === "transfer_movement" ||
-    row.source === "transfer_doc"
-  ) {
-    return row.qty ?? null;
-  }
-  if (
-    row.source === "adjustment" &&
-    row.location_dest === "Inventory adjustment"
-  ) {
-    return row.qty ?? null;
-  }
-  return null;
 }
 
 type SortDir = "asc" | "desc";
@@ -125,6 +100,112 @@ type ReportMovementListRow = {
   qty?: number | null;
 };
 
+function getRowQty(mv: any, item: any): number | null {
+  const raw =
+    mv?.source === "transfer_doc"
+      ? item?.quantity_receive
+      : (item?.qty ??
+        item?.quantity ??
+        item?.quantity_receive ??
+        mv?.qty ??
+        mv?.quantity);
+
+  const qty = Number(raw);
+  return Number.isFinite(qty) ? qty : null;
+}
+
+function getInQty(row: ReportMovementListRow): number | null {
+  if (row.source === "inbound") return row.qty ?? null;
+
+  if (row.source === "adjustment" && row.location === "Inventory adjustment") {
+    return row.qty ?? null;
+  }
+
+  return null;
+}
+
+function getOutQty(row: ReportMovementListRow): number | null {
+  if (
+    row.source === "outbound" ||
+    row.source === "transfer_movement" ||
+    row.source === "transfer_doc"
+  ) {
+    return row.qty ?? null;
+  }
+
+  if (
+    row.source === "adjustment" &&
+    row.location_dest === "Inventory adjustment"
+  ) {
+    return row.qty ?? null;
+  }
+
+  return null;
+}
+
+function buildMovementRows(
+  movements: ReportMovementType[],
+): ReportMovementListRow[] {
+  return (movements || []).flatMap((mv: any, mvIndex) => {
+    const doc = mv?.document ?? null;
+
+    const items =
+      Array.isArray(doc?.items) && doc.items.length > 0
+        ? doc.items
+        : mv?.item
+          ? [mv.item]
+          : [null];
+
+    return items.map((item: any, itemIndex: number) => {
+      const rowId = [
+        mv?.source ?? "source",
+        mv?.id ?? mvIndex,
+        item?.id ?? item?.sequence ?? itemIndex,
+      ].join("-");
+
+      return {
+        row_id: rowId,
+        id: mv.id,
+        created_at: mv.created_at,
+        no: String(mv.no ?? doc?.no ?? "-"),
+        type: String(mv.type ?? doc?.out_type ?? doc?.in_type ?? "-"),
+        department: firstNonEmpty(
+          doc?.department,
+          doc?.department_raw,
+          item?.department,
+        ),
+        product: firstNonEmpty(
+          item?.code,
+          item?.product_code,
+          item?.sku,
+          item?.product,
+        ),
+        name: firstNonEmpty(item?.name, item?.product_name),
+        unit: firstNonEmpty(item?.unit),
+        lot_serial: firstNonEmpty(item?.lot_serial, item?.lot_name),
+        exp: getItemExp(item),
+        zone_type: getItemZoneType(item),
+        location: firstNonEmpty(
+          mv.location,
+          doc?.location,
+          item?.location,
+          Array.isArray(item?.location_picks)
+            ? item.location_picks[0]?.location_name
+            : null,
+        ),
+        location_dest: firstNonEmpty(
+          mv.location_dest,
+          doc?.location_dest,
+          item?.location_dest,
+        ),
+        user_ref: mv.user_ref ?? null,
+        source: mv.source,
+        qty: getRowQty(mv, item),
+      };
+    });
+  });
+}
+
 const ReportMovementTable = ({
   report_movements,
   showFilterDropdown,
@@ -155,10 +236,12 @@ const ReportMovementTable = ({
 
     setSelectedDepartments((prev) => {
       const withoutAll = prev.filter((d) => d !== "all");
+
       if (withoutAll.includes(dept)) {
         const next = withoutAll.filter((d) => d !== dept);
         return next.length === 0 ? ["all"] : next;
       }
+
       return [...withoutAll, dept];
     });
   };
@@ -215,71 +298,17 @@ const ReportMovementTable = ({
   ];
 
   const flattenedMovements = useMemo<ReportMovementListRow[]>(() => {
-    return (report_movements || []).map((mv) => {
-      const doc = (mv as any)?.document ?? null;
-
-      const item =
-        Array.isArray(doc?.items) && doc.items.length > 0
-          ? doc.items[0]
-          : ((mv as any)?.item ?? null);
-
-      return {
-        row_id: String(item?.id ?? mv.id ?? Math.random()),
-        id: mv.id,
-        created_at: mv.created_at,
-        no: String(mv.no ?? doc?.no ?? "-"),
-        type: String(mv.type ?? doc?.out_type ?? doc?.in_type ?? "-"),
-        department: firstNonEmpty(
-          doc?.department,
-          doc?.department_raw,
-          item?.department,
-        ),
-        product: firstNonEmpty(
-          item?.code,
-          item?.product_code,
-          item?.sku,
-          item?.product,
-        ),
-        name: firstNonEmpty(item?.name, item?.product_name),
-        unit: firstNonEmpty(item?.unit),
-        lot_serial: firstNonEmpty(item?.lot_serial, item?.lot_name),
-        exp: getItemExp(item),
-        zone_type: getItemZoneType(item),
-        location: firstNonEmpty(
-          mv.location,
-          doc?.location,
-          item?.location,
-          Array.isArray(item?.location_picks)
-            ? item.location_picks[0]?.location_name
-            : null,
-        ),
-        location_dest: firstNonEmpty(
-          mv.location_dest,
-          doc?.location_dest,
-          item?.location_dest,
-        ),
-        user_ref: mv.user_ref ?? null,
-        source: mv.source,
-        qty:
-          mv.source === "transfer_doc"
-            ? item?.quantity_receive != null
-              ? Number(item.quantity_receive)
-              : null
-            : item?.qty != null
-              ? Number(item.qty)
-              : item?.quantity != null
-                ? Number(item.quantity)
-                : null,
-      };
-    });
+    return buildMovementRows(report_movements);
   }, [report_movements]);
 
   const departmentOptions = useMemo(() => {
     const depts = new Set<string>();
+
     flattenedMovements.forEach((row) => {
       const dept = String(row.department ?? "").trim();
       if (dept) depts.add(dept);
     });
+
     return Array.from(depts).sort((a, b) => a.localeCompare(b, "th"));
   }, [flattenedMovements]);
 
@@ -303,74 +332,11 @@ const ReportMovementTable = ({
 
     try {
       const allRows = await onExportAll();
-
-      const exportRows: ReportMovementListRow[] = (allRows || []).map((mv) => {
-        const doc = (mv as any)?.document ?? null;
-
-        const item =
-          Array.isArray(doc?.items) && doc.items.length > 0
-            ? doc.items[0]
-            : (mv as any)?.item ?? null;
-
-        const qtyValue =
-          mv.source === "transfer_doc"
-            ? item?.quantity_receive != null
-              ? Number(item.quantity_receive)
-              : null
-            : item?.qty != null
-              ? Number(item.qty)
-              : item?.quantity != null
-                ? Number(item.quantity)
-                : (mv as any)?.qty != null
-                  ? Number((mv as any)?.qty)
-                  : (mv as any)?.quantity != null
-                    ? Number((mv as any)?.quantity)
-                    : null;
-
-        return {
-          row_id: String(item?.id ?? mv.id ?? Math.random()),
-          id: mv.id,
-          created_at: mv.created_at,
-          no: String(mv.no ?? doc?.no ?? "-"),
-          type: String(mv.type ?? doc?.out_type ?? doc?.in_type ?? "-"),
-          department: firstNonEmpty(
-            doc?.department,
-            doc?.department_raw,
-            item?.department,
-          ),
-          product: firstNonEmpty(
-            item?.code,
-            item?.product_code,
-            item?.sku,
-            item?.product,
-          ),
-          name: firstNonEmpty(item?.name, item?.product_name),
-          unit: firstNonEmpty(item?.unit),
-          lot_serial: firstNonEmpty(item?.lot_serial, item?.lot_name),
-          exp: getItemExp(item),
-          zone_type: getItemZoneType(item),
-          location: firstNonEmpty(
-            mv.location,
-            doc?.location,
-            item?.location,
-            Array.isArray(item?.location_picks)
-              ? item.location_picks[0]?.location_name
-              : null,
-          ),
-          location_dest: firstNonEmpty(
-            mv.location_dest,
-            doc?.location_dest,
-            item?.location_dest,
-          ),
-          user_ref: mv.user_ref ?? null,
-          source: mv.source,
-          qty: Number.isFinite(qtyValue) ? qtyValue : null,
-        };
-      });
+      const exportRows = buildMovementRows(allRows);
 
       const rows = exportRows.map((s, index) => ({
         No: index + 1,
-        "Date/Time": s.created_at,
+        "Date/Time": s.created_at ? formatDateTime(s.created_at) : "-",
         "Document No.": s.no,
         "Transaction Type": s.type,
         Department: s.department ?? "-",
@@ -382,29 +348,18 @@ const ReportMovementTable = ({
         "Zone Type": s.zone_type ?? "-",
         "From Location": s.location ?? "-",
         "To Location": s.location_dest ?? "-",
-        In:
-          s.source === "inbound" ||
-          (s.source === "adjustment" &&
-            s.location === "Inventory adjustment")
-            ? (s.qty ?? "-")
-            : "-",
-        Out:
-          s.source === "outbound" ||
-          s.source === "transfer_movement" ||
-          s.source === "transfer_doc" ||
-          (s.source === "adjustment" &&
-            s.location_dest === "Inventory adjustment")
-            ? (s.qty ?? "-")
-            : "-",
+        In: getInQty(s) ?? "-",
+        Out: getOutQty(s) ?? "-",
         User: s.user_ref ?? "-",
       }));
 
       const ws = XLSX.utils.json_to_sheet(rows);
       const wb = XLSX.utils.book_new();
+
       XLSX.utils.book_append_sheet(wb, ws, "ReportMovement");
       XLSX.writeFile(wb, "report_movement.xlsx");
     } catch (error) {
-      console.error("Export stock error:", error);
+      console.error("Export report movement error:", error);
     }
   };
 
@@ -419,6 +374,7 @@ const ReportMovementTable = ({
           {departmentOptions.length > 1 && (
             <div className="inbound-dept-filter">
               <label>แผนก:</label>
+
               <div className="filter-wrap">
                 <button
                   type="button"
@@ -428,6 +384,7 @@ const ReportMovementTable = ({
                   {selectedDepartments.includes("all")
                     ? "ทั้งหมด"
                     : selectedDepartments.join(", ")}
+
                   <i className="fa fa-chevron-down" style={{ marginLeft: 6 }} />
                 </button>
 
@@ -550,10 +507,10 @@ const ReportMovementTable = ({
               <tr key={row.row_id}>
                 <td>{(currentPage - 1) * itemsPerPage + index + 1}</td>
                 <td>{formatDateTime(row.created_at)}</td>
-                <td>{row.no ?? "-"}</td>
+                <td style={{ width: '220px' }}>{row.no ?? "-"}</td>
                 <td>{row.type ?? "-"}</td>
                 <td>{row.department ?? "-"}</td>
-                <td>{row.product ?? "-"}</td>
+                <td style={{ width: '220px' }}>{row.product ?? "-"}</td>
                 <td>{row.name ?? "-"}</td>
                 <td>{row.unit ?? "-"}</td>
                 <td>{row.lot_serial ?? "-"}</td>

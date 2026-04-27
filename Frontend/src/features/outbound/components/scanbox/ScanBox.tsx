@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState, useMemo } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
+import DetailNavigator from "../../../../components/DetailNavigator/DetailNavigator";
 import Swal from "sweetalert2";
 import { packProductApi } from "../../services/outbound.api";
 import { socket } from "../../../../services/socket";
@@ -18,6 +19,7 @@ import {
 import "./scanbox.css";
 import { createPortal } from "react-dom";
 import { toast } from "react-toastify";
+import Loading from "../../../../components/Loading/Loading";
 
 type SortDir = "asc" | "desc" | null;
 type ViewMode = "pending" | "done";
@@ -157,6 +159,7 @@ const ScanBox = () => {
   const actionLoading = isSaving || isSubmitting;
 
   const [isLoading, setIsLoading] = useState(false);
+  const [loading, _setLoading] = useState<boolean>(false);
 
   const [isScanActive, setIsScanActive] = useState(false);
   const [barcodeInput, setBarcodeInput] = useState("");
@@ -193,11 +196,24 @@ const ScanBox = () => {
   const [currentPackBoxId, setCurrentPackBoxId] = useState<number | null>(null);
   const [_currentPrefix, setCurrentPrefix] = useState<string>("");
 
+  const location = useLocation();
+
+  const navState = (location.state as any) || {};
+  const navView = navState.view || searchParams.get("view") || "packing";
+
+  const navStatus = navState.status || searchParams.get("status") || undefined;
+
+  const stateDetailList = Array.isArray(navState.detailList)
+    ? navState.detailList
+    : [];
+
+  const stateDetailTotal = Number(navState.detailTotal ?? 0);
+
+  const [detailList, setDetailList] = useState<Array<{ id: number }>>([]);
+
   const [viewMode, setViewMode] = useState<ViewMode>(
     isReadOnly ? "done" : "pending",
   );
-
-  const hasLoadedRef = useRef(false);
 
   type MenuPos = { top: number; left: number };
 
@@ -532,14 +548,11 @@ const ScanBox = () => {
     setCurrentTimestamp(formattedDate);
   }, []);
 
+  const packId = searchParams.get("packId");
+  const prefix = searchParams.get("prefix");
+  const outbound = searchParams.get("outbound");
+
   useEffect(() => {
-    if (hasLoadedRef.current) return;
-    hasLoadedRef.current = true;
-
-    const packId = searchParams.get("packId");
-    const prefix = searchParams.get("prefix");
-    const outbound = searchParams.get("outbound");
-
     const load = async () => {
       try {
         setIsLoading(true);
@@ -559,15 +572,29 @@ const ScanBox = () => {
         if (outbound) {
           const res = await packProductApi.getByPrefix(outbound);
           applyPackDetailData(res.data, { preserveLocalBox: false });
+          return;
         }
-      } catch {
+
+        // ไม่มี packId/prefix/outbound → เคลียร์หน้า
+        setPackProduct(null);
+        setPackBoxes([]);
+        setInvoiceList([]);
+        setBatchItems([]);
+        setCurrentPrefix("");
+      } catch (error) {
+        console.error("load pack detail error:", error);
+        setPackProduct(null);
+        setPackBoxes([]);
+        setInvoiceList([]);
+        setBatchItems([]);
+        setCurrentPrefix("");
       } finally {
         setIsLoading(false);
       }
     };
 
     void load();
-  }, [searchParams]);
+  }, [packId, prefix, outbound]);
 
   useEffect(() => {
     if (!packProduct?.id) return;
@@ -689,6 +716,60 @@ const ScanBox = () => {
       if (!currentIds.has(id)) delete buttonRef.current[id];
     });
   }, [batchItems]);
+
+  useEffect(() => {
+    const stateRows = stateDetailList
+      .map((x: any) => ({
+        id: Number(x?.id ?? 0),
+      }))
+      .filter((x: { id: number }) => x.id > 0);
+
+    const shouldFetchAll =
+      stateRows.length === 0 ||
+      (stateDetailTotal > 0 && stateRows.length < stateDetailTotal);
+
+    if (!shouldFetchAll) {
+      setDetailList(stateRows);
+      return;
+    }
+
+    const fetchDetailList = async () => {
+      try {
+        const limit = 100;
+        let page = 1;
+        let totalPages = 1;
+        const allRows: any[] = [];
+
+        do {
+          const resp = await packProductApi.getAll({
+            page,
+            limit,
+            ...(navStatus ? { status: navStatus } : {}),
+          });
+
+          const rows = Array.isArray(resp?.data?.data) ? resp.data.data : [];
+          const meta = resp?.data?.meta ?? {};
+
+          allRows.push(...rows);
+          totalPages = Number(meta?.totalPages ?? 1);
+          page += 1;
+        } while (page <= totalPages);
+
+        const mapped = allRows
+          .map((x: any) => ({
+            id: Number(x?.id ?? 0),
+          }))
+          .filter((x: { id: number }) => x.id > 0);
+
+        setDetailList(mapped);
+      } catch (error) {
+        console.error("Error fetching packing detail list:", error);
+        setDetailList([]);
+      }
+    };
+
+    fetchDetailList();
+  }, [navStatus, stateDetailList, stateDetailTotal]);
 
   const getDocNo = (inv: any): string => {
     const candidates = [inv?.no, inv?.origin, inv?.origin?.no];
@@ -1143,10 +1224,72 @@ const ScanBox = () => {
     }
   };
 
+  const currentPackId = Number(packProduct?.id ?? packId ?? 0);
+
+  const currentIndex =
+    detailList.findIndex((x) => Number(x.id) === currentPackId) + 1;
+
+  const total = detailList.length;
+
+  const hasNavigator = !!packId && detailList.length > 0 && currentIndex > 0;
+
+  const handlePrev = () => {
+    const idx = detailList.findIndex((x) => Number(x.id) === currentPackId);
+    if (idx <= 0) return;
+
+    const prevItem = detailList[idx - 1];
+
+    navigate(
+      `/scan-box?packId=${prevItem.id}${
+        navStatus === "completed" ? "&readonly=1" : ""
+      }`,
+      {
+        state: {
+          view: navView,
+          status: navStatus,
+          detailList,
+          detailTotal: total,
+        },
+      },
+    );
+  };
+
+  const handleNext = () => {
+    const idx = detailList.findIndex((x) => Number(x.id) === currentPackId);
+    if (idx < 0 || idx >= detailList.length - 1) return;
+
+    const nextItem = detailList[idx + 1];
+
+    navigate(
+      `/scan-box?packId=${nextItem.id}${
+        navStatus === "completed" ? "&readonly=1" : ""
+      }`,
+      {
+        state: {
+          view: navView,
+          status: navStatus,
+          detailList,
+          detailTotal: total,
+        },
+      },
+    );
+  };
+
   return (
     <div className="scanbox-container">
-      <div className="scanbox-header">
+      <div className="scanbox-header scanbox-header-with-nav">
         <h3>Step 1 : Scan Invoice / Prefix กล่อง</h3>
+
+        {hasNavigator && (
+          <DetailNavigator
+            currentIndex={currentIndex}
+            total={total}
+            onPrev={handlePrev}
+            onNext={handleNext}
+            disablePrev={currentIndex <= 1}
+            disableNext={currentIndex >= total}
+          />
+        )}
       </div>
 
       {isLoading ? (
@@ -1190,7 +1333,7 @@ const ScanBox = () => {
             )}
           </div>
 
-          <div className="scanbox-doc-list">
+          <div className="scanbox-doc-list table__wrapper">
             <table className="scanbox-doc-table">
               <thead>
                 <tr>
@@ -1349,251 +1492,260 @@ const ScanBox = () => {
             </div>
           )}
 
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 10, padding: "0 20px" }}>
-              <div className="groupOrder-view-tabs" style={{ marginTop: 0 }}>
-                {!isReadOnly && (
-                  <button
-                    type="button"
-                    className={`groupOrder-tab ${viewMode === "pending" ? "active" : ""}`}
-                    onClick={() => setViewMode("pending")}
-                  >
-                    กำลังดำเนินการ{" "}
-                    <span className="badge">{pendingCount}</span>
-                  </button>
-                )}
-
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginTop: 10,
+            }}
+          >
+            <div className="groupOrder-view-tabs" style={{ marginTop: 0 }}>
+              {!isReadOnly && (
                 <button
                   type="button"
-                  className={`groupOrder-tab ${viewMode === "done" ? "active" : ""}`}
-                  onClick={() => setViewMode("done")}
+                  className={`groupOrder-tab ${viewMode === "pending" ? "active" : ""}`}
+                  onClick={() => setViewMode("pending")}
                 >
-                  ดำเนินการเสร็จสิ้นแล้ว{" "}
-                  <span className="badge">{doneCount}</span>
+                  กำลังดำเนินการ <span className="badge">{pendingCount}</span>
                 </button>
-              </div>
+              )}
 
-              {boxFilterOptions.length > 0 && (
-                <div className="filter-wrap" style={{ position: "relative" }}>
-                  <button
-                    type="button"
-                    className="filter-btn"
-                    onClick={() => setShowBoxFilterDropdown((v) => !v)}
-                    style={{ whiteSpace: "nowrap" }}
+              <button
+                type="button"
+                className={`groupOrder-tab ${viewMode === "done" ? "active" : ""}`}
+                onClick={() => setViewMode("done")}
+              >
+                ดำเนินการเสร็จสิ้นแล้ว{" "}
+                <span className="badge">{doneCount}</span>
+              </button>
+            </div>
+
+            {boxFilterOptions.length > 0 && (
+              <div className="filter-wrap" style={{ position: "relative" }}>
+                <button
+                  type="button"
+                  className="filter-btn"
+                  onClick={() => setShowBoxFilterDropdown((v) => !v)}
+                  style={{ whiteSpace: "nowrap" }}
+                >
+                  <i className="fa fa-box"></i>{" "}
+                  {selectedBoxFilter === "all"
+                    ? "ทุกกล่อง"
+                    : selectedBoxFilter === "none"
+                      ? "ยังไม่มีกล่อง"
+                      : (boxFilterOptions.find(
+                          (b) => String(b.id) === selectedBoxFilter,
+                        )?.box_label ?? "กล่อง")}
+                  <i className="fa fa-chevron-down" style={{ marginLeft: 6 }} />
+                </button>
+                {showBoxFilterDropdown && (
+                  <div
+                    className="filter-dropdown-2"
+                    style={{ right: 0, left: "auto", minWidth: 180 }}
                   >
-                    <i className="fa fa-box"></i>{" "}
-                    {selectedBoxFilter === "all"
-                      ? "ทุกกล่อง"
-                      : selectedBoxFilter === "none"
-                        ? "ยังไม่มีกล่อง"
-                        : boxFilterOptions.find((b) => String(b.id) === selectedBoxFilter)?.box_label ?? "กล่อง"}
-                    <i className="fa fa-chevron-down" style={{ marginLeft: 6 }} />
-                  </button>
-                  {showBoxFilterDropdown && (
-                    <div className="filter-dropdown-2" style={{ right: 0, left: "auto", minWidth: 180 }}>
-                      <div className="filter-title">
-                        Filter ตามกล่อง
-                        <button
-                          type="button"
-                          className="filter-clear-btn"
-                          onClick={() => {
-                            setSelectedBoxFilter("all");
-                            setShowBoxFilterDropdown(false);
-                          }}
-                        >
-                          <i className="fa fa-xmark"></i>
-                        </button>
-                      </div>
-                      <label
-                        className="filter-option"
-                        style={{ cursor: "pointer" }}
+                    <div className="filter-title">
+                      Filter ตามกล่อง
+                      <button
+                        type="button"
+                        className="filter-clear-btn"
                         onClick={() => {
                           setSelectedBoxFilter("all");
                           setShowBoxFilterDropdown(false);
                         }}
                       >
-                        <input
-                          type="radio"
-                          checked={selectedBoxFilter === "all"}
-                          readOnly
-                        />
-                        <span>ทุกกล่อง</span>
-                      </label>
+                        <i className="fa fa-xmark"></i>
+                      </button>
+                    </div>
+                    <label
+                      className="filter-option"
+                      style={{ cursor: "pointer" }}
+                      onClick={() => {
+                        setSelectedBoxFilter("all");
+                        setShowBoxFilterDropdown(false);
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        checked={selectedBoxFilter === "all"}
+                        readOnly
+                      />
+                      <span>ทุกกล่อง</span>
+                    </label>
+                    <label
+                      className="filter-option"
+                      style={{ cursor: "pointer" }}
+                      onClick={() => {
+                        setSelectedBoxFilter("none");
+                        setShowBoxFilterDropdown(false);
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        checked={selectedBoxFilter === "none"}
+                        readOnly
+                      />
+                      <span>ยังไม่มีกล่อง</span>
+                    </label>
+                    {boxFilterOptions.map((box) => (
                       <label
                         className="filter-option"
+                        key={box.id}
                         style={{ cursor: "pointer" }}
                         onClick={() => {
-                          setSelectedBoxFilter("none");
+                          setSelectedBoxFilter(String(box.id));
                           setShowBoxFilterDropdown(false);
                         }}
                       >
                         <input
                           type="radio"
-                          checked={selectedBoxFilter === "none"}
+                          checked={selectedBoxFilter === String(box.id)}
                           readOnly
                         />
-                        <span>ยังไม่มีกล่อง</span>
+                        <span>{box.box_label}</span>
                       </label>
-                      {boxFilterOptions.map((box) => (
-                        <label
-                          className="filter-option"
-                          key={box.id}
-                          style={{ cursor: "pointer" }}
-                          onClick={() => {
-                            setSelectedBoxFilter(String(box.id));
-                            setShowBoxFilterDropdown(false);
-                          }}
-                        >
-                          <input
-                            type="radio"
-                            checked={selectedBoxFilter === String(box.id)}
-                            readOnly
-                          />
-                          <span>{box.box_label}</span>
-                        </label>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
-          <div className="batch-panel">
-            <div className="batch-table-container">
-              <table className="batch-table">
-                <thead>
-                  <tr>
-                    <th>No.</th>
-                    <th
-                      style={{ cursor: "pointer", userSelect: "none" }}
-                      onClick={toggleSortCode}
+          <div className="batch-table-container table__wrapper">
+            <table className="batch-table">
+              <thead>
+                <tr>
+                  <th>No.</th>
+                  <th
+                    style={{ cursor: "pointer", userSelect: "none" }}
+                    onClick={toggleSortCode}
+                  >
+                    สินค้า{" "}
+                    {sortCodeDir === "asc" ? (
+                      <i className="fa-solid fa-sort-up" />
+                    ) : sortCodeDir === "desc" ? (
+                      <i className="fa-solid fa-sort-down" />
+                    ) : (
+                      <i
+                        className="fa-solid fa-sort"
+                        style={{ opacity: 0.35 }}
+                      />
+                    )}
+                  </th>
+                  <th>ชื่อ</th>
+                  <th>Lot Serial.</th>
+                  <th>QTY</th>
+                  <th>Pick</th>
+                  <th>Pack</th>
+                  <th>Box ID</th>
+                  {!isReadOnly && <th>Action</th>}
+                </tr>
+              </thead>
+
+              <tbody>
+                {visibleItems.map(({ item, originalIndex }, index) => {
+                  let rowClass = "";
+                  if ((item.pack || 0) === 0) rowClass = "row-white";
+                  else if ((item.pack || 0) === (item.quantity || 0))
+                    rowClass = "row-green";
+                  else rowClass = "row-yellow";
+
+                  return (
+                    <tr
+                      key={`${item.goods_out_id}-${item.code}-${item.lot_name}-${originalIndex}`}
+                      className={rowClass}
                     >
-                      สินค้า{" "}
-                      {sortCodeDir === "asc" ? (
-                        <i className="fa-solid fa-sort-up" />
-                      ) : sortCodeDir === "desc" ? (
-                        <i className="fa-solid fa-sort-down" />
-                      ) : (
-                        <i
-                          className="fa-solid fa-sort"
-                          style={{ opacity: 0.35 }}
-                        />
-                      )}
-                    </th>
-                    <th>ชื่อ</th>
-                    <th>Lot Serial.</th>
-                    <th>QTY</th>
-                    <th>Pick</th>
-                    <th>Pack</th>
-                    <th>Box ID</th>
-                    {!isReadOnly && <th>Action</th>}
-                  </tr>
-                </thead>
+                      <td>{index + 1}</td>
+                      <td>{item.code || "-"}</td>
+                      <td>{item.name || "-"}</td>
+                      <td>{item.lot_name || "-"}</td>
+                      <td className="qty-cell">{item.quantity || 0}</td>
+                      <td className="qty-cell">{item.pick || 0}</td>
+                      <td className="qty-cell">{item.pack || 0}</td>
+                      <td>
+                        {item.box_name
+                          ? item.box_name.split(",").map((b, i) => (
+                              <span key={i}>
+                                {i > 0 && <br />}
+                                {b.trim()}
+                              </span>
+                            ))
+                          : "-"}
+                      </td>
 
-                <tbody>
-                  {visibleItems.map(({ item, originalIndex }, index) => {
-                    let rowClass = "";
-                    if ((item.pack || 0) === 0) rowClass = "row-white";
-                    else if ((item.pack || 0) === (item.quantity || 0))
-                      rowClass = "row-green";
-                    else rowClass = "row-yellow";
+                      {!isReadOnly && (
+                        <td className="groupOrder-action-buttons">
+                          {(() => {
+                            const itemIndex = originalIndex;
+                            const rowId = getRowIdByIndex(itemIndex);
 
-                    return (
-                      <tr
-                        key={`${item.goods_out_id}-${item.code}-${item.lot_name}-${originalIndex}`}
-                        className={rowClass}
-                      >
-                        <td>{index + 1}</td>
-                        <td>{item.code || "-"}</td>
-                        <td>{item.name || "-"}</td>
-                        <td>{item.lot_name || "-"}</td>
-                        <td className="qty-cell">{item.quantity || 0}</td>
-                        <td className="qty-cell">{item.pick || 0}</td>
-                        <td className="qty-cell">{item.pack || 0}</td>
-                        <td>
-                          {item.box_name
-                            ? item.box_name.split(",").map((b, i) => (
-                                <span key={i}>
-                                  {i > 0 && <br />}
-                                  {b.trim()}
-                                </span>
-                              ))
-                            : "-"}
-                        </td>
+                            return (
+                              <div className="grouporder-dropdown-container">
+                                <button
+                                  ref={(el) => {
+                                    buttonRef.current[rowId] = el;
+                                  }}
+                                  onClick={() => toggleDropdown(rowId)}
+                                  className="btn-dropdown-toggle"
+                                  title="เมนูเพิ่มเติม"
+                                  type="button"
+                                >
+                                  <i className="fa-solid fa-ellipsis-vertical"></i>
+                                </button>
 
-                        {!isReadOnly && (
-                          <td className="groupOrder-action-buttons">
-                            {(() => {
-                              const itemIndex = originalIndex;
-                              const rowId = getRowIdByIndex(itemIndex);
-
-                              return (
-                                <div className="grouporder-dropdown-container">
-                                  <button
-                                    ref={(el) => {
-                                      buttonRef.current[rowId] = el;
-                                    }}
-                                    onClick={() => toggleDropdown(rowId)}
-                                    className="btn-dropdown-toggle"
-                                    title="เมนูเพิ่มเติม"
-                                    type="button"
-                                  >
-                                    <i className="fa-solid fa-ellipsis-vertical"></i>
-                                  </button>
-
-                                  {openDropdownId === rowId &&
-                                    menuPos &&
-                                    createPortal(
-                                      <div
-                                        ref={dropdownRef}
-                                        className="grouporder-dropdown-menu"
-                                        style={{
-                                          top: menuPos.top,
-                                          left: menuPos.left,
+                                {openDropdownId === rowId &&
+                                  menuPos &&
+                                  createPortal(
+                                    <div
+                                      ref={dropdownRef}
+                                      className="grouporder-dropdown-menu"
+                                      style={{
+                                        top: menuPos.top,
+                                        left: menuPos.left,
+                                      }}
+                                    >
+                                      <button
+                                        className="grouporder-dropdown-item"
+                                        onClick={async () => {
+                                          closeDropdown();
+                                          await handleUndoItem(itemIndex);
                                         }}
+                                        type="button"
+                                        disabled={(item.pack || 0) <= 0}
                                       >
-                                        <button
-                                          className="grouporder-dropdown-item"
-                                          onClick={async () => {
-                                            closeDropdown();
-                                            await handleUndoItem(itemIndex);
-                                          }}
-                                          type="button"
-                                          disabled={(item.pack || 0) <= 0}
-                                        >
-                                          <span className="menu-icon">
-                                            <i className="fas fa-undo"></i>
-                                          </span>
-                                          ย้อนกลับ
-                                        </button>
+                                        <span className="menu-icon">
+                                          <i className="fas fa-undo"></i>
+                                        </span>
+                                        ย้อนกลับ
+                                      </button>
 
-                                        <button
-                                          className="grouporder-dropdown-item"
-                                          onClick={async () => {
-                                            closeDropdown();
-                                            await handleClearItem(itemIndex);
-                                          }}
-                                          type="button"
-                                          disabled={(item.pack || 0) <= 0}
-                                        >
-                                          <span className="menu-icon">
-                                            <i className="fas fa-trash-alt"></i>
-                                          </span>
-                                          รีเซ็ต
-                                        </button>
-                                      </div>,
-                                      document.body,
-                                    )}
-                                </div>
-                              );
-                            })()}
-                          </td>
-                        )}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                                      <button
+                                        className="grouporder-dropdown-item"
+                                        onClick={async () => {
+                                          closeDropdown();
+                                          await handleClearItem(itemIndex);
+                                        }}
+                                        type="button"
+                                        disabled={(item.pack || 0) <= 0}
+                                      >
+                                        <span className="menu-icon">
+                                          <i className="fas fa-trash-alt"></i>
+                                        </span>
+                                        รีเซ็ต
+                                      </button>
+                                    </div>,
+                                    document.body,
+                                  )}
+                              </div>
+                            );
+                          })()}
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
 
           <div className="order-footer">
@@ -1610,7 +1762,7 @@ const ScanBox = () => {
 
             <button
               className="scanbox-btn-cancel"
-              onClick={() => navigate(-1)}
+              onClick={() => navigate("/outbound?view=packing")}
               type="button"
               disabled={actionLoading}
             >
@@ -1629,6 +1781,11 @@ const ScanBox = () => {
             )}
           </div>
         </>
+      )}
+      {loading && (
+        <div className="loading-overlay">
+          <Loading />
+        </div>
       )}
     </div>
   );

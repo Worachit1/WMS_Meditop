@@ -10,6 +10,12 @@ import { Link } from "react-router-dom";
 
 type Props = {
   inbound: InboundType[];
+  activeTab: "pending" | "completed";
+  onTabChange: (tab: "pending" | "completed") => void;
+  statusCounts: {
+    pending: number;
+    completed: number;
+  };
   searchQuery: string;
   onSearchChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onClearSearch: () => void;
@@ -18,9 +24,11 @@ type Props = {
   searchableColumns: {
     no: boolean;
     invoice: boolean;
-    origin: boolean;
     date: boolean;
     department: boolean;
+    code: boolean;
+    reference: boolean;
+    origin: boolean;
     status: boolean;
   };
   onToggleSearchableColumn: (column: keyof Props["searchableColumns"]) => void;
@@ -28,8 +36,6 @@ type Props = {
   currentPage?: number;
   itemsPerPage?: number;
 };
-
-type ViewMode = "pending" | "done";
 
 const formatDateTime = (dateString: string) => {
   const date = new Date(dateString);
@@ -59,6 +65,9 @@ const getStatusLabel = (status?: string) => {
 
 const InboundTable = ({
   inbound,
+  activeTab,
+  onTabChange,
+  statusCounts,
   searchQuery,
   onSearchChange,
   onClearSearch,
@@ -70,8 +79,9 @@ const InboundTable = ({
   currentPage = 1,
   itemsPerPage = 10,
 }: Props) => {
-  const [viewMode, setViewMode] = useState<ViewMode>("pending");
-  const [selectedDepartments, setSelectedDepartments] = useState<string[]>(["all"]);
+  const [selectedDepartments, setSelectedDepartments] = useState<string[]>([
+    "all",
+  ]);
   const [showDeptDropdown, setShowDeptDropdown] = useState(false);
 
   const toggleDepartment = (dept: string) => {
@@ -87,7 +97,6 @@ const InboundTable = ({
         return [...withoutAll, dept];
       });
     }
-    setViewMode("pending");
   };
 
   const tableHeaders = [
@@ -111,7 +120,6 @@ const InboundTable = ({
     return Array.from(depts).sort();
   }, [inbound]);
 
-  // filter by selected departments ก่อน แยก done/pending
   const filteredInbound = useMemo(() => {
     if (
       selectedDepartments.length === 0 ||
@@ -121,31 +129,12 @@ const InboundTable = ({
       return inbound || [];
     }
     return (inbound || []).filter((x) =>
-      selectedDepartments.includes((x as any).department)
+      selectedDepartments.includes((x as any).department),
     );
   }, [inbound, selectedDepartments]);
 
-  // แยก done/pending จาก status โดยตรง
-  const { pendingList, doneList } = useMemo(() => {
-    const done: InboundType[] = [];
-    const pending: InboundType[] = [];
-
-    filteredInbound.forEach((x) => {
-      if ((x as any).status === "completed") {
-        done.push(x);
-      } else {
-        pending.push(x);
-      }
-    });
-
-    return { pendingList: pending, doneList: done };
-  }, [filteredInbound]);
-
-  const pendingCount = pendingList.length;
-  const doneCount = doneList.length;
-
-  const viewRows = viewMode === "done" ? doneList : pendingList;
-
+  // ✅ ใช้ตรงนี้เลย
+  const viewRows = filteredInbound;
   return (
     <>
       <div className="page-header">
@@ -165,7 +154,10 @@ const InboundTable = ({
                   {selectedDepartments.includes("all")
                     ? "ทั้งหมด"
                     : selectedDepartments.join(", ")}
-                  <i className="fa fa-chevron-down" style={{ marginLeft: 45 }} />
+                  <i
+                    className="fa fa-chevron-down"
+                    style={{ marginLeft: 45 }}
+                  />
                 </button>
                 {showDeptDropdown && (
                   <div className="filter-dropdown-2">
@@ -238,7 +230,7 @@ const InboundTable = ({
                 {Object.entries({
                   date: "Date",
                   no: "Doc No.",
-                   origin: "Origin",
+                  origin: "Origin",
                   invoice: "Invoice",
                   department: "Department",
                   code: "SKU",
@@ -269,18 +261,19 @@ const InboundTable = ({
       <div className="inbound-view-tabs">
         <button
           type="button"
-          className={`inbound-tab ${viewMode === "pending" ? "active" : ""}`}
-          onClick={() => setViewMode("pending")}
+          className={`inbound-tab ${activeTab === "pending" ? "active" : ""}`}
+          onClick={() => onTabChange("pending")}
         >
-          รอการดำเนินการ <span className="badge">{pendingCount}</span>
+          รอดำเนินการ <span className="badge">{statusCounts.pending}</span>
         </button>
 
         <button
           type="button"
-          className={`inbound-tab ${viewMode === "done" ? "active" : ""}`}
-          onClick={() => setViewMode("done")}
+          className={`inbound-tab ${activeTab === "completed" ? "active" : ""}`}
+          onClick={() => onTabChange("completed")}
         >
-          ดำเนินการเสร็จสิ้น <span className="badge">{doneCount}</span>
+          ดำเนินการเสร็จสิ้น{" "}
+          <span className="badge">{statusCounts.completed}</span>
         </button>
       </div>
 
@@ -290,7 +283,7 @@ const InboundTable = ({
           {viewRows.length === 0 ? (
             <tr>
               <td colSpan={tableHeaders.length} className="no-data">
-                {viewMode === "done"
+                {activeTab === "completed"
                   ? "No completed inbound records."
                   : "No pending inbound records."}
               </td>
@@ -308,6 +301,14 @@ const InboundTable = ({
                 <td>
                   <Link
                     to={`/inbound/${encodeURIComponent(inboundItem.no)}`}
+                    state={{
+                      status: activeTab,
+                      detailList: viewRows.map((x) => ({ no: x.no })),
+                      detailTotal:
+                        activeTab === "completed"
+                          ? statusCounts.completed
+                          : statusCounts.pending,
+                    }}
                     className="inbound-details-btn"
                   >
                     Details

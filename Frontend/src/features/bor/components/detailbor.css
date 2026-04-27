@@ -70,7 +70,7 @@
 
 .dt-bor-btn-back {
   padding: 10px 24px;
-  background-color: #f5a623;
+  background-color: #e53935;
   color: white;
   border: none;
   border-radius: 4px;
@@ -88,4 +88,16 @@
   opacity: 0.6;
   cursor: not-allowed;
   transform: none;
+}
+
+.dt-bor-header-with-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.dt-bor-header-with-nav .dt-bor-title {
+  margin: 0;
 }

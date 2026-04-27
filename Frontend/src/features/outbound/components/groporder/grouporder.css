@@ -1,6 +1,6 @@
 /* Group Order Container */
 .group-order-container {
-  padding: 30px;
+  padding: 0;
   min-height: 100vh;
 }
 
@@ -178,21 +178,60 @@
   background-color: #36a130;
 }
 
-/* Content Layout - Horizontal Grid (Left-Right) */
-.content-container {
-  display: grid;
-  grid-template-columns: 400px 1fr;
-  gap: 20px;
+.groupOrder-main-panel {
+  flex: 1;
+  min-width: 0;
+  overflow: visible;
+}
+
+.scan-panel-sticky-wrap {
+  position: sticky;
+  top: 12px;
+  z-index: 300;
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+  margin-top: -105px;
   margin-bottom: 20px;
 }
 
-/* Panel Styles */
-.invoice-list-panel,
+.scan-panel-sticky-wrap .scan-panel {
+  pointer-events: auto;
+}
+
+/* ตอนปิด invoice panel */
+.content-container.inv-collapsed {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* panel ขวาให้หด/ขยายได้จริง */
 .batch-panel {
-  padding: 10px;
-  border-radius: 5px;
-  overflow: hidden;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  min-width: 0;
+  width: 100%;
+}
+
+/* panel ซ้าย */
+.invoice-list-panel {
+  position: relative;
+  min-width: 0;
+  transition: all 0.2s ease;
+}
+
+/* ตอนพับ */
+.invoice-list-panel.collapsed {
+  width: 0 !important;
+  min-width: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+  opacity: 1;
+  overflow: visible;
+}
+
+/* ซ่อนเนื้อหาข้างใน */
+.invoice-list-panel .inv-panel-inner {
+  opacity: 1;
 }
 
 .panel-header {
@@ -322,6 +361,39 @@
 
 .picking-batch-table tbody tr.row-red {
   background-color: #fde2e2;
+}
+
+.picking-batch-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: #fff;
+}
+
+.picking-batch-table thead {
+  background: #c1d6ed;
+}
+
+.picking-batch-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: #c1d6ed; /* ทึบไปเลย */
+  background-clip: padding-box;
+}
+
+/* ถ้ามีคอลัมน์แรก sticky ด้วย */
+.picking-batch-table th:first-child,
+.picking-batch-table td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 21;
+  background: #fff;
+}
+
+.picking-batch-table thead th:first-child {
+  z-index: 22;
+  background: #c1d6ed;
 }
 
 .picking-sub-header {
@@ -724,7 +796,6 @@
   }
 }
 
-
 /* ===== Invoice List Sidebar Toggle ===== */
 .content-container {
   position: relative;
@@ -733,7 +804,13 @@
 /* invoice panel เป็น sidebar */
 .invoice-list-panel {
   position: relative;
-  transition: width 0.2s ease, min-width 0.2s ease, opacity 0.2s ease;
+  min-width: 0;
+  overflow: visible;
+  opacity: 1;
+  transform: translateX(0);
+  transition:
+    opacity 0.28s ease,
+    transform 0.8s ease;
 }
 
 .invoice-list-search-wrapper {
@@ -795,7 +872,9 @@
 
 /* ซ่อนเนื้อหาใน panel ตอนพับ */
 .invoice-list-panel.collapsed .inv-panel-inner {
-  display: none;
+  opacity: 0;
+  transform: translateX(-16px);
+  pointer-events: none;
 }
 
 /* ให้ batch panel ขยายเต็มพื้นที่ตอนพับ */
@@ -803,38 +882,101 @@
   width: 100%;
 }
 
-
 /* ===== top bar layout like inboundById ===== */
 .groupOrder-topbar {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
+  flex-direction: column;
+  gap: 10px;
   padding: 10px 6px;
 }
 
+.detail-nav-wrap {
+  display: flex;
+  justify-content: flex-end;
+  white-space: nowrap;
+  width: 100%;
+}
+
 .groupOrder-topbar-left {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
   min-width: 320px;
 }
 
 .groupOrder-title {
-  font-size: 32px;
+  font-size: 25px;
   font-weight: 800;
   margin-bottom: 6px;
 }
 
 .groupOrder-topbar-right {
-  display: flex;
-  justify-content: flex-end;
-  min-width: 360px;
+  display: none;
 }
 
 /* ===== scan panel (right) ===== */
+.content-container {
+  display: flex;
+  align-items: flex-start;
+  gap: 25px;
+  overflow: visible;
+}
+
+.groupOrder-main-panel {
+  flex: 1;
+  min-width: 0;
+  overflow: visible;
+}
+
+.scan-panel-sticky-wrap {
+  position: sticky;
+  top: 12px;
+  z-index: 300;
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+  margin-bottom: 12px;
+  pointer-events: none;
+}
+
+.scan-panel-sticky-wrap .scan-panel {
+  pointer-events: auto;
+}
+
+.groupOrder-topbar-right {
+  display: none;
+}
+
+.scan-panel-sticky-wrap {
+  position: sticky;
+  top: 12px;
+  z-index: 300;
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+  margin-top: -105px;
+  margin-bottom: 20px;
+}
+
 .scan-panel {
-  width: 660px;
+  width: 560px;
+  max-width: 40vw;
   padding: 10px 12px;
   border-radius: 8px;
   background: #fff;
+  box-shadow: 0 6px 18px rgba(198, 196, 196, 0.15);
+  border: 1px solid #eee;
+  margin-top: 20px;
+}
+
+.scan-label {
+  width: 150px;
+  font-size: 16px;
+}
+
+.scan-input {
+  height: 30px;
+  font-size: 16px;
 }
 
 .scan-row {
@@ -902,7 +1044,6 @@
   }
 }
 
-
 /* ===== TH filter button ===== */
 .th-filter-btn {
   border: 0;
@@ -941,7 +1082,7 @@
   max-height: 85vh;
   background: #fff;
   border-radius: 10px;
-  box-shadow: 0 18px 60px rgba(0,0,0,0.25);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.25);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -1041,8 +1182,7 @@
   color: #111827;
 }
 
-
-.lock-filter-row input[type="checkbox"] {  
+.lock-filter-row input[type="checkbox"] {
   accent-color: #333;
   cursor: pointer;
   width: 22px;
@@ -1054,32 +1194,32 @@
   outline-offset: 2px;
 }
 
-.invoice-item{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
+.invoice-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
 }
 
-.invoice-remove-btn{
-  border:none;
-  background:transparent;
-  cursor:pointer;
-  padding:6px 8px;
-  border-radius:8px;
-  opacity:0.85;
+.invoice-remove-btn {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: 8px;
+  opacity: 0.85;
   color: red;
   transition: all 0.2s ease;
 }
 
-.invoice-remove-btn:hover{
-  opacity:1;
+.invoice-remove-btn:hover {
+  opacity: 1;
   transform: translateY(-1px);
 }
 
-.invoice-remove-btn:active{
+.invoice-remove-btn:active {
   transform: translateY(0);
-  background-color: rgba(255,0,0,0.1);
+  background-color: rgba(255, 0, 0, 0.1);
 }
 
 /* ===== Per-lock pick display ===== */

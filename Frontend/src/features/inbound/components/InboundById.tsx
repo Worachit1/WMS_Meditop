@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { createPortal } from "react-dom";
 import type { InboundType, GoodsInType } from "../types/inbound.type";
 import { inboundApi } from "../services/inbound.api";
@@ -24,6 +24,8 @@ import DetailLocaModal from "./DetailLocaModal";
 
 import { socket } from "../../../services/socket";
 import Swal from "sweetalert2";
+
+import DetailNavigator from "../../../components/DetailNavigator/DetailNavigator";
 
 type MenuPos = { top: number; left: number };
 
@@ -127,7 +129,20 @@ const InboundById = () => {
   const { no } = useParams<{ no: string }>();
   const navigate = useNavigate();
 
+  const location = useLocation();
+  const navStatus = location.state?.status as
+    | "pending"
+    | "completed"
+    | undefined;
+  const navState = (location.state as any) || {};
+  const stateDetailList = Array.isArray(navState.detailList)
+    ? navState.detailList
+    : [];
+  const stateDetailTotal = Number(navState.detailTotal ?? 0);
+
   const [inboundItem, setInboundItem] = useState<InboundType | null>(null);
+  const [detailList, setDetailList] = useState<Array<{ no: string }>>([]);
+
   const [loading, setLoading] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
 
@@ -493,8 +508,8 @@ const InboundById = () => {
       const confirms = Array.isArray(item?.goods_in_location_confirms)
         ? item.goods_in_location_confirms
         : Array.isArray(item?.location_confirms)
-        ? item.location_confirms
-        : [];
+          ? item.location_confirms
+          : [];
 
       confirms.forEach((c: any) => {
         const locName = String(c?.location?.full_name ?? "").trim();
@@ -1508,8 +1523,10 @@ const InboundById = () => {
         // ถ้า DB ยังไม่มี confirms ให้ใช้ draft จาก sessionStorage
         const hasDbConfirms = rows.some(
           (it: any) =>
-            (Array.isArray(it?.goods_in_location_confirms) && it.goods_in_location_confirms.length > 0) ||
-            (Array.isArray(it?.location_confirms) && it.location_confirms.length > 0),
+            (Array.isArray(it?.goods_in_location_confirms) &&
+              it.goods_in_location_confirms.length > 0) ||
+            (Array.isArray(it?.location_confirms) &&
+              it.location_confirms.length > 0),
         );
 
         if (!hasDbConfirms) {
@@ -2041,8 +2058,7 @@ const InboundById = () => {
     });
 
   const isCompletedStatus =
-    isAllDoneReal ||
-    String((inboundItem as any)?.status ?? "") === "completed";
+    isAllDoneReal || String((inboundItem as any)?.status ?? "") === "completed";
 
   useEffect(() => {
     if (!isAllDoneReal) return;
@@ -2679,6 +2695,86 @@ const InboundById = () => {
     };
   }, [no, applyInboundPayload, confirmedLocation?.full_name]);
 
+  useEffect(() => {
+    const stateRows = stateDetailList
+      .map((x: any) => ({
+        no: String(x?.no ?? "").trim(),
+      }))
+      .filter((x: { no: string }) => x.no);
+
+    const shouldFetchAll =
+      stateRows.length === 0 ||
+      (stateDetailTotal > 0 && stateRows.length < stateDetailTotal);
+
+    if (!shouldFetchAll) {
+      setDetailList(stateRows);
+      return;
+    }
+
+    const fetchDetailList = async () => {
+      try {
+        const limit = 100;
+        let page = 1;
+        let totalPages = 1;
+        const allRows: any[] = [];
+
+        do {
+          const resp = await inboundApi.getAllPaginated({
+            page,
+            limit,
+            ...(navStatus ? { status: navStatus } : {}),
+          });
+
+          const rows = Array.isArray(resp?.data?.data) ? resp.data.data : [];
+          const meta = resp?.data?.meta ?? {};
+
+          allRows.push(...rows);
+          totalPages = Number(meta?.totalPages ?? 1);
+          page += 1;
+        } while (page <= totalPages);
+
+        const mapped = allRows
+          .map((x: any) => ({
+            no: String(x?.no ?? "").trim(),
+          }))
+          .filter((x: { no: string }) => x.no);
+
+        setDetailList(mapped);
+      } catch (error) {
+        console.error("Error fetching inbound detail list:", error);
+        setDetailList([]);
+      }
+    };
+
+    fetchDetailList();
+  }, [navStatus, stateDetailList, stateDetailTotal]);
+
+  //logic navigator
+  const currentIndex =
+    detailList.findIndex((x) => String(x.no) === String(no)) + 1;
+
+  const total = detailList.length;
+
+  const handlePrev = useCallback(() => {
+    const idx = detailList.findIndex((x) => String(x.no) === String(no));
+    if (idx <= 0) return;
+
+    const prevItem = detailList[idx - 1];
+    navigate(`/inbound/${encodeURIComponent(prevItem.no)}`, {
+      state: { status: navStatus },
+    });
+  }, [detailList, no, navigate, navStatus]);
+
+  const handleNext = useCallback(() => {
+    const idx = detailList.findIndex((x) => String(x.no) === String(no));
+    if (idx < 0 || idx >= detailList.length - 1) return;
+
+    const nextItem = detailList[idx + 1];
+    navigate(`/inbound/${encodeURIComponent(nextItem.no)}`, {
+      state: { status: navStatus },
+    });
+  }, [detailList, no, navigate, navStatus]);
+
   // ---------- render ----------
   if (loading) {
     return (
@@ -2698,86 +2794,100 @@ const InboundById = () => {
 
   return (
     <div className="inbound-detail-container">
-      <div className="inbound-detail-header">
+      <div className="inbound-detail-header detail-header-with-nav">
         <h1 className="inbound-detail-title">{inboundItem.no || "GR"}</h1>
+
+        <DetailNavigator
+          currentIndex={currentIndex}
+          total={total}
+          onPrev={handlePrev}
+          onNext={handleNext}
+          disablePrev={currentIndex <= 1}
+          disableNext={currentIndex >= total}
+        />
       </div>
 
-      <div className="inbound-detail-info">
-        <div className="inbound-info-row">
-          <div className="inbound-info-item">
-            <label>Department :</label>
-            <span>{inboundItem.department || "data"}</span>
-          </div>
-          <div className="inbound-info-item">
-            <label>PO No. :</label>
-            <span>{inboundItem.origin || "data"}</span>
-          </div>
-          <div className="inbound-info-item">
-            <label>Scan Location :</label>
-            <input
-              ref={scanLocationInputRef}
-              type="text"
-              className="inbound-scan-input"
-              value={scanLocation}
-              onChange={(e) => setScanLocation(e.target.value)}
-              onKeyDown={handleScanLocationKeyDown}
-              placeholder={
-                isAllDoneReal ? "ดำเนินการเสร็จสิ้นแล้ว" : "Scan Location"
-              }
-              disabled={!isLocationScanOpen || isAllDoneReal}
-              style={{
-                borderColor: confirmedLocation ? "#4CAF50" : undefined,
-                opacity: isLocationScanOpen && !isAllDoneReal ? 1 : 0.6,
-              }}
-            />
+      <div className="inbound-detail-main-layout">
+        <div className="inbound-meta-panel">
+          <div className="inbound-info-row">
+            <div className="inbound-info-item">
+              <label>Department :</label>
+              <span>{inboundItem.department || "data"}</span>
+            </div>
 
-            <button
-              type="button"
-              className={`inboundById-btn-scan-toggle ${isLocationScanOpen ? "active" : ""}`}
-              onClick={toggleLocationScan}
-              disabled={isAllDoneReal}
-              title={
-                isAllDoneReal
-                  ? "ดำเนินการเสร็จสิ้นแล้ว ไม่สามารถสแกนได้"
-                  : undefined
-              }
-            >
-              {isLocationScanOpen ? (
-                <i className="fa-solid fa-xmark"></i>
-              ) : (
-                <i className="fa-solid fa-qrcode"></i>
-              )}
-            </button>
+            <div className="inbound-info-item">
+              <label>PO No. :</label>
+              <span>{inboundItem.origin || "data"}</span>
+            </div>
+          </div>
+
+          <div className="inbound-info-row">
+            <div className="inbound-info-item">
+              <label>INV. Sup:</label>
+              <span>{inboundItem.reference || "data"}</span>
+            </div>
+
+            <div className="inbound-info-item">
+              <label>User :</label>
+              <span>{resolveInboundUserRef() || "User"}</span>
+            </div>
           </div>
         </div>
 
-        <div className="inbound-info-row">
-          <div className="inbound-info-item">
-            <label>INV. Sup:</label>
-            <span>{inboundItem.reference || "data"}</span>
-          </div>
-          <div className="inbound-info-item">
-            <label>User :</label>
-            <span>{resolveInboundUserRef() || "User"}</span>
-          </div>
-          <div className="inbound-info-item">
-            <label>Scan Barcode/Serial :</label>
-            <input
-              ref={scanBarcodeInputRef}
-              type="text"
-              className="inbound-scan-input"
-              onKeyDown={handleScanBarcodeKeyDown}
-              placeholder={
-                isAllDoneReal ? "ดำเนินการเสร็จสิ้นแล้ว" : "Scan Barcode/Serial"
-              }
-              disabled={isAllDoneReal}
-            />
-          </div>
-        </div>
+        {!isAllDoneReal && (
+          <div className="inbound-scan-sticky-wrap">
+            <div className="inbound-scan-panel">
+              <div className="inbound-scan-row">
+                <label>Scan Location :</label>
 
-        <hr className="inbound-detail-divider" />
+                <input
+                  ref={scanLocationInputRef}
+                  type="text"
+                  className="inbound-scan-input"
+                  value={scanLocation}
+                  onChange={(e) => setScanLocation(e.target.value)}
+                  onKeyDown={handleScanLocationKeyDown}
+                  placeholder="Scan Location"
+                  disabled={!isLocationScanOpen}
+                  style={{
+                    borderColor: confirmedLocation ? "#4CAF50" : undefined,
+                    opacity: isLocationScanOpen ? 1 : 0.6,
+                  }}
+                />
 
-        <div className="inbound-info-row">
+                <button
+                  type="button"
+                  className={`inboundById-btn-scan-toggle ${
+                    isLocationScanOpen ? "active" : ""
+                  }`}
+                  onClick={toggleLocationScan}
+                >
+                  {isLocationScanOpen ? (
+                    <i className="fa-solid fa-xmark"></i>
+                  ) : (
+                    <i className="fa-solid fa-qrcode"></i>
+                  )}
+                </button>
+              </div>
+
+              <div className="inbound-scan-row">
+                <label>Scan Barcode/Serial :</label>
+
+                <input
+                  ref={scanBarcodeInputRef}
+                  type="text"
+                  className="inbound-scan-input"
+                  onKeyDown={handleScanBarcodeKeyDown}
+                  placeholder="Scan Barcode/Serial"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="inbound-search-section">
+          <hr className="inbound-detail-divider" />
+
           <div className="inbound-search-bar">
             <div className="inbound-search-left">
               <div
@@ -2793,7 +2903,9 @@ const InboundById = () => {
                   {pendingCount > 0 && (
                     <button
                       type="button"
-                      className={`inbound-tab ${viewMode === "pending" ? "active" : ""}`}
+                      className={`inbound-tab ${
+                        viewMode === "pending" ? "active" : ""
+                      }`}
                       onClick={() => setViewMode("pending")}
                     >
                       ยังไม่ได้ดำเนินการ{" "}
@@ -2804,7 +2916,9 @@ const InboundById = () => {
                   {doneCount > 0 && (
                     <button
                       type="button"
-                      className={`inbound-tab ${viewMode === "done" ? "active" : ""} inbound-tab-done`}
+                      className={`inbound-tab ${
+                        viewMode === "done" ? "active" : ""
+                      } inbound-tab-done`}
                       onClick={() => setViewMode("done")}
                     >
                       ดำเนินการเสร็จสิ้นแล้ว{" "}
@@ -2918,70 +3032,73 @@ const InboundById = () => {
             </div>
           </div>
         </div>
-      </div>
 
-      <div className="table__wrapper">
-        <Table headers={groupTableHeaders as any}>
-          {groupedRows.length === 0 ? (
-            <tr>
-              <td colSpan={groupTableHeaders.length} className="no-data">
-                No items found.
-              </td>
-            </tr>
-          ) : (
-            groupedRows.map((group, index) => {
-              const groupTotalQty = group.items.reduce(
-                (sum, row) => sum + getQtyReceive(row),
-                0,
-              );
-              const groupTotalCount = group.items.reduce(
-                (sum, row) => sum + getEffectiveCount(row),
-                0,
-              );
-              const groupTempMismatch =
-                !!activeLocKey &&
-                group.items.some(
-                  (item) => !isTempAllowedForItemAtLoc(item, activeLocKey),
+        <div className="table__wrapper inbound-table-section">
+          <Table headers={groupTableHeaders as any}>
+            {groupedRows.length === 0 ? (
+              <tr>
+                <td colSpan={groupTableHeaders.length} className="no-data">
+                  No items found.
+                </td>
+              </tr>
+            ) : (
+              groupedRows.map((group, index) => {
+                const groupTotalQty = group.items.reduce(
+                  (sum, row) => sum + getQtyReceive(row),
+                  0,
                 );
+                const groupTotalCount = group.items.reduce(
+                  (sum, row) => sum + getEffectiveCount(row),
+                  0,
+                );
+                const groupTempMismatch =
+                  !!activeLocKey &&
+                  group.items.some(
+                    (item) => !isTempAllowedForItemAtLoc(item, activeLocKey),
+                  );
 
-              return (
-                <tr
-                  key={group.groupKey || index}
-                  className={groupTempMismatch ? "row-temp-mismatch" : ""}
-                >
-                  <td>{index + 1}</td>
-                  <td style={{ minWidth: "200px" }}>
-                    <label className="inbound-group-select-cell">
-                      <input
-                        type="checkbox"
-                        className="inbound-group-checkbox"
-                        checked={selectedGroupKeys.includes(group.groupKey)}
-                        onChange={() => toggleGroupSelection(group.groupKey)}
-                        disabled={isPrintingBarcodes || isGeneratingBarcodes}
-                      />
-                      <span>{group.code || "--"}</span>
-                    </label>
-                  </td>
-                  <td style={{ minWidth: "200px" }}>{group.name || "--"}</td>
-                  <td>{group.unit || "--"}</td>
-                  <td>{group.zone_type || "--"}</td>
-                  <td style={{ fontWeight: 700 }}>{groupTotalQty}</td>
-                  <td style={{ fontWeight: 700 }}>{groupTotalCount}</td>
-                  <td>
-                    <button
-                      type="button"
-                      className="btn-dropdown-toggle"
-                      onClick={() => setOpenGroupKey(group.groupKey)}
-                      title="ดูรายการสินค้าในกลุ่ม"
-                    >
-                      <i className="fa-solid fa-bars"></i>
-                    </button>
-                  </td>
-                </tr>
-              );
-            })
-          )}
-        </Table>
+                return (
+                  <tr
+                    key={group.groupKey || index}
+                    className={groupTempMismatch ? "row-temp-mismatch" : ""}
+                  >
+                    <td>{index + 1}</td>
+
+                    <td style={{ minWidth: "200px" }}>
+                      <label className="inbound-group-select-cell">
+                        <input
+                          type="checkbox"
+                          className="inbound-group-checkbox"
+                          checked={selectedGroupKeys.includes(group.groupKey)}
+                          onChange={() => toggleGroupSelection(group.groupKey)}
+                          disabled={isPrintingBarcodes || isGeneratingBarcodes}
+                        />
+                        <span>{group.code || "--"}</span>
+                      </label>
+                    </td>
+
+                    <td style={{ minWidth: "200px" }}>{group.name || "--"}</td>
+                    <td>{group.unit || "--"}</td>
+                    <td>{group.zone_type || "--"}</td>
+                    <td style={{ fontWeight: 700 }}>{groupTotalQty}</td>
+                    <td style={{ fontWeight: 700 }}>{groupTotalCount}</td>
+
+                    <td>
+                      <button
+                        type="button"
+                        className="btn-dropdown-toggle"
+                        onClick={() => setOpenGroupKey(group.groupKey)}
+                        title="ดูรายการสินค้าในกลุ่ม"
+                      >
+                        <i className="fa-solid fa-bars"></i>
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </Table>
+        </div>
       </div>
 
       <Modal
@@ -3107,23 +3224,31 @@ const InboundById = () => {
                                 localTotal,
                               );
 
-                              // fallback: read directly from goods_in_location_confirms or location_confirms
-                              const rawConfirms: any[] =
-                                Array.isArray((item as any).goods_in_location_confirms)
-                                  ? (item as any).goods_in_location_confirms
-                                  : Array.isArray((item as any).location_confirms)
+                              const rawConfirms: any[] = Array.isArray(
+                                (item as any).goods_in_location_confirms,
+                              )
+                                ? (item as any).goods_in_location_confirms
+                                : Array.isArray((item as any).location_confirms)
                                   ? (item as any).location_confirms
                                   : [];
 
-                              const confirmBreakdown = locBreakdown.length > 0
-                                ? locBreakdown
-                                : rawConfirms
-                                    .filter((c: any) => Number(c?.confirmed_qty ?? 0) > 0)
-                                    .map((c: any) => ({
-                                      loc: String(c?.location?.full_name ?? c?.location_name ?? ""),
-                                      qty: Number(c?.confirmed_qty ?? 0),
-                                    }))
-                                    .filter((x: any) => x.loc);
+                              const confirmBreakdown =
+                                locBreakdown.length > 0
+                                  ? locBreakdown
+                                  : rawConfirms
+                                      .filter(
+                                        (c: any) =>
+                                          Number(c?.confirmed_qty ?? 0) > 0,
+                                      )
+                                      .map((c: any) => ({
+                                        loc: String(
+                                          c?.location?.full_name ??
+                                            c?.location_name ??
+                                            "",
+                                        ),
+                                        qty: Number(c?.confirmed_qty ?? 0),
+                                      }))
+                                      .filter((x: any) => x.loc);
 
                               return (
                                 <>
@@ -3281,11 +3406,14 @@ const InboundById = () => {
         <div style={{ display: "flex", gap: "12px" }}>
           <button
             className="inbound-btn-cancel"
-            onClick={() => window.history.back()}
+            onClick={() =>
+              navigate("/inbound", { state: { status: navStatus } })
+            }
             disabled={isConfirming}
           >
             ย้อนกลับ
           </button>
+
           {!isCompletedStatus && (
             <button
               className="inbound-btn-confirm"

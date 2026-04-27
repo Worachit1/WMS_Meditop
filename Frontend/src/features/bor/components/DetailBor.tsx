@@ -1,5 +1,6 @@
 ﻿import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
+import DetailNavigator from "../../../components/DetailNavigator/DetailNavigator";
 
 import { borApi } from "../services/bor.api";
 import Loading from "../../../components/Loading/Loading";
@@ -37,6 +38,20 @@ const DetailBor = () => {
   const { id } = useParams<{ id: string }>();
   const no = decodeURIComponent(String(id ?? "").trim());
 
+  const location = useLocation();
+
+  const navState = useMemo(() => {
+    return (location.state as any) || {};
+  }, [location.state]);
+
+  const stateDetailList = useMemo(() => {
+    return Array.isArray(navState.detailList) ? navState.detailList : [];
+  }, [navState.detailList]);
+
+  const stateDetailTotal = Number(navState.detailTotal ?? 0);
+
+  const [detailList, setDetailList] = useState<Array<{ no: string }>>([]);
+
   const [bor, setBor] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -70,6 +85,21 @@ const DetailBor = () => {
     };
   }, [no]);
 
+  useEffect(() => {
+    const stateRows = stateDetailList
+      .map((x: any) => ({
+        no: String(x?.no ?? "").trim(),
+      }))
+      .filter((x: { no: string }) => x.no);
+
+    if (stateRows.length > 0) {
+      setDetailList(stateRows);
+      return;
+    }
+
+    setDetailList([]);
+  }, [stateDetailList, stateDetailTotal]);
+
   const items = useMemo(() => pickItems(bor), [bor]);
 
   if (!bor && loading) {
@@ -83,11 +113,59 @@ const DetailBor = () => {
   if (errorMsg)
     return <div className="dt-bor-container dt-bor-error">{errorMsg}</div>;
 
+  const currentIndex =
+    detailList.findIndex((x) => String(x.no) === String(no)) + 1;
+
+  const total = detailList.length;
+
+  const hasNavigator = detailList.length > 0 && currentIndex > 0;
+
+  const handlePrev = () => {
+    const idx = detailList.findIndex((x) => String(x.no) === String(no));
+    if (idx <= 0) return;
+
+    const prevItem = detailList[idx - 1];
+
+    navigate(`/bor/detail/${encodeURIComponent(prevItem.no)}`, {
+      state: {
+        view: "bor",
+        detailList,
+        detailTotal: total,
+      },
+    });
+  };
+
+  const handleNext = () => {
+    const idx = detailList.findIndex((x) => String(x.no) === String(no));
+    if (idx < 0 || idx >= detailList.length - 1) return;
+
+    const nextItem = detailList[idx + 1];
+
+    navigate(`/bor/detail/${encodeURIComponent(nextItem.no)}`, {
+      state: {
+        view: "bor",
+        detailList,
+        detailTotal: total,
+      },
+    });
+  };
+
   return (
     <div className="dt-bor-container">
       {/* ─── Header ─────────────────────────────── */}
-      <div className="dt-bor-header">
+      <div className="dt-bor-header dt-bor-header-with-nav">
         <h1 className="dt-bor-title">SWAP : {safeText(bor?.no ?? no)}</h1>
+
+        {hasNavigator && (
+          <DetailNavigator
+            currentIndex={currentIndex}
+            total={total}
+            onPrev={handlePrev}
+            onNext={handleNext}
+            disablePrev={currentIndex <= 1}
+            disableNext={currentIndex >= total}
+          />
+        )}
       </div>
 
       {/* ─── Info Panel ──────────────────────────── */}
@@ -125,8 +203,13 @@ const DetailBor = () => {
                 <td>{safeText(item?.name ?? item?.product_name)}</td>
                 <td>{safeText(item?.unit)}</td>
                 <td>{safeText(item?.system_qty)}</td>
-                <td className={!item?.lot_serial && !item?.lot ? "dt-bor-null" : ""}>
-                  {safeText(item?.lot_serial ?? "null") || safeText(item?.lot ?? "null")}
+                <td
+                  className={
+                    !item?.lot_serial && !item?.lot ? "dt-bor-null" : ""
+                  }
+                >
+                  {safeText(item?.lot_serial ?? "null") ||
+                    safeText(item?.lot ?? "null")}
                 </td>
                 <td
                   className={
@@ -148,7 +231,7 @@ const DetailBor = () => {
       <div className="dt-bor-footer">
         <button
           className="dt-bor-btn-back"
-          onClick={() => navigate(-1)}
+          onClick={() => navigate("/bor")}
           disabled={loading}
         >
           ย้อนกลับ

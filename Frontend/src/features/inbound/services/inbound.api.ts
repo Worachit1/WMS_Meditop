@@ -8,7 +8,7 @@ import type {
 export const inboundApi = {
   getAll: (params?: any) => http.get("/inbounds/getAll", { params }),
 
-  getAllPaginated: (params: { page: number; limit: number; search?: string }) =>
+  getAllPaginated: (params: { page: number; limit: number; search?: string;  status?: "pending" | "completed"; }) =>
     http.get<ApiInboundResponse>("/inbounds/get", { params }),
 
   getById: (no: string) =>
@@ -73,10 +73,10 @@ export const inboundApi = {
 
 export const BarcodeCountDepartmentApi = {
   getAll: (params?: any) =>
-    http.get("/barcode_count_departments/getAll", { params }),
+    http.get("/barcode-count-departments/getAll", { params }),
   update: (id: string, data: { barcode_count: string }) =>
     http.patch(
-      `/barcode_count_departments/update/${encodeURIComponent(id)}`,
+      `/barcode-count-departments/update/${encodeURIComponent(id)}`,
       data,
     ),
 };

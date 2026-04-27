@@ -1,9 +1,6 @@
 // src/modules/adjustment/AdjustmentContainer.tsx
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type {
-  AdjustmentType,
-  AdjustmentMeta,
-} from "./types/adjustment.type";
+import type { AdjustmentType, AdjustmentMeta } from "./types/adjustment.type";
 import { adjustmentApi } from "./services/adjustment.api";
 import {
   DEFAULT_PAGE_LIMIT,
@@ -38,6 +35,10 @@ const AdjustmentContainer = () => {
     limit: DEFAULT_PAGE_LIMIT,
     total: 0,
     totalPages: 1,
+    statusCounts: {
+      manual: { pending: 0, completed: 0 },
+      auto: { pending: 0, completed: 0 },
+    },
   });
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -53,6 +54,16 @@ const AdjustmentContainer = () => {
     reference: true,
     type: true,
     status: true,
+  });
+
+  const [levelTab, setLevelTab] = useState<"manual" | "auto">("manual");
+  const [statusTab, setStatusTab] = useState<"pending" | "completed">(
+    "pending",
+  );
+
+  const [statusCounts, setStatusCounts] = useState({
+    manual: { pending: 0, completed: 0 },
+    auto: { pending: 0, completed: 0 },
   });
 
   const enabledColumns = useMemo(() => {
@@ -78,6 +89,8 @@ const AdjustmentContainer = () => {
           limit,
           search: search.trim() || undefined,
           columns: columns.length ? columns : undefined,
+          level: levelTab,
+          status: statusTab,
         });
 
         if (myReqId !== reqIdRef.current) return;
@@ -92,6 +105,17 @@ const AdjustmentContainer = () => {
 
         setAdjustments(rows);
         setMeta(nextMeta);
+
+        setStatusCounts({
+          manual: {
+            pending: Number(nextMeta?.statusCounts?.manual?.pending ?? 0),
+            completed: Number(nextMeta?.statusCounts?.manual?.completed ?? 0),
+          },
+          auto: {
+            pending: Number(nextMeta?.statusCounts?.auto?.pending ?? 0),
+            completed: Number(nextMeta?.statusCounts?.auto?.completed ?? 0),
+          },
+        });
       } catch (error) {
         if (myReqId !== reqIdRef.current) return;
         console.error("Error fetching adjustments:", error);
@@ -102,6 +126,10 @@ const AdjustmentContainer = () => {
           limit,
           total: 0,
           totalPages: 1,
+          statusCounts: {
+            manual: { pending: 0, completed: 0 },
+            auto: { pending: 0, completed: 0 },
+          },
         });
       } finally {
         clearTimeout(loadingTimeout);
@@ -118,7 +146,7 @@ const AdjustmentContainer = () => {
         }
       }
     },
-    [],
+    [levelTab, statusTab],
   );
 
   useEffect(() => {
@@ -135,8 +163,21 @@ const AdjustmentContainer = () => {
   }, [itemsPerPage, enabledColumns]);
 
   useEffect(() => {
-    fetchAdjustments(currentPage, itemsPerPage, debouncedSearch, enabledColumns);
-  }, [fetchAdjustments, currentPage, itemsPerPage, debouncedSearch, enabledColumns]);
+    fetchAdjustments(
+      currentPage,
+      itemsPerPage,
+      debouncedSearch,
+      enabledColumns,
+    );
+  }, [
+    fetchAdjustments,
+    currentPage,
+    itemsPerPage,
+    debouncedSearch,
+    enabledColumns,
+    levelTab,
+    statusTab,
+  ]);
 
   const handleItemsPerPageChange = (limit: number) => {
     setItemsPerPage(limit);
@@ -173,8 +214,24 @@ const AdjustmentContainer = () => {
           currentPage={meta.page}
           itemsPerPage={meta.limit}
           onRefresh={() =>
-            fetchAdjustments(currentPage, itemsPerPage, debouncedSearch, enabledColumns)
+            fetchAdjustments(
+              currentPage,
+              itemsPerPage,
+              debouncedSearch,
+              enabledColumns,
+            )
           }
+          levelTab={levelTab}
+          statusTab={statusTab}
+          statusCounts={statusCounts}
+          onChangeLevelTab={(level) => {
+            setLevelTab(level);
+            setCurrentPage(1);
+          }}
+          onChangeStatusTab={(status) => {
+            setStatusTab(status);
+            setCurrentPage(1);
+          }}
         />
 
         <Pegination

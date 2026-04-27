@@ -11,22 +11,31 @@ import Loading from "../../components/Loading/Loading";
 import Pegination from "../../components/Pegination/Pegination";
 import InboundTable from "./components/InboundTable";
 
+type InboundTab = "pending" | "completed";
+
 const InboundContainer = () => {
   const [inbound, setInbound] = useState<InboundType[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [currentPage, setCurrentPage] = useState(1);
 
-  //filter and search state
+  const [activeTab, setActiveTab] = useState<InboundTab>("pending");
+
+  // filter and search state
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [itemsPerPage, setItemsPerPage] = useState(DEFAULT_PAGE_LIMIT);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
 
+  const [statusCounts, setStatusCounts] = useState({
+    pending: 0,
+    completed: 0,
+  });
+
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [searchableColumns, setSearchableColumns] = useState({
     no: true,
-    invoice : true,
+    invoice: true,
     date: true,
     department: true,
     code: true,
@@ -41,6 +50,7 @@ const InboundContainer = () => {
       search: string,
       limit: number,
       _columns: typeof searchableColumns,
+      status: InboundTab,
     ) => {
       const startTime = Date.now();
       const loadingTimeout = setTimeout(() => {
@@ -51,13 +61,19 @@ const InboundContainer = () => {
         const response = await inboundApi.getAllPaginated({
           page,
           limit,
-          search: search.trim() || undefined, // ✅ ส่งไป backend
+          search: search.trim() || undefined,
+          status,
         });
 
         const { data = [], meta } = response.data;
-        setInbound(data);
-        setTotalPages(meta.totalPages);
-        setTotalItems(meta.total);
+
+        setInbound(Array.isArray(data) ? data : []);
+        setTotalPages(Number(meta?.totalPages ?? 1));
+        setTotalItems(Number(meta?.total ?? 0));
+        setStatusCounts({
+          pending: Number(meta?.statusCounts?.pending ?? 0),
+          completed: Number(meta?.statusCounts?.completed ?? 0),
+        });
       } catch (error) {
         console.error("Error fetching inbound:", error);
       } finally {
@@ -74,16 +90,22 @@ const InboundContainer = () => {
   );
 
   useEffect(() => {
-    fetchInbound(currentPage, debouncedSearch, itemsPerPage, searchableColumns);
+    fetchInbound(
+      currentPage,
+      debouncedSearch,
+      itemsPerPage,
+      searchableColumns,
+      activeTab,
+    );
   }, [
     fetchInbound,
     currentPage,
     debouncedSearch,
     itemsPerPage,
     searchableColumns,
+    activeTab,
   ]);
 
-  // Debounce search query
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(searchQuery);
@@ -98,15 +120,25 @@ const InboundContainer = () => {
     setCurrentPage(1);
   };
 
+  const handleTabChange = (tab: InboundTab) => {
+    setActiveTab(tab);
+    setCurrentPage(1);
+  };
+
   return (
     <div className="location-page-container">
       <div>
         <InboundTable
           inbound={inbound}
+          activeTab={activeTab}
+          onTabChange={handleTabChange}
+          statusCounts={statusCounts}
           searchQuery={searchQuery}
           onSearchChange={(e) => setSearchQuery(e.target.value)}
           onClearSearch={() => setSearchQuery("")}
           showFilterDropdown={showFilterDropdown}
+          currentPage={currentPage}
+          itemsPerPage={itemsPerPage}
           onToggleFilter={() => setShowFilterDropdown((prev) => !prev)}
           searchableColumns={searchableColumns}
           onClearAllColumns={() =>

@@ -1,5 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import {
+  useNavigate,
+  useParams,
+  useSearchParams,
+  useLocation,
+} from "react-router-dom";
+import DetailNavigator from "../../../../components/DetailNavigator/DetailNavigator";
 import type { AdjustmentType } from "../../types/adjustment.type";
 import { adjustmentApi } from "../../services/adjustment.api";
 import Loading from "../../../../components/Loading/Loading";
@@ -40,6 +46,20 @@ function pickItems(adj: any): RowItem[] {
   return Array.isArray(v) ? v : [];
 }
 
+const detectSrc = (adj: any): "outbound" | "adjust" => {
+  if (adj?.is_system_generated === true) return "outbound";
+  if (adj?.is_system_generated === false) return "adjust";
+
+  const source = String(adj?.source ?? "").toLowerCase();
+  if (source === "outbound" || source === "adjust") return source;
+
+  if (Object.prototype.hasOwnProperty.call(adj ?? {}, "out_type")) {
+    return "outbound";
+  }
+
+  return "adjust";
+};
+
 const DetailAdjust: React.FC = () => {
   const navigate = useNavigate();
   const params = useParams();
@@ -56,6 +76,25 @@ const DetailAdjust: React.FC = () => {
   const [pinValue, setPinValue] = useState("");
   const [pinErr, setPinErr] = useState("");
   const [deletingItem, setDeletingItem] = useState<RowItem | null>(null);
+
+  const location = useLocation();
+  const navState = useMemo(() => {
+    return (location.state as any) || {};
+  }, [location.state]);
+
+  const stateDetailList = useMemo(() => {
+    return Array.isArray(navState.detailList) ? navState.detailList : [];
+  }, [navState.detailList]);
+
+  const navGroup = navState.navGroup;
+  const navLevel = navState.level as "manual" | "auto" | undefined;
+  const navStatus = navState.status as "pending" | "completed" | undefined;
+
+  const stateDetailTotal = Number(navState.detailTotal ?? 0);
+
+  const [detailList, setDetailList] = useState<
+    Array<{ id: number; src: string }>
+  >([]);
 
   const userLabel =
     safeText((adj as any)?.user_ref) !== "-"
@@ -191,6 +230,60 @@ const DetailAdjust: React.FC = () => {
     };
   }, [id, src]);
 
+  useEffect(() => {
+    const rows = stateDetailList
+      .map((x: any) => ({
+        id: Number(x.id),
+        src: String(x.src ?? "adjust"),
+      }))
+      .filter((x: any) => x.id > 0);
+
+    if (rows.length > 0 && rows.length >= stateDetailTotal) {
+      setDetailList(rows);
+      return;
+    }
+
+    // fallback ถ้ากด refresh หรือ state มาไม่ครบ
+    const fetchAll = async () => {
+      try {
+        const limit = 100;
+        let page = 1;
+        let totalPages = 1;
+        const allRows: any[] = [];
+
+        do {
+          const resp = await adjustmentApi.getAllPaginated({
+            page,
+            limit,
+            level: navLevel,
+            status: navStatus,
+          } as any);
+
+          const data = Array.isArray(resp?.data?.data) ? resp.data.data : [];
+          const meta = resp?.data?.meta ?? {};
+
+          allRows.push(...data);
+          totalPages = Number(meta?.totalPages ?? 1);
+          page += 1;
+        } while (page <= totalPages);
+
+        setDetailList(
+          allRows
+            .map((x: any) => ({
+              id: Number(x.id),
+              src: detectSrc(x),
+            }))
+            .filter((x: any) => x.id > 0),
+        );
+      } catch (err) {
+        console.error("fetch adjustment nav list error:", err);
+        setDetailList(rows);
+      }
+    };
+
+    fetchAll();
+  }, [navGroup, navLevel, navStatus, stateDetailTotal]);
+
   const items = useMemo(() => pickItems(adj), [adj]);
 
   // ✅ fallback location จาก header (เพราะ outbound item ไม่มี location/dest ใน item)
@@ -201,12 +294,68 @@ const DetailAdjust: React.FC = () => {
     String((adj as any)?.status ?? "") === "completed" ||
     Boolean((adj as any)?.in_process) === true;
 
+  const currentIndex =
+    detailList.findIndex((x) => Number(x.id) === Number(id)) + 1;
+
+  const total = detailList.length;
+
+  const hasNavigator = detailList.length > 0 && currentIndex > 0;
+
+  const handlePrev = () => {
+    const idx = detailList.findIndex((x) => Number(x.id) === Number(id));
+    if (idx <= 0) return;
+
+    const prev = detailList[idx - 1];
+
+    navigate(`/adjustment/${prev.id}?src=${prev.src}`, {
+      state: {
+        navGroup,
+        level: navLevel,
+        status: navStatus,
+        detailList,
+        detailTotal: total,
+      },
+    });
+  };
+
+  const handleNext = () => {
+    const idx = detailList.findIndex((x) => Number(x.id) === Number(id));
+    if (idx < 0 || idx >= detailList.length - 1) return;
+
+    const next = detailList[idx + 1];
+
+    navigate(`/adjustment/${next.id}?src=${next.src}`, {
+      state: {
+        navGroup,
+        level: navLevel,
+        status: navStatus,
+        detailList,
+        detailTotal: total,
+      },
+    });
+  };
+
   return (
     <div className="adj-dt-page">
       <div className="adj-dt-card">
-        <div className="adj-dt-title">
-          <span>Adjust No:</span>
-          <span className="adj-dt-title-no">{safeText((adj as any)?.no)}</span>
+        <div className="adj-dt-title adj-dt-title-with-nav">
+          <div>
+            <span>Adjust No:</span>
+            <span className="adj-dt-title-no">
+              {safeText((adj as any)?.no)}
+            </span>
+          </div>
+
+          {hasNavigator && (
+            <DetailNavigator
+              currentIndex={currentIndex}
+              total={total}
+              onPrev={handlePrev}
+              onNext={handleNext}
+              disablePrev={currentIndex <= 1}
+              disableNext={currentIndex >= total}
+            />
+          )}
         </div>
 
         <div className="adj-dt-meta">
@@ -323,7 +472,11 @@ const DetailAdjust: React.FC = () => {
 
                   // ✅ outbound item ไม่มี exp ในตัวอย่าง -> แสดง "-"
                   const exp =
-                    it?.expire_date ?? it?.exp_date ?? it?.expiration ?? null;
+                    it?.expire_date ??
+                    it?.exp_date ??
+                    it?.expiration ??
+                    it?.exp ??
+                    null;
 
                   return (
                     <tr key={it?.id ? String(it.id) : `row-${idx}`}>
@@ -359,7 +512,7 @@ const DetailAdjust: React.FC = () => {
         <button
           type="button"
           className="adj-dt-back-btn"
-          onClick={() => navigate(-1)}
+          onClick={() => navigate("/adjustment")}
         >
           ย้อนกลับ
         </button>

@@ -5,7 +5,8 @@ import React, {
   useCallback,
   useMemo,
 } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
+import DetailNavigator from "../../../../components/DetailNavigator/DetailNavigator";
 import { createPortal } from "react-dom";
 import Swal from "sweetalert2";
 
@@ -34,6 +35,7 @@ import "./grouporder.css";
 import { toast } from "react-toastify";
 
 import { socket } from "../../../../services/socket";
+import Loading from "../../../../components/Loading/Loading";
 
 type MenuPos = { top: number; left: number };
 type ViewMode = "pending" | "done";
@@ -205,6 +207,8 @@ const getBackendPickFromLines = (it: BatchItem) => {
 const GroupOrder = () => {
   const navigate = useNavigate();
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const locationInputRef = useRef<HTMLInputElement>(null);
   const itemInputRef = useRef<HTMLInputElement>(null);
 
@@ -215,6 +219,12 @@ const GroupOrder = () => {
   const [batchItems, setBatchItems] = useState<BatchItem[]>([]);
   const [batchTitle, setBatchTitle] = useState<string>("-");
   const [batchRemark, setBatchRemark] = useState<string>("");
+
+  const location = useLocation();
+
+  const [detailList, setDetailList] = useState<Array<{ batch_name: string }>>(
+    [],
+  );
 
   const [scanLocation, setScanLocation] = useState("");
   const [confirmedLocation, setConfirmedLocation] =
@@ -247,6 +257,17 @@ const GroupOrder = () => {
   const [lockPickMap, setLockPickMap] = useState<Record<string, number[]>>({});
   const [isLocationScanActive, setIsLocationScanActive] = useState(false);
 
+  const [isInvoicePanelCollapsed, setIsInvoicePanelCollapsed] = useState(() => {
+    return localStorage.getItem("grouporder_invoice_panel_collapsed") === "1";
+  });
+
+  useEffect(() => {
+    localStorage.setItem(
+      "grouporder_invoice_panel_collapsed",
+      isInvoicePanelCollapsed ? "1" : "0",
+    );
+  }, [isInvoicePanelCollapsed]);
+
   const [searchParams] = useSearchParams();
   const batchNameFromUrl = (
     searchParams.get("batchName") ||
@@ -254,6 +275,9 @@ const GroupOrder = () => {
     ""
   ).trim();
   const isReadOnly = searchParams.get("readonly") === "1";
+
+  const navView =
+    (location.state as any)?.view || searchParams.get("view") || "picking";
 
   const currentBatchKey = useMemo(() => {
     const raw = (
@@ -740,6 +764,44 @@ const GroupOrder = () => {
   }, [loadRecentOutbounds]);
 
   useEffect(() => {
+    const fetchDetailList = async () => {
+      try {
+        const resp: any = await batchApi.getBatchByUserPick?.({
+          page: 1,
+          limit: 5000,
+        });
+
+        const rows = Array.isArray(resp?.data?.data)
+          ? resp.data.data
+          : Array.isArray(resp?.data)
+            ? resp.data
+            : [];
+
+        const mapped = rows
+          .map((x: any) => ({
+            batch_name: String(x?.name ?? x?.batch_name ?? "").trim(),
+            status: String(x?.status ?? "").trim(),
+          }))
+          .filter((x: any) => x.batch_name)
+          .filter((x: any) => {
+            if (isReadOnly) {
+              return x.status === "completed";
+            }
+            return x.status !== "completed";
+          })
+          .map((x: any) => ({ batch_name: x.batch_name }));
+
+        setDetailList(mapped);
+      } catch (error) {
+        console.error("Error fetching group order detail list:", error);
+        setDetailList([]);
+      }
+    };
+
+    fetchDetailList();
+  }, [isReadOnly]);
+
+  useEffect(() => {
     if (!currentBatchKey) return;
     if (confirmedLocation?.full_name) return;
 
@@ -1178,60 +1240,60 @@ const GroupOrder = () => {
       .filter((x) => x.goods_out_item_id > 0);
   };
 
-  const distributePickAcrossLines = (
-    item: BatchItem,
-    totalPick: number,
-  ): Array<{ goods_out_item_id: number; pick: number }> => {
-    let remaining = Math.max(0, Math.floor(Number(totalPick ?? 0)));
-    if (remaining <= 0) return [];
+  // const distributePickAcrossLines = (
+  //   item: BatchItem,
+  //   totalPick: number,
+  // ): Array<{ goods_out_item_id: number; pick: number }> => {
+  //   let remaining = Math.max(0, Math.floor(Number(totalPick ?? 0)));
+  //   if (remaining <= 0) return [];
 
-    const lines = getRowLineDetails(item);
-    if (lines.length === 0) return [];
+  //   const lines = getRowLineDetails(item);
+  //   if (lines.length === 0) return [];
 
-    const result: Array<{ goods_out_item_id: number; pick: number }> = [];
+  //   const result: Array<{ goods_out_item_id: number; pick: number }> = [];
 
-    for (const line of lines) {
-      if (remaining <= 0) break;
+  //   for (const line of lines) {
+  //     if (remaining <= 0) break;
 
-      const lineQty = Math.max(0, Math.floor(Number(line.qty ?? 0)));
-      const linePick = Math.max(0, Math.floor(Number(line.pick ?? 0)));
-      const lineRemaining = Math.max(0, lineQty - linePick);
+  //     const lineQty = Math.max(0, Math.floor(Number(line.qty ?? 0)));
+  //     const linePick = Math.max(0, Math.floor(Number(line.pick ?? 0)));
+  //     const lineRemaining = Math.max(0, lineQty - linePick);
 
-      if (lineRemaining <= 0) continue;
+  //     if (lineRemaining <= 0) continue;
 
-      const applied = Math.min(remaining, lineRemaining);
-      if (applied > 0) {
-        result.push({
-          goods_out_item_id: line.goods_out_item_id,
-          pick: applied,
-        });
-        remaining -= applied;
-      }
-    }
+  //     const applied = Math.min(remaining, lineRemaining);
+  //     if (applied > 0) {
+  //       result.push({
+  //         goods_out_item_id: line.goods_out_item_id,
+  //         pick: applied,
+  //       });
+  //       remaining -= applied;
+  //     }
+  //   }
 
-    return result;
-  };
+  //   return result;
+  // };
 
-  const getLocationPickMapFromLockPick = (
-    item: BatchItem,
-    rowId: string,
-  ): Record<string, number> => {
-    const result: Record<string, number> = {};
-    const locks = toLockList((item as any).lock_no);
-    const picks = lockPickMap[rowId] ?? [];
+  // const getLocationPickMapFromLockPick = (
+  //   item: BatchItem,
+  //   rowId: string,
+  // ): Record<string, number> => {
+  //   const result: Record<string, number> = {};
+  //   const locks = toLockList((item as any).lock_no);
+  //   const picks = lockPickMap[rowId] ?? [];
 
-    locks.forEach((lockName, idx) => {
-      const qty = Math.max(0, Math.floor(Number(picks[idx] ?? 0)));
-      if (qty <= 0) return;
+  //   locks.forEach((lockName, idx) => {
+  //     const qty = Math.max(0, Math.floor(Number(picks[idx] ?? 0)));
+  //     if (qty <= 0) return;
 
-      const locName = normalizeLockNo(String(lockName ?? "").trim());
-      if (!locName) return;
+  //     const locName = normalizeLockNo(String(lockName ?? "").trim());
+  //     if (!locName) return;
 
-      result[locName] = (result[locName] ?? 0) + qty;
-    });
+  //     result[locName] = (result[locName] ?? 0) + qty;
+  //   });
 
-    return result;
-  };
+  //   return result;
+  // };
 
   const buildLineToRowIdMap = (items: BatchItem[]) => {
     const m = new Map<string, string>();
@@ -1916,7 +1978,30 @@ const GroupOrder = () => {
       }
 
       if (matchResult.ok) {
+        if (isScannedItemLockMismatch(matchResult.item)) {
+          await toast.error(
+            "สินค้าที่สแกนมี Lock ที่ไม่ตรงกับ Location นี้ อาจทำให้สแกนไม่สำเร็จ",
+          );
+
+          setItemBarcodeInput("");
+          setTimeout(() => itemInputRef.current?.focus(), 120);
+          return;
+        }
+
         const requestedQty = Math.max(1, Math.floor(Number(qtyInput ?? 1)));
+
+        const remainingAtScannedLocation = getScannedLocationRemainingQty(
+          matchResult.item,
+        );
+
+        if (requestedQty > remainingAtScannedLocation) {
+          toast.error(
+            `สินค้าใน ${confirmedLocation?.full_name ?? "Location นี้"} มีไม่พอ (เหลือ ${remainingAtScannedLocation})`,
+          );
+          setItemBarcodeInput("");
+          setTimeout(() => itemInputRef.current?.focus(), 120);
+          return;
+        }
 
         const split = distributeQtyAcrossOutboundLines(
           matchResult.item,
@@ -1984,6 +2069,96 @@ const GroupOrder = () => {
     const qty = Number(it.quantity ?? 0);
     return pick > 0 && pick < qty;
   };
+
+  const isScannedItemLockMismatch = useCallback(
+    (item: BatchItem) => {
+      const scannedLoc = normalizeLocName(
+        normalizeLockNo(confirmedLocation?.full_name ?? ""),
+      );
+      if (!scannedLoc) return false;
+
+      const locks = toLockList((item as any).lock_no)
+        .map((x) => normalizeLocName(normalizeLockNo(x)))
+        .filter(Boolean);
+
+      // ไม่มี lock ไม่ต้องบล็อกที่ FE
+      if (locks.length === 0) return false;
+
+      return !locks.includes(scannedLoc);
+    },
+    [confirmedLocation],
+  );
+
+  const getScannedLocationRemainingQty = useCallback(
+    (item: BatchItem) => {
+      const scannedLoc = normalizeLocName(
+        normalizeLockNo(confirmedLocation?.full_name ?? ""),
+      );
+      if (!scannedLoc) return 0;
+
+      const lockLocations = Array.isArray((item as any)?.lock_locations)
+        ? ((item as any).lock_locations as Array<{
+            location_name?: string;
+            qty?: number;
+          }>)
+        : [];
+
+      const matchedLockLoc = lockLocations.find(
+        (x) => normalizeLocName(x.location_name) === scannedLoc,
+      );
+
+      if (!matchedLockLoc) return 0;
+
+      const totalAtLocation = Math.max(
+        0,
+        Math.floor(Number(matchedLockLoc.qty ?? 0)),
+      );
+
+      const rowId = getRowId(item);
+      const locks = toLockList((item as any).lock_no);
+
+      let pickedAtLocation = 0;
+
+      if (locks.length > 1) {
+        const pickArr = lockPickMap[rowId] ?? buildBackendLockPickArray(item);
+        const lockIdx = locks.findIndex(
+          (lockName) =>
+            normalizeLocName(normalizeLockNo(lockName)) === scannedLoc,
+        );
+
+        pickedAtLocation =
+          lockIdx >= 0
+            ? Math.max(0, Math.floor(Number(pickArr[lockIdx] ?? 0)))
+            : 0;
+      } else {
+        const backendLocPick = getBackendLocationPicks(item).find(
+          (x) => normalizeLocName(x.location_name) === scannedLoc,
+        );
+
+        if (backendLocPick) {
+          pickedAtLocation = Math.max(
+            0,
+            Math.floor(Number(backendLocPick.qty_pick ?? 0)),
+          );
+        } else {
+          pickedAtLocation = Math.max(
+            0,
+            Math.floor(Number(getEffectivePick(item) ?? 0)),
+          );
+        }
+      }
+
+      return Math.max(0, totalAtLocation - pickedAtLocation);
+    },
+    [
+      confirmedLocation,
+      getRowId,
+      lockPickMap,
+      buildBackendLockPickArray,
+      getBackendLocationPicks,
+      getEffectivePick,
+    ],
+  );
 
   const isLockMismatchRow = (it: BatchItem) => {
     const scannedLoc = normalizeLocName(
@@ -2127,15 +2302,6 @@ const GroupOrder = () => {
   }, [invoiceList]);
 
   const handleSubmit = async () => {
-    if (!confirmedLocation?.full_name) {
-      Swal.fire({
-        icon: "warning",
-        title: "กรุณาสแกน Location ก่อน",
-        text: "ต้อง Scan Location ให้ผ่านก่อนถึงจะยืนยันได้",
-      });
-      return;
-    }
-
     if (batchItems.length === 0) {
       Swal.fire({
         icon: "warning",
@@ -2145,43 +2311,11 @@ const GroupOrder = () => {
       return;
     }
 
-    const invalid = batchItems.find((i) => {
-      const qty = Number(i.quantity ?? 0);
-      const rowId = getRowId(i);
-
-      const pickSingle = getTotalPick(rowId);
-      const pickMulti = getLockPickTotal(rowId);
-      const pick = Math.max(pickSingle, pickMulti);
-
-      if (!i.outbound_no) return true;
-      if (!i.invoice_item_id && !(i as any).goods_out_id) return true;
-      if (pick < 0) return true;
-      if (pick > qty) return true;
-      return false;
-    });
-
-    if (invalid) {
-      Swal.fire({
-        icon: "error",
-        title: "ข้อมูลไม่ถูกต้อง",
-        text: "พบรายการที่ pick เกิน qty หรือไม่มี outbound_no / id",
-      });
-      return;
-    }
-
-    const hasAnyPickInPickByLoc = Object.values(pickByLoc || {}).some((m) =>
-      Object.values(m || {}).some((v) => Number(v) > 0),
-    );
-
-    const hasAnyPickInLockMap = Object.values(lockPickMap || {}).some((arr) =>
-      (arr || []).some((v) => Number(v) > 0),
-    );
-
     const hasAnyBackendPick = batchItems.some(
       (it) => getBackendPickFromLines(it) > 0,
     );
 
-    if (!hasAnyPickInPickByLoc && !hasAnyPickInLockMap && !hasAnyBackendPick) {
+    if (!hasAnyBackendPick) {
       Swal.fire({
         icon: "warning",
         title: "ยังไม่มี pick",
@@ -2194,6 +2328,8 @@ const GroupOrder = () => {
     if (!result.isConfirmed) return;
 
     try {
+      setIsSubmitting(true);
+
       const user_ref = getUserRef();
       if (!user_ref) {
         warningAlert(
@@ -2228,97 +2364,30 @@ const GroupOrder = () => {
       for (const [outboundNo, items] of byOutbound.entries()) {
         const locationLineMap = new Map<
           string,
-          Array<{ goods_out_item_id: number; pick: number }>
+          Array<{ goods_out_item_id: number }>
         >();
 
         for (const item of items) {
-          const rowId = getRowId(item);
+          const backendLocPicks = getBackendLocationPicks(item);
+          const lineDetails = getRowLineDetails(item).filter(
+            (d) => d.outbound_no === outboundNo,
+          );
 
-          for (const [locFullName, rowPickMap] of Object.entries(
-            pickByLoc || {},
-          )) {
-            const locName = String(locFullName ?? "").trim();
-            if (!locName) continue;
-
-            const rowPick = Math.max(
-              0,
-              Math.floor(Number(rowPickMap?.[rowId] ?? 0)),
-            );
-            if (rowPick <= 0) continue;
-
-            const distributed = distributePickAcrossLines(item, rowPick).filter(
-              (x) =>
-                getRowLineDetails(item).some(
-                  (d) =>
-                    d.goods_out_item_id === x.goods_out_item_id &&
-                    d.outbound_no === outboundNo,
-                ),
-            );
-            if (distributed.length === 0) continue;
+          for (const locPick of backendLocPicks) {
+            const locName = String(locPick.location_name ?? "").trim();
+            if (!locName || Number(locPick.qty_pick ?? 0) <= 0) continue;
 
             const prev = locationLineMap.get(locName) ?? [];
-            prev.push(...distributed);
-            locationLineMap.set(locName, prev);
-          }
 
-          const lockLocMap = getLocationPickMapFromLockPick(item, rowId);
+            for (const line of lineDetails) {
+              if (Number(line.pick ?? 0) <= 0) continue;
 
-          for (const [locName, rowPick] of Object.entries(lockLocMap)) {
-            const qty = Math.max(0, Math.floor(Number(rowPick ?? 0)));
-            if (qty <= 0) continue;
-
-            const distributed = distributePickAcrossLines(item, rowPick).filter(
-              (x) =>
-                getRowLineDetails(item).some(
-                  (d) =>
-                    d.goods_out_item_id === x.goods_out_item_id &&
-                    d.outbound_no === outboundNo,
-                ),
-            );
-
-            if (distributed.length === 0) continue;
-
-            const prev = locationLineMap.get(locName) ?? [];
-            prev.push(...distributed);
-            locationLineMap.set(locName, prev);
-          }
-
-          const hasLocalPickForItem =
-            Object.values(pickByLoc || {}).some(
-              (m) => Number(m?.[rowId] ?? 0) > 0,
-            ) || (lockPickMap[rowId] || []).some((v) => Number(v ?? 0) > 0);
-
-          if (!hasLocalPickForItem) {
-            const backendLocPicks = getBackendLocationPicks(item);
-            const lineDetails = getRowLineDetails(item).filter(
-              (d) => d.outbound_no === outboundNo,
-            );
-
-            for (const locPick of backendLocPicks) {
-              const locName = locPick.location_name.trim();
-              if (!locName || locPick.qty_pick <= 0) continue;
-
-              let remaining = locPick.qty_pick;
-              const distributed: { goods_out_item_id: number; pick: number }[] =
-                [];
-              for (const line of lineDetails) {
-                if (remaining <= 0) break;
-                const lineQty = Math.max(0, Math.floor(Number(line.qty ?? 0)));
-                const applied = Math.min(remaining, lineQty);
-                if (applied > 0) {
-                  distributed.push({
-                    goods_out_item_id: line.goods_out_item_id,
-                    pick: applied,
-                  });
-                  remaining -= applied;
-                }
-              }
-
-              if (distributed.length === 0) continue;
-              const prev = locationLineMap.get(locName) ?? [];
-              prev.push(...distributed);
-              locationLineMap.set(locName, prev);
+              prev.push({
+                goods_out_item_id: line.goods_out_item_id,
+              });
             }
+
+            locationLineMap.set(locName, prev);
           }
         }
 
@@ -2328,22 +2397,18 @@ const GroupOrder = () => {
 
             for (const line of rawLines) {
               const itemId = Number(line.goods_out_item_id);
-              if (!itemId) continue;
-              mergedItemIds.add(itemId);
+              if (itemId) mergedItemIds.add(itemId);
             }
-
-            const lines = Array.from(mergedItemIds).map(
-              (goods_out_item_id) => ({
-                goods_out_item_id: String(goods_out_item_id),
-              }),
-            );
 
             return {
               location_full_name,
-              lines,
+              lines: Array.from(mergedItemIds).map((goods_out_item_id) => ({
+                goods_out_item_id: String(goods_out_item_id),
+              })),
             };
           })
           .filter((x) => x.lines.length > 0);
+
         if (locationsPayload.length === 0) continue;
 
         await goodsoutApi.confirmToStockMulti(outboundNo, {
@@ -2353,6 +2418,7 @@ const GroupOrder = () => {
       }
 
       await successAlert("ยืนยันการ Pick สำเร็จ");
+
       persistConfirmedLocation(currentBatchKey, null);
 
       const allFullyPicked = batchItems.every((it) => {
@@ -2378,147 +2444,149 @@ const GroupOrder = () => {
       navigate("/outbound");
     } catch (error: any) {
       toast.error(error?.message || "ไม่สามารถยืนยันการ Pick ได้");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  // JSX เดิมคงไว้ตามไฟล์เดิม
+  const currentNavKey = (currentBatchKey || batchNameFromUrl || "").trim();
+
+  const currentIndex =
+    detailList.findIndex((x) => x.batch_name === currentNavKey) + 1;
+
+  const total = detailList.length;
+
+  const handlePrev = useCallback(() => {
+    const idx = detailList.findIndex((x) => x.batch_name === currentNavKey);
+    if (idx <= 0) return;
+
+    const prevItem = detailList[idx - 1];
+
+    navigate(
+      `/group-order?batchName=${encodeURIComponent(prevItem.batch_name)}${
+        isReadOnly ? "&readonly=1" : ""
+      }`,
+      {
+        state: { view: navView },
+      },
+    );
+  }, [detailList, currentNavKey, navigate, isReadOnly, navView]);
+
+  const handleNext = useCallback(() => {
+    const idx = detailList.findIndex((x) => x.batch_name === currentNavKey);
+    if (idx < 0 || idx >= detailList.length - 1) return;
+
+    const nextItem = detailList[idx + 1];
+
+    navigate(
+      `/group-order?batchName=${encodeURIComponent(nextItem.batch_name)}${
+        isReadOnly ? "&readonly=1" : ""
+      }`,
+      {
+        state: { view: navView },
+      },
+    );
+  }, [detailList, currentNavKey, navigate, isReadOnly, navView]);
 
   return (
     <div className="group-order-container">
+      {isSubmitting && <Loading />}
       <div className="groupOrder-topbar">
-        <div className="groupOrder-topbar-left">
-          <div className="groupOrder-title">
-            Picking Task : <span className="batch-name">{batchTitle}</span>
-          </div>
+        <div className="detail-nav-wrap">
+          <DetailNavigator
+            currentIndex={currentIndex}
+            total={total}
+            onPrev={handlePrev}
+            onNext={handleNext}
+            disablePrev={currentIndex <= 1}
+            disableNext={currentIndex >= total}
+          />
+        </div>
 
-          <div className="order-meta">
-            <div className="meta-item">
-              <span className="meta-label">Date :</span>
-              <span className="meta-value">
-                {new Date().toLocaleString("th-TH")}
-              </span>
+        <div className="groupOrder-title-row">
+          <div className="groupOrder-topbar-left">
+            <div className="groupOrder-title">
+              Picking Task : <span className="batch-name">{batchTitle}</span>
             </div>
-            <div className="meta-item">
-              <span className="meta-label">User :</span>
-              <span className="meta-value">{getUserRef() || "-"}</span>
+
+            <div className="order-meta">
+              <div className="meta-item">
+                <span className="meta-label">Date :</span>
+                <span className="meta-value">
+                  {new Date().toLocaleString("th-TH")}
+                </span>
+              </div>
+              <div className="meta-item">
+                <span className="meta-label">User :</span>
+                <span className="meta-value">{getUserRef() || "-"}</span>
+              </div>
             </div>
           </div>
         </div>
-
-        {!isReadOnly && (
-          <div className="groupOrder-topbar-right">
-            <div className="scan-panel">
-              <div className="scan-row">
-                <div className="scan-label">Scan Location :</div>
-
-                <input
-                  ref={locationInputRef}
-                  type="text"
-                  className={`scan-input ${confirmedLocation ? "ok" : ""}`}
-                  value={scanLocation}
-                  onChange={(e) => setScanLocation(e.target.value)}
-                  onKeyDown={handleScanLocationKeyDown}
-                  placeholder="Scan Location"
-                  disabled={!isLocationScanActive}
-                />
-
-                <button
-                  type="button"
-                  className={`groupOrder-scan-button ${
-                    isLocationScanActive ? "active" : ""
-                  }`}
-                  title={
-                    isLocationScanActive
-                      ? "รีเซ็ต Location"
-                      : "เปิดสแกน Location"
-                  }
-                  onClick={toggleLocationFocus}
-                >
-                  {isLocationScanActive ? (
-                    <i className="fa-solid fa-xmark"></i>
-                  ) : (
-                    <i className="fa-solid fa-qrcode"></i>
-                  )}
-                </button>
-              </div>
-
-              <div className="scan-row">
-                <div className="scan-label">
-                  {isReturnMode
-                    ? "Scan Return Barcode/Serial :"
-                    : "Scan Barcode/Serial :"}
-                </div>
-
-                <form
-                  onSubmit={handleItemBarcodeSubmit}
-                  className="scan-form"
-                  style={{ flex: 1 }}
-                >
-                  <input
-                    ref={itemInputRef}
-                    type="text"
-                    className="scan-input"
-                    value={itemBarcodeInput}
-                    onChange={(e) => setItemBarcodeInput(e.target.value)}
-                    placeholder={
-                      isReturnMode
-                        ? "Scan Barcode/Serial เพื่อคืน Pick"
-                        : "Scan Barcode/Serial"
-                    }
-                    disabled={!confirmedLocation}
-                  />
-                </form>
-              </div>
-
-              <div
-                className={`scan-hint ${confirmedLocation ? "ok" : ""} ${
-                  selectedReturnTarget ? "return-mode" : ""
-                }`}
-              >
-                {confirmedLocation
-                  ? `${
-                      selectedReturnTarget
-                        ? `↩️ RETURN: ${selectedReturnTarget.outbound_no}`
-                        : "✅ PICK MODE"
-                    } : ${confirmedLocation.full_name}`
-                  : ""}
-
-                {selectedReturnTarget && (
-                  <button
-                    type="button"
-                    className="groupOrder-btn-cancel-return"
-                    onClick={() => setSelectedReturnTarget(null)}
-                  >
-                    ยกเลิก Return
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
-      <div className="content-container">
-        <div className="invoice-list-panel">
-          <div className="invoice-list-search-wrapper">
-            <i className="fa-solid fa-magnifying-glass groupOrder-search-icon"></i>
-            <input
-              type="text"
-              className="groupOrder-search-input"
-              value={invoiceSearch}
-              onChange={(e) => setInvoiceSearch(e.target.value)}
-              placeholder="Search Doc No. / Invoice / Origin"
-            />
-          </div>
+      <div
+        className={`content-container ${
+          isInvoicePanelCollapsed ? "inv-collapsed" : ""
+        }`}
+      >
+        <div
+          className={`invoice-list-panel ${
+            isInvoicePanelCollapsed ? "collapsed" : ""
+          }`}
+        >
+          <button
+            type="button"
+            className="inv-toggle-btn"
+            onClick={() => setIsInvoicePanelCollapsed((prev) => !prev)}
+            title={
+              isInvoicePanelCollapsed
+                ? "เปิด Invoice Panel"
+                : "ปิด Invoice Panel"
+            }
+          >
+            <i
+              className={`fa-solid ${
+                isInvoicePanelCollapsed ? "fa-chevron-right" : "fa-chevron-left"
+              }`}
+            ></i>
+          </button>
 
-          <div className="panel-header">
-            <span className="panel-title">Doc No. </span>
-            <span className="panel-title">Invoice </span>
-            <span className="panel-title">Origin </span>
-            <span className="total-badge">
-              total :{" "}
-              {
-                invoiceList.filter((inv) => {
+          <div className="inv-panel-inner">
+            <div className="invoice-list-search-wrapper">
+              <i className="fa-solid fa-magnifying-glass groupOrder-search-icon"></i>
+              <input
+                type="text"
+                className="groupOrder-search-input"
+                value={invoiceSearch}
+                onChange={(e) => setInvoiceSearch(e.target.value)}
+                placeholder="Search Doc No. / Invoice / Origin"
+              />
+            </div>
+
+            <div className="panel-header">
+              <span className="panel-title">Doc No. </span>
+              <span className="panel-title">Invoice </span>
+              <span className="panel-title">Origin </span>
+              <span className="total-badge">
+                total :{" "}
+                {
+                  invoiceList.filter((inv) => {
+                    const q = invoiceSearch.toLowerCase();
+                    return (
+                      !q ||
+                      (inv.no || "").toLowerCase().includes(q) ||
+                      (inv.invoice || "").toLowerCase().includes(q) ||
+                      (inv.origin || "").toLowerCase().includes(q)
+                    );
+                  }).length
+                }
+              </span>
+            </div>
+
+            <div className="list-body">
+              {invoiceList
+                .filter((inv) => {
                   const q = invoiceSearch.toLowerCase();
                   return (
                     !q ||
@@ -2526,430 +2594,464 @@ const GroupOrder = () => {
                     (inv.invoice || "").toLowerCase().includes(q) ||
                     (inv.origin || "").toLowerCase().includes(q)
                   );
-                }).length
-              }
-            </span>
-          </div>
+                })
+                .map((inv) => (
+                  <div key={inv.no} className="invoice-item">
+                    <span>{inv.no}</span>
+                    <span>{inv.invoice || "-"}</span>
+                    <span>{inv.origin || "-"}</span>
 
-          <div className="list-body">
-            {invoiceList
-              .filter((inv) => {
-                const q = invoiceSearch.toLowerCase();
-                return (
-                  !q ||
-                  (inv.no || "").toLowerCase().includes(q) ||
-                  (inv.invoice || "").toLowerCase().includes(q) ||
-                  (inv.origin || "").toLowerCase().includes(q)
-                );
-              })
-              .map((inv) => (
-                <div key={inv.no} className="invoice-item">
-                  <span>{inv.no}</span>
-                  <span>{inv.invoice || "-"}</span>
-                  <span>{inv.origin || "-"}</span>
-
-                  {!isReadOnly &&
-                    !batchItems.some((it) => getEffectivePick(it) > 0) && (
-                      <button
-                        type="button"
-                        className="invoice-remove-btn"
-                        title="ลบ Invoice นี้ออกจาก Batch"
-                        onClick={() => handleRemoveInvoice(inv)}
-                      >
-                        <i className="fa-solid fa-trash"></i>
-                      </button>
-                    )}
-                </div>
-              ))}
-          </div>
-
-          {batchRemark && (
-            <div
-              className="invoice-remark"
-              style={{ padding: "8px 12px", fontSize: 13, color: "#555" }}
-            >
-              <strong>Remark:</strong> {batchRemark}
+                    {!isReadOnly &&
+                      !batchItems.some((it) => getEffectivePick(it) > 0) && (
+                        <button
+                          type="button"
+                          className="invoice-remove-btn"
+                          title="ลบ Invoice นี้ออกจาก Batch"
+                          onClick={() => handleRemoveInvoice(inv)}
+                        >
+                          <i className="fa-solid fa-trash"></i>
+                        </button>
+                      )}
+                  </div>
+                ))}
             </div>
-          )}
+
+            {batchRemark && (
+              <div
+                className="invoice-remark"
+                style={{ padding: "8px 12px", fontSize: 13, color: "#555" }}
+              >
+                <strong>Remark:</strong> {batchRemark}
+              </div>
+            )}
+          </div>
         </div>
 
-        <div className="batch-panel">
-          <div
-            className="groupOrder-search-wrapper"
-            style={{ margin: "10px 0" }}
-          >
-            <div className="groupOrder-search-input-container">
-              <i className="fa-solid fa-magnifying-glass groupOrder-search-icon"></i>
-              <input
-                type="text"
-                className="groupOrder-search-input"
-                value={searchFilter}
-                onChange={(e) => setSearchFilter(e.target.value)}
-                placeholder="Filter Search"
-              />
-            </div>
+        <div className="groupOrder-main-panel">
+          {!isReadOnly && (
+            <div className="scan-panel-sticky-wrap">
+              <div className="scan-panel">
+                <div className="scan-row">
+                  <div className="scan-label">Scan Location :</div>
 
-            <div className="groupOrder-view-tabs" style={{ marginTop: 10 }}>
-              {!isReadOnly && (
-                <button
-                  type="button"
-                  className={`groupOrder-tab ${viewTab === "pending" ? "active" : ""}`}
-                  onClick={() => setViewTab("pending")}
+                  <input
+                    ref={locationInputRef}
+                    type="text"
+                    className={`scan-input ${confirmedLocation ? "ok" : ""}`}
+                    value={scanLocation}
+                    onChange={(e) => setScanLocation(e.target.value)}
+                    onKeyDown={handleScanLocationKeyDown}
+                    placeholder="Scan Location"
+                    disabled={!isLocationScanActive}
+                  />
+
+                  <button
+                    type="button"
+                    className={`groupOrder-scan-button ${
+                      isLocationScanActive ? "active" : ""
+                    }`}
+                    title={
+                      isLocationScanActive
+                        ? "รีเซ็ต Location"
+                        : "เปิดสแกน Location"
+                    }
+                    onClick={toggleLocationFocus}
+                  >
+                    {isLocationScanActive ? (
+                      <i className="fa-solid fa-xmark"></i>
+                    ) : (
+                      <i className="fa-solid fa-qrcode"></i>
+                    )}
+                  </button>
+                </div>
+
+                <div className="scan-row">
+                  <div className="scan-label">
+                    {isReturnMode
+                      ? "Scan Return Barcode/Serial :"
+                      : "Scan Barcode/Serial :"}
+                  </div>
+
+                  <form
+                    onSubmit={handleItemBarcodeSubmit}
+                    className="scan-form"
+                    style={{ flex: 1 }}
+                  >
+                    <input
+                      ref={itemInputRef}
+                      type="text"
+                      className="scan-input"
+                      value={itemBarcodeInput}
+                      onChange={(e) => setItemBarcodeInput(e.target.value)}
+                      placeholder={
+                        isReturnMode
+                          ? "Scan Barcode/Serial เพื่อคืน Pick"
+                          : "Scan Barcode/Serial"
+                      }
+                      disabled={!confirmedLocation}
+                    />
+                  </form>
+                </div>
+
+                <div
+                  className={`scan-hint ${confirmedLocation ? "ok" : ""} ${
+                    selectedReturnTarget ? "return-mode" : ""
+                  }`}
                 >
-                  ยังไม่ได้ดำเนินการ{" "}
-                  <span className="badge">{pendingCount}</span>
-                </button>
-              )}
+                  {confirmedLocation
+                    ? `${
+                        selectedReturnTarget
+                          ? `↩️ RETURN: ${selectedReturnTarget.outbound_no}`
+                          : "✅ PICK MODE"
+                      } : ${confirmedLocation.full_name}`
+                    : ""}
 
-              <button
-                type="button"
-                className={`groupOrder-tab ${viewTab === "done" ? "active" : ""}`}
-                onClick={() => setViewTab("done")}
-              >
-                ดำเนินการเสร็จสิ้นแล้ว{" "}
-                <span className="badge">{doneCount}</span>
-              </button>
-
-              {rtcCandidates.length > 0 && (
-                <button
-                  type="button"
-                  className={`groupOrder-tab ${viewTab === "rtc" ? "active" : ""}`}
-                  onClick={() => setViewTab("rtc")}
-                >
-                  RTC <span className="badge">{rtcCandidates.length}</span>
-                </button>
-              )}
+                  {selectedReturnTarget && (
+                    <button
+                      type="button"
+                      className="groupOrder-btn-cancel-return"
+                      onClick={() => setSelectedReturnTarget(null)}
+                    >
+                      ยกเลิก Return
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
-
-          {viewTab === "rtc" ? (
-            <table className="picking-batch-table">
-              <thead>
-                <tr>
-                  <th>No.</th>
-                  <th>Outbound</th>
-                  <th>สินค้า</th>
-                  <th>ชื่อ</th>
-                  <th>Lot. Serial</th>
-                  <th>QTY</th>
-                  <th>RTC</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {rtcRows.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} style={{ textAlign: "center" }}>
-                      ไม่มีรายการ RTC
-                    </td>
-                  </tr>
-                ) : (
-                  rtcRows.map((row, index) => (
-                    <tr key={`${row.outbound_no}_${row.goods_out_item_id}`}>
-                      <td>{index + 1}</td>
-                      <td>{row.outbound_no}</td>
-                      <td>{row.code}</td>
-                      <td>{row.name}</td>
-                      <td>{row.lot_serial || "-"}</td>
-                      <td>{row.qty}</td>
-                      <td>{row.rtc}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          ) : (
-            <table className="picking-batch-table">
-              <thead>
-                <tr>
-                  <th>No.</th>
-                  <th>
-                    <button
-                      type="button"
-                      className="th-sort-btn"
-                      onClick={() => toggleSort("code")}
-                      title="Sort SKU"
-                    >
-                      สินค้า{" "}
-                      <SortIcon active={sort.key === "code"} dir={sort.dir} />
-                    </button>
-                  </th>
-                  <th>
-                    <button
-                      type="button"
-                      className="th-sort-btn"
-                      onClick={() => toggleSort("name")}
-                      title="Sort ชื่อ"
-                    >
-                      ชื่อ{" "}
-                      <SortIcon active={sort.key === "name"} dir={sort.dir} />
-                    </button>
-                  </th>
-                  <th>QTY</th>
-                  <th>Lot. Serial</th>
-                  <th>
-                    <button
-                      type="button"
-                      className="th-filter-btn"
-                      onClick={openLockFilter}
-                      title="Filter Lock No."
-                    >
-                      Lock No.{" "}
-                      <span className="th-filter-badge">{lockFilterLabel}</span>
-                      <i
-                        className="fa-solid fa-filter"
-                        style={{ marginLeft: 6, opacity: 0.7 }}
-                      />
-                    </button>
-                  </th>
-                  <th>Pick</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {sortedBatchItems.map((item, index) => {
-                  const rowId = getRowId(item);
-                  let rowClass = "row-white";
-                  if (isLockMismatchRow(item)) rowClass = "row-red";
-                  else if (isDoneRow(item)) rowClass = "row-green";
-                  else if (isProgressRow(item)) rowClass = "row-yellow";
-
-                  return (
-                    <tr key={rowId} className={rowClass}>
-                      <td>{index + 1}</td>
-                      <td>{item.code}</td>
-                      <td>{item.name}</td>
-
-                      <td>{item.quantity}</td>
-                      <td>
-                        {(item as any).lot_name ?? item.lot_serial ?? "-"}
-                      </td>
-
-                      <td>
-                        {Array.isArray((item as any).lock_no) ? (
-                          (item as any).lock_no.map(
-                            (lock: string, idx: number) => (
-                              <div key={idx}>{lock || "-"}</div>
-                            ),
-                          )
-                        ) : (
-                          <div>{(item as any).lock_no || "-"}</div>
-                        )}
-                      </td>
-
-                      <td>
-                        {(() => {
-                          const locks = toLockList((item as any).lock_no);
-
-                          if (locks.length > 1) {
-                            const pickArr =
-                              lockPickMap[rowId] ??
-                              buildBackendLockPickArray(item);
-
-                            // const locBreakdownMulti =
-                            //   getAllBackendLocPicksForRow(item);
-
-                            return (
-                              <div>
-                                {locks.map((_lock: string, lockIdx: number) => {
-                                  const pickVal = Number(pickArr[lockIdx] ?? 0);
-                                  return (
-                                    <div
-                                      key={lockIdx}
-                                      className="lock-pick-row"
-                                    >
-                                      <span className="lock-pick-value">
-                                        {pickVal}
-                                      </span>
-                                    </div>
-                                  );
-                                })}
-
-                                {/* {locBreakdownMulti.length > 0 && (
-                                  <div
-                                    style={{
-                                      marginTop: 4,
-                                      fontSize: 12,
-                                      opacity: 0.75,
-                                    }}
-                                  >
-                                    {locBreakdownMulti.map((x) => (
-                                      <div key={x.loc}>
-                                        ที่ {x.loc}: {x.pick}
-                                      </div>
-                                    ))}
-                                  </div>
-                                )} */}
-                              </div>
-                            );
-                          }
-                          // const localBreakdown = getAllLocPicksForRow(rowId);
-                          // const locBreakdown = currentLoc
-                          //   ? currentLocalPick > 0
-                          //     ? [{ loc: currentLoc, pick: currentLocalPick }]
-                          //     : currentBackendBreakdown
-                          //   : localBreakdown.length > 0
-                          //     ? localBreakdown
-                          //     : getAllBackendLocPicksForRow(item);
-
-                          const singlePick = getEffectivePick(item);
-                          return (
-                            <div style={{ lineHeight: 1.15 }}>
-                              <span>{singlePick}</span>
-                            </div>
-                          );
-                        })() || "-"}
-                      </td>
-
-                      <td className="groupOrder-action-buttons">
-                        <div className="grouporder-dropdown-container">
-                          <button
-                            ref={(el) => {
-                              buttonRef.current[rowId] = el;
-                            }}
-                            onClick={() => toggleDropdown(rowId)}
-                            className="btn-dropdown-toggle"
-                            title="เมนูเพิ่มเติม"
-                          >
-                            <i className="fa-solid fa-ellipsis-vertical"></i>
-                          </button>
-
-                          {openDropdownId === rowId &&
-                            menuPos &&
-                            createPortal(
-                              <div
-                                ref={dropdownRef}
-                                className="grouporder-dropdown-menu"
-                                style={{ top: menuPos.top, left: menuPos.left }}
-                              >
-                                <button
-                                  className="grouporder-dropdown-item"
-                                  onClick={() => {
-                                    handleDetailClick(
-                                      String(item.code ?? ""),
-                                      item.lot_serial ?? null,
-                                    );
-                                    closeDropdown();
-                                  }}
-                                >
-                                  <span className="menu-icon">
-                                    <i className="fa-solid fa-circle-info"></i>
-                                  </span>
-                                  Detail
-                                </button>
-
-                                {/* {(item as any).input_number ? (
-                                  <button
-                                    className="grouporder-dropdown-item"
-                                    onClick={() => {
-                                      openInlinePickEdit(
-                                        rowId,
-                                        Number(
-                                          getTotalPick(rowId) || item.pick || 0,
-                                        ),
-                                      );
-                                      closeDropdown();
-                                    }}
-                                  >
-                                    <span className="menu-icon">
-                                      <i className="fa-solid fa-pen-to-square"></i>
-                                    </span>
-                                    Edit Pick
-                                  </button>
-                                ) : null}
-
-                                <button
-                                  className="grouporder-dropdown-item"
-                                  onClick={() => {
-                                    if (!confirmedLocation) {
-                                      Swal.fire({
-                                        icon: "warning",
-                                        title: "กรุณา Scan Location ก่อน",
-                                        text: "ต้องสแกน Location ก่อนถึงจะสแกนสินค้าได้",
-                                        timer: 1400,
-                                        showConfirmButton: false,
-                                      });
-                                      closeDropdown();
-                                      setTimeout(
-                                        () => locationInputRef.current?.focus(),
-                                        120,
-                                      );
-                                      return;
-                                    }
-                                    setIsItemScanActive(true);
-                                    closeDropdown();
-                                    setTimeout(
-                                      () => itemInputRef.current?.focus(),
-                                      120,
-                                    );
-                                  }}
-                                >
-                                  <span className="menu-icon">
-                                    <i className="fa-solid fa-barcode"></i>
-                                  </span>
-                                  Scan
-                                </button> */}
-
-                                {Boolean((item as any).rtc_check) && (
-                                  <button
-                                    className="grouporder-dropdown-item"
-                                    onClick={() => {
-                                      setRtcModal({
-                                        open: true,
-                                        item: {
-                                          goods_out_item_id: Number(
-                                            (item as any).invoice_item_id ??
-                                              (item as any).goods_out_id ??
-                                              0,
-                                          ),
-                                          outbound_no: String(
-                                            item.outbound_no ?? "",
-                                          ).trim(),
-                                          code: String(item.code ?? "").trim(),
-                                          name: String(item.name ?? "").trim(),
-                                          lot_serial: item.lot_serial ?? null,
-                                          qty: Number(item.quantity ?? 0),
-                                          pick: Number(item.pick ?? 0),
-                                          rtc: Number((item as any).rtc ?? 0),
-                                          rtc_check: Boolean(
-                                            (item as any).rtc_check,
-                                          ),
-                                        },
-                                        location_full_name:
-                                          confirmedLocation?.full_name ?? "",
-                                        barcode_input: "",
-                                        rtc_qty: String(
-                                          Number((item as any).rtc ?? 0) || "",
-                                        ),
-                                      });
-                                      closeDropdown();
-                                    }}
-                                  >
-                                    <span className="menu-icon">
-                                      <i className="fa-solid fa-rotate-left"></i>
-                                    </span>
-                                    Return
-                                  </button>
-                                )}
-                              </div>,
-                              document.body,
-                            )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
           )}
+
+          <div className="batch-panel">
+            <div
+              className="groupOrder-search-wrapper"
+              style={{ margin: "10px 0" }}
+            >
+              <div className="groupOrder-search-input-container">
+                <i className="fa-solid fa-magnifying-glass groupOrder-search-icon"></i>
+                <input
+                  type="text"
+                  className="groupOrder-search-input"
+                  value={searchFilter}
+                  onChange={(e) => setSearchFilter(e.target.value)}
+                  placeholder="Filter Search"
+                />
+              </div>
+
+              <div className="groupOrder-view-tabs" style={{ marginTop: 10 }}>
+                {!isReadOnly && (
+                  <button
+                    type="button"
+                    className={`groupOrder-tab ${viewTab === "pending" ? "active" : ""}`}
+                    onClick={() => setViewTab("pending")}
+                  >
+                    ยังไม่ได้ดำเนินการ{" "}
+                    <span className="badge">{pendingCount}</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  className={`groupOrder-tab ${viewTab === "done" ? "active" : ""}`}
+                  onClick={() => setViewTab("done")}
+                >
+                  ดำเนินการเสร็จสิ้นแล้ว{" "}
+                  <span className="badge">{doneCount}</span>
+                </button>
+
+                {rtcCandidates.length > 0 && (
+                  <button
+                    type="button"
+                    className={`groupOrder-tab ${viewTab === "rtc" ? "active" : ""}`}
+                    onClick={() => setViewTab("rtc")}
+                  >
+                    RTC <span className="badge">{rtcCandidates.length}</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {viewTab === "rtc" ? (
+              <div className="table-scroll">
+                <table className="picking-batch-table">
+                  <thead>
+                    <tr>
+                      <th>No.</th>
+                      <th>Outbound</th>
+                      <th>สินค้า</th>
+                      <th>ชื่อ</th>
+                      <th>Lot. Serial</th>
+                      <th>QTY</th>
+                      <th>RTC</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {rtcRows.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} style={{ textAlign: "center" }}>
+                          ไม่มีรายการ RTC
+                        </td>
+                      </tr>
+                    ) : (
+                      rtcRows.map((row, index) => (
+                        <tr key={`${row.outbound_no}_${row.goods_out_item_id}`}>
+                          <td>{index + 1}</td>
+                          <td>{row.outbound_no}</td>
+                          <td>{row.code}</td>
+                          <td>{row.name}</td>
+                          <td>{row.lot_serial || "-"}</td>
+                          <td>{row.qty}</td>
+                          <td>{row.rtc}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="table-scroll">
+                <table className="picking-batch-table">
+                  <thead>
+                    <tr>
+                      <th>No.</th>
+                      <th>
+                        <button
+                          type="button"
+                          className="th-sort-btn"
+                          onClick={() => toggleSort("code")}
+                          title="Sort SKU"
+                        >
+                          สินค้า{" "}
+                          <SortIcon
+                            active={sort.key === "code"}
+                            dir={sort.dir}
+                          />
+                        </button>
+                      </th>
+                      <th>
+                        <button
+                          type="button"
+                          className="th-sort-btn"
+                          onClick={() => toggleSort("name")}
+                          title="Sort ชื่อ"
+                        >
+                          ชื่อ{" "}
+                          <SortIcon
+                            active={sort.key === "name"}
+                            dir={sort.dir}
+                          />
+                        </button>
+                      </th>
+                      <th>QTY</th>
+                      <th>Lot. Serial</th>
+                      <th>
+                        <button
+                          type="button"
+                          className="th-filter-btn"
+                          onClick={openLockFilter}
+                          title="Filter Lock No."
+                        >
+                          Lock No.{" "}
+                          <span className="th-filter-badge">
+                            {lockFilterLabel}
+                          </span>
+                          <i
+                            className="fa-solid fa-filter"
+                            style={{ marginLeft: 6, opacity: 0.7 }}
+                          />
+                        </button>
+                      </th>
+                      <th>Pick</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {sortedBatchItems.map((item, index) => {
+                      const rowId = getRowId(item);
+                      let rowClass = "row-white";
+                      if (isLockMismatchRow(item)) rowClass = "row-red";
+                      else if (isDoneRow(item)) rowClass = "row-green";
+                      else if (isProgressRow(item)) rowClass = "row-yellow";
+
+                      return (
+                        <tr key={rowId} className={rowClass}>
+                          <td>{index + 1}</td>
+                          <td>{item.code}</td>
+                          <td>{item.name}</td>
+
+                          <td>{item.quantity}</td>
+                          <td>
+                            {(item as any).lot_name ?? item.lot_serial ?? "-"}
+                          </td>
+
+                          <td>
+                            {Array.isArray((item as any).lock_no) ? (
+                              (item as any).lock_no.map(
+                                (lock: string, idx: number) => (
+                                  <div key={idx}>{lock || "-"}</div>
+                                ),
+                              )
+                            ) : (
+                              <div>{(item as any).lock_no || "-"}</div>
+                            )}
+                          </td>
+
+                          <td>
+                            {(() => {
+                              const locks = toLockList((item as any).lock_no);
+
+                              if (locks.length > 1) {
+                                const pickArr =
+                                  lockPickMap[rowId] ??
+                                  buildBackendLockPickArray(item);
+
+                                // const locBreakdownMulti =
+                                //   getAllBackendLocPicksForRow(item);
+
+                                return (
+                                  <div>
+                                    {locks.map(
+                                      (_lock: string, lockIdx: number) => {
+                                        const pickVal = Number(
+                                          pickArr[lockIdx] ?? 0,
+                                        );
+                                        return (
+                                          <div
+                                            key={lockIdx}
+                                            className="lock-pick-row"
+                                          >
+                                            <span className="lock-pick-value">
+                                              {pickVal}
+                                            </span>
+                                          </div>
+                                        );
+                                      },
+                                    )}
+                                  </div>
+                                );
+                              }
+
+                              const singlePick = getEffectivePick(item);
+                              return (
+                                <div style={{ lineHeight: 1.15 }}>
+                                  <span>{singlePick}</span>
+                                </div>
+                              );
+                            })() || "-"}
+                          </td>
+
+                          <td className="groupOrder-action-buttons">
+                            <div className="grouporder-dropdown-container">
+                              <button
+                                ref={(el) => {
+                                  buttonRef.current[rowId] = el;
+                                }}
+                                onClick={() => toggleDropdown(rowId)}
+                                className="btn-dropdown-toggle"
+                                title="เมนูเพิ่มเติม"
+                              >
+                                <i className="fa-solid fa-ellipsis-vertical"></i>
+                              </button>
+
+                              {openDropdownId === rowId &&
+                                menuPos &&
+                                createPortal(
+                                  <div
+                                    ref={dropdownRef}
+                                    className="grouporder-dropdown-menu"
+                                    style={{
+                                      top: menuPos.top,
+                                      left: menuPos.left,
+                                    }}
+                                  >
+                                    <button
+                                      className="grouporder-dropdown-item"
+                                      onClick={() => {
+                                        handleDetailClick(
+                                          String(item.code ?? ""),
+                                          item.lot_serial ?? null,
+                                        );
+                                        closeDropdown();
+                                      }}
+                                    >
+                                      <span className="menu-icon">
+                                        <i className="fa-solid fa-circle-info"></i>
+                                      </span>
+                                      Detail
+                                    </button>
+
+                                    {Boolean((item as any).rtc_check) && (
+                                      <button
+                                        className="grouporder-dropdown-item"
+                                        onClick={() => {
+                                          setRtcModal({
+                                            open: true,
+                                            item: {
+                                              goods_out_item_id: Number(
+                                                (item as any).invoice_item_id ??
+                                                  (item as any).goods_out_id ??
+                                                  0,
+                                              ),
+                                              outbound_no: String(
+                                                item.outbound_no ?? "",
+                                              ).trim(),
+                                              code: String(
+                                                item.code ?? "",
+                                              ).trim(),
+                                              name: String(
+                                                item.name ?? "",
+                                              ).trim(),
+                                              lot_serial:
+                                                item.lot_serial ?? null,
+                                              qty: Number(item.quantity ?? 0),
+                                              pick: Number(item.pick ?? 0),
+                                              rtc: Number(
+                                                (item as any).rtc ?? 0,
+                                              ),
+                                              rtc_check: Boolean(
+                                                (item as any).rtc_check,
+                                              ),
+                                            },
+                                            location_full_name:
+                                              confirmedLocation?.full_name ??
+                                              "",
+                                            barcode_input: "",
+                                            rtc_qty: String(
+                                              Number((item as any).rtc ?? 0) ||
+                                                "",
+                                            ),
+                                          });
+                                          closeDropdown();
+                                        }}
+                                      >
+                                        <span className="menu-icon">
+                                          <i className="fa-solid fa-rotate-left"></i>
+                                        </span>
+                                        Return
+                                      </button>
+                                    )}
+                                  </div>,
+                                  document.body,
+                                )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
       <div className="order-footer">
         <button
           className="groupOrder-btn-back"
-          onClick={() => navigate("/outbound?view=picking")}
+          onClick={() =>
+            navigate(`/outbound?view=${encodeURIComponent(navView)}`)
+          }
         >
           กลับหน้า Outbound
         </button>
@@ -3015,7 +3117,11 @@ const GroupOrder = () => {
         )}
 
         {!isReadOnly && (
-          <button className="groupOrder-btn-submit" onClick={handleSubmit}>
+          <button
+            className="groupOrder-btn-submit"
+            onClick={handleSubmit}
+            disabled={isSubmitting}
+          >
             ยืนยัน
           </button>
         )}

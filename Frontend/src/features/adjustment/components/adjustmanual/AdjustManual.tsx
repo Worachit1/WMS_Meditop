@@ -5,11 +5,20 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import {
+  useNavigate,
+  useParams,
+  useSearchParams,
+  useLocation,
+} from "react-router-dom";
+import DetailNavigator from "../../../../components/DetailNavigator/DetailNavigator";
 import { toast } from "react-toastify";
 
 import type { AdjustmentType } from "../../types/adjustment.type";
-import { adjustmentApi, type ConfirmAdjustmentCompleteBody } from "../../services/adjustment.api";
+import {
+  adjustmentApi,
+  type ConfirmAdjustmentCompleteBody,
+} from "../../services/adjustment.api";
 import Loading from "../../../../components/Loading/Loading";
 
 import { confirmAlert } from "../../../../utils/alert";
@@ -197,56 +206,6 @@ function buildScanKeyFromItem(it: AnyItem): ScanKey {
   };
 }
 
-// รองรับ "barcode|lot|exp" หรือ "barcode lot exp"
-// function parseScanInput(raw: string): ScanKey | null {
-//   const s = String(raw ?? "").trim();
-//   if (!s) return null;
-
-//   // 1) ถ้ามี delimiter เดิม ก็ใช้ logic เดิม
-//   if (s.includes("|") || /\s/.test(s)) {
-//     const parts = s.includes("|") ? s.split("|") : s.split(/\s+/);
-//     const p = parts.map((x) => x.trim()).filter(Boolean);
-
-//     const barcode_text = normBarcodeText(p[0]);
-//     const lot_serial = lotForScan(p[1]);
-//     const exp = expToYYMMDDForScan(p[2]);
-
-//     return { barcode_text, lot_serial, exp };
-//   }
-
-//   // 2) ✅ กรณี “ติดกัน”: ...<LOT6><EXP6>
-//   // - exp = 6 หลักท้าย (YYMMDD)
-//   // - lot = 6 ตัวก่อนหน้า (เช่น XXXXXX หรือ 6 chars)
-//   // - barcode = ส่วนที่เหลือด้านหน้า
-//   if (s.length >= 12) {
-//     const expPart = s.slice(-6);
-//     const lotPart = s.slice(-12, -6);
-//     const barcodePart = s.slice(0, -12);
-
-//     // exp ต้องเป็น 6 หลัก
-//     if (/^\d{6}$/.test(expPart) && barcodePart.length > 0) {
-//       return {
-//         barcode_text: normBarcodeText(barcodePart),
-//         lot_serial: lotForScan(lotPart), // ถ้าเป็น "" จะกลายเป็น XXXXXX
-//         exp: expToYYMMDDForScan(expPart),
-//       };
-//     }
-//   }
-
-//   // 3) fallback: ถือว่าเป็นแค่ barcode
-//   return {
-//     barcode_text: normBarcodeText(s),
-//     lot_serial: lotForScan(undefined),
-//     exp: expToYYMMDDForScan(undefined),
-//   };
-// }
-/** =========================
- * Display helpers (ตาราง)
- * - lot null => "-"
- * - exp null => "-"
- * - exp แสดงเวลาไทย
- * ========================= */
-
 function lotForDisplay(v: any): string {
   const s = String(v ?? "").trim();
   return s ? s : "-";
@@ -296,10 +255,41 @@ function formatImpactQty(locDest: any, qty: any) {
   return `${sign}${Math.abs(v)}`;
 }
 
+const detectSrc = (adj: any): "outbound" | "adjust" => {
+  if (adj?.is_system_generated === true) return "outbound";
+  if (adj?.is_system_generated === false) return "adjust";
+
+  const source = String(adj?.source ?? "").toLowerCase();
+  if (source === "outbound" || source === "adjust") return source;
+
+  if (Object.prototype.hasOwnProperty.call(adj ?? {}, "out_type")) {
+    return "outbound";
+  }
+
+  return "adjust";
+};
+
 const AdjustManual: React.FC = () => {
   const navigate = useNavigate();
   const params = useParams();
   const [sp] = useSearchParams();
+
+  const location = useLocation();
+  const navState = (location.state as any) || {};
+
+  const navGroup = navState.navGroup;
+  const navLevel = navState.level as "manual" | "auto" | undefined;
+  const navStatus = navState.status as "pending" | "completed" | undefined;
+
+  const stateDetailList = Array.isArray(navState.detailList)
+    ? navState.detailList
+    : [];
+
+  const stateDetailTotal = Number(navState.detailTotal ?? 0);
+
+  const [detailList, setDetailList] = useState<
+    Array<{ id: number; src: string }>
+  >([]);
 
   const id = Number(params.id);
   const src = (sp.get("src") || "adjust").toLowerCase(); // adjust | outbound
@@ -364,6 +354,59 @@ const AdjustManual: React.FC = () => {
     const t = setTimeout(() => scanRef.current?.focus(), 150);
     return () => clearTimeout(t);
   }, [loadDetail]);
+
+  useEffect(() => {
+    const rows = stateDetailList
+      .map((x: any) => ({
+        id: Number(x.id),
+        src: String(x.src ?? "adjust"),
+      }))
+      .filter((x: any) => x.id > 0);
+
+    if (rows.length > 0 && rows.length >= stateDetailTotal) {
+      setDetailList(rows);
+      return;
+    }
+
+    const fetchAll = async () => {
+      try {
+        const limit = 100;
+        let page = 1;
+        let totalPages = 1;
+        const allRows: any[] = [];
+
+        do {
+          const resp = await adjustmentApi.getAllPaginated({
+            page,
+            limit,
+            level: navLevel,
+            status: navStatus,
+          } as any);
+
+          const data = Array.isArray(resp?.data?.data) ? resp.data.data : [];
+          const meta = resp?.data?.meta ?? {};
+
+          allRows.push(...data);
+          totalPages = Number(meta?.totalPages ?? 1);
+          page += 1;
+        } while (page <= totalPages);
+
+        setDetailList(
+          allRows
+            .map((x: any) => ({
+              id: Number(x.id),
+              src: detectSrc(x),
+            }))
+            .filter((x: any) => x.id > 0),
+        );
+      } catch (err) {
+        console.error("fetch adjustment nav list error:", err);
+        setDetailList(rows);
+      }
+    };
+
+    fetchAll();
+  }, [navGroup, navLevel, navStatus, stateDetailTotal]);
 
   const onScanSubmit = useCallback(
     (e: React.FormEvent) => {
@@ -566,7 +609,7 @@ const AdjustManual: React.FC = () => {
     }
   }, [loading, doc, items, qtyPickDraftByKey, loadDetail]);
 
-  const onCancel = () => navigate(-1);
+  const onCancel = () => navigate("/adjustment");
 
   const header = useMemo(() => {
     const a: any = doc;
@@ -582,13 +625,67 @@ const AdjustManual: React.FC = () => {
     };
   }, [doc]);
 
+  const currentIndex =
+    detailList.findIndex((x) => Number(x.id) === Number(id)) + 1;
+
+  const total = detailList.length;
+
+  const hasNavigator = detailList.length > 0 && currentIndex > 0;
+
+  const handlePrev = () => {
+    const idx = detailList.findIndex((x) => Number(x.id) === Number(id));
+    if (idx <= 0) return;
+
+    const prev = detailList[idx - 1];
+
+    navigate(`/adjustment/${prev.id}/manual?src=${prev.src}`, {
+      state: {
+        navGroup,
+        level: navLevel,
+        status: navStatus,
+        detailList,
+        detailTotal: total,
+      },
+    });
+  };
+
+  const handleNext = () => {
+    const idx = detailList.findIndex((x) => Number(x.id) === Number(id));
+    if (idx < 0 || idx >= detailList.length - 1) return;
+
+    const next = detailList[idx + 1];
+
+    navigate(`/adjustment/${next.id}/manual?src=${next.src}`, {
+      state: {
+        navGroup,
+        level: navLevel,
+        status: navStatus,
+        detailList,
+        detailTotal: total,
+      },
+    });
+  };
+
   return (
     <div className="adj-mn-page">
       <div className="adj-mn-card">
         <div className="adj-mn-header">
           <div className="adj-mn-title">
-            <span>Adjust No:</span>
-            <span className="adj-mn-title-no">{safeText(header?.no)}</span>
+            <div>
+              <span>Adjust No:</span>
+              <span className="adj-mn-title-no">{safeText(header?.no)}</span>
+            </div>
+
+            {hasNavigator && (
+              <DetailNavigator
+                currentIndex={currentIndex}
+                total={total}
+                onPrev={handlePrev}
+                onNext={handleNext}
+                disablePrev={currentIndex <= 1}
+                disableNext={currentIndex >= total}
+              />
+            )}
           </div>
 
           <div className="adj-mn-meta-row">
@@ -801,7 +898,7 @@ const AdjustManual: React.FC = () => {
                         onClick={onCancel}
                         disabled={loading}
                       >
-                        ยกเลิก
+                        ย้อนกลับ
                       </button>
 
                       <button

@@ -76,6 +76,29 @@ const OutboundContainer = () => {
 
   const [searchParams, setSearchParams] = useSearchParams();
 
+  const [pickingPackTab, setPickingPackTab] = useState<"not_packed" | "packed">(
+    "not_packed",
+  );
+
+  const [pickingStatusCounts, setPickingStatusCounts] = useState({
+    process: 0,
+    completed: 0,
+  });
+
+  const [packingTab, setPackingTab] = useState<"process" | "completed">(
+    "process",
+  );
+
+  const [packStatusCounts, setPackStatusCounts] = useState({
+    process: 0,
+    completed: 0,
+  });
+
+  const handleChangePackingTab = (tab: "process" | "completed") => {
+    setPackingTab(tab);
+    setCurrentPage(1);
+  };
+
   const urlView = useMemo(
     () => normalizeView(searchParams.get("view")),
     [searchParams],
@@ -129,46 +152,55 @@ const OutboundContainer = () => {
         const q = (search ?? "").trim().toLowerCase();
         const hasSearch = q.length > 0;
 
-        // PICKING VIEW
         if (v === "picking") {
-          const resp = await (batchApi.getBatchByUserPick({
+          const status = pickingPackTab === "packed" ? "completed" : "process";
+
+          const resp = await batchApi.getBatchByUserPick({
             page,
             limit,
             search: search.trim() || undefined,
-          }) as Promise<any>);
+            status,
+          });
 
           const payload = resp?.data ?? {};
-          const total = Number(payload?.total ?? 0);
-          let rows: PickingBatchRow[] = Array.isArray(payload?.data)
+          const meta = payload?.meta ?? {};
+          const total = Number(meta?.total ?? payload?.total ?? 0);
+
+          const rows: PickingBatchRow[] = Array.isArray(payload?.data)
             ? payload.data
             : [];
 
-          if (q) {
-            rows = rows.filter((r) =>
-              Object.entries(columnsBatches).some(([key, ok]) => {
-                if (!ok) return false;
-                let value: string;
-                if (key === "created_at") {
-                  value = formatDateTime(String((r as any)[key] ?? "")).toLowerCase();
-                } else {
-                  value = String((r as any)[key] ?? "").toLowerCase();
-                }
-                return value.includes(q);
-              }),
-            );
-          }
-
-          const didClientFilter = Boolean(q);
-
-          if (!didClientFilter && Number.isFinite(total) && total > 0) {
+          setPickingStatusCounts({
+            process: Number(meta?.statusCounts?.process ?? 0),
+            completed: Number(meta?.statusCounts?.completed ?? 0),
+          });
+          if (!hasSearch && Number.isFinite(total) && total >= 0) {
             setTotalItems(total);
             setTotalPages(Math.max(1, Math.ceil(total / limit)));
             setPickingBatches(rows);
           } else {
-            setTotalItems(rows.length);
-            setTotalPages(Math.max(1, Math.ceil(rows.length / limit)));
-            const start = (page - 1) * limit;
-            setPickingBatches(rows.slice(start, start + limit));
+            let filteredRows = rows;
+
+            if (q) {
+              filteredRows = rows.filter((r) =>
+                Object.entries(columnsBatches).some(([key, ok]) => {
+                  if (!ok) return false;
+                  let value: string;
+                  if (key === "created_at") {
+                    value = formatDateTime(
+                      String((r as any)[key] ?? ""),
+                    ).toLowerCase();
+                  } else {
+                    value = String((r as any)[key] ?? "").toLowerCase();
+                  }
+                  return value.includes(q);
+                }),
+              );
+            }
+
+            setTotalItems(filteredRows.length);
+            setTotalPages(Math.max(1, Math.ceil(filteredRows.length / limit)));
+            setPickingBatches(filteredRows);
           }
 
           setPackProducts([]);
@@ -177,7 +209,6 @@ const OutboundContainer = () => {
           return;
         }
 
-        // DOC VIEW
         if (v === "doc") {
           const resp: any = await outboundApi.getOutboundBatch({
             page,
@@ -243,29 +274,58 @@ const OutboundContainer = () => {
           return;
         }
 
-        // PACKING VIEW -> pack products ใหม่
         if (v === "packing") {
+          const status = packingTab === "completed" ? "completed" : "process";
+
           const resp = await packProductApi.getAll({
             page,
             limit,
             search: search.trim() || undefined,
+            status,
           });
 
-          const rows: PackProductListRow[] = Array.isArray(resp?.data?.data)
-            ? resp.data.data
+          const payload = resp?.data ?? {};
+          const meta = payload?.meta ?? {};
+          const total = Number(meta?.total ?? 0);
+
+          const rows: PackProductListRow[] = Array.isArray(payload?.data)
+            ? payload.data
             : [];
 
-          const meta = resp?.data?.meta ?? null;
-          const serverTotal = Number(meta?.total ?? NaN);
+          setPackStatusCounts({
+            process: Number(meta?.statusCounts?.process ?? 0),
+            completed: Number(meta?.statusCounts?.completed ?? 0),
+          });
 
-          if (Number.isFinite(serverTotal)) {
-            setTotalItems(serverTotal);
-            setTotalPages(Math.max(1, Math.ceil(serverTotal / limit)));
+          if (!hasSearch && Number.isFinite(total) && total >= 0) {
+            setTotalItems(total);
+            setTotalPages(Math.max(1, Math.ceil(total / limit)));
             setPackProducts(rows);
           } else {
-            setTotalItems(rows.length);
-            setTotalPages(Math.max(1, Math.ceil(rows.length / limit)));
-            setPackProducts(rows);
+            let filteredRows = rows;
+
+            if (q) {
+              filteredRows = rows.filter((r) =>
+                Object.entries(columnsBatches).some(([key, ok]) => {
+                  if (!ok) return false;
+
+                  let value: string;
+                  if (key === "created_at") {
+                    value = formatDateTime(
+                      String((r as any)[key] ?? ""),
+                    ).toLowerCase();
+                  } else {
+                    value = String((r as any)[key] ?? "").toLowerCase();
+                  }
+
+                  return value.includes(q);
+                }),
+              );
+            }
+
+            setTotalItems(filteredRows.length);
+            setTotalPages(Math.max(1, Math.ceil(filteredRows.length / limit)));
+            setPackProducts(filteredRows);
           }
 
           setDocs([]);
@@ -274,7 +334,6 @@ const OutboundContainer = () => {
           return;
         }
 
-        // fallback เดิม
         const response: any = await outboundApi.getOutbound({
           page,
           limit,
@@ -345,7 +404,7 @@ const OutboundContainer = () => {
         }
       }
     },
-    [filterByView],
+    [filterByView, pickingPackTab, packingTab],
   );
 
   useEffect(() => {
@@ -376,6 +435,8 @@ const OutboundContainer = () => {
     searchableColumns,
     searchableDocColumns,
     searchableBatchColumns,
+    pickingPackTab,
+    packingTab,
   ]);
 
   const handleItemsPerPageChange = (limit: number) => {
@@ -389,6 +450,11 @@ const OutboundContainer = () => {
       p.set("view", v);
       return p;
     });
+    setCurrentPage(1);
+  };
+
+  const handleChangePickingTab = (tab: "not_packed" | "packed") => {
+    setPickingPackTab(tab);
     setCurrentPage(1);
   };
 
@@ -461,6 +527,12 @@ const OutboundContainer = () => {
           itemsPerPage={itemsPerPage}
           view={view}
           onChangeView={handleChangeView}
+          pickingPackTab={pickingPackTab}
+          onChangePickingTab={handleChangePickingTab}
+          pickingStatusCounts={pickingStatusCounts}
+          packingTab={packingTab}
+          onChangePackingTab={handleChangePackingTab}
+          packingStatusCounts={packStatusCounts}
         />
 
         <Pegination

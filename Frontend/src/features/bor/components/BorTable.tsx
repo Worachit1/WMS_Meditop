@@ -10,7 +10,7 @@ import * as XLSX from "xlsx";
 
 import IconButton from "../../../components/Button/IconButton";
 import { confirmAlert } from "../../../utils/alert";
-import {useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 import "../bor.css";
 
@@ -30,8 +30,6 @@ type Props = {
     location_name: boolean;
     location_dest_name: boolean;
     department: boolean;
-    status: boolean;
-
   };
 
   onToggleSearchableColumn: (column: keyof Props["searchableColumns"]) => void;
@@ -56,19 +54,18 @@ const formatDisplayDate = (value: string) => {
   return `${day}/${month}/${year.slice(-2)}`;
 };
 
-const getStatusLabel = (status?: string) => {
-  switch (status) {
-    case "waiting":
-      return "WAITING";
-    case "error":
-      return "ERROR";
-    case "done":
-      return "DONE";
-    default:
-      return status ?? "-";
-  }
-};
-
+// const getStatusLabel = (status?: string) => {
+//   switch (status) {
+//     case "waiting":
+//       return "WAITING";
+//     case "error":
+//       return "ERROR";
+//     case "done":
+//       return "DONE";
+//     default:
+//       return status ?? "-";
+//   }
+// };
 
 const BorTable = ({
   bors,
@@ -136,12 +133,10 @@ const BorTable = ({
     "Location",
     "Location Dest",
     "Department",
-    "Status",
     "Action",
-
   ];
 
- const navigate = useNavigate();
+  const navigate = useNavigate();
 
   const handleExport = async () => {
     const result = await confirmAlert(
@@ -155,10 +150,10 @@ const BorTable = ({
       const rows = allRows.map((s, index) => ({
         No: index + 1,
         "Date/Time": formatDateTime(s.created_at),
-        "Location": resolveStr(s.location_name),
+        Location: resolveStr(s.location_name),
         "Location Dest": resolveStr(s.location_dest_name),
-        "Department": resolveStr(s.department),
-        "Status": resolveStr(s.status),
+        Department: resolveStr(s.department),
+        Status: resolveStr(s.status),
       }));
 
       const ws = XLSX.utils.json_to_sheet(rows);
@@ -193,7 +188,10 @@ const BorTable = ({
                   {selectedDepartments.includes("all")
                     ? "ทั้งหมด"
                     : selectedDepartments.join(", ")}
-                  <i className="fa fa-chevron-down" style={{ marginLeft: 6 }} />
+                  <i
+                    className="fa fa-chevron-down"
+                    style={{ marginLeft: 45 }}
+                  />
                 </button>
 
                 {showDeptDropdown && (
@@ -268,12 +266,11 @@ const BorTable = ({
                 </div>
 
                 {Object.entries({
-                    no: "No",
-                    created_at: "Date/Time",
-                    location_name: "Location",
-                    location_dest_name: "Location Dest.",
-                    department: "Department",
-                    status: "Status",
+                  no: "No",
+                  created_at: "Date/Time",
+                  location_name: "Location",
+                  location_dest_name: "Location Dest.",
+                  department: "Department",
                 }).map(([key, label]) => (
                   <label className="filter-option" key={key}>
                     <input
@@ -309,17 +306,26 @@ const BorTable = ({
           ) : (
             filteredBors.map((bor, index) => (
               <tr key={bor.no}>
-                <td>{(currentPage - 1) * itemsPerPage + index + 1}</td>      
+                <td>{(currentPage - 1) * itemsPerPage + index + 1}</td>
                 <td>{formatDateTime(bor.created_at)}</td>
                 <td>{bor.no}</td>
                 <td>{resolveStr(bor.location_name)}</td>
                 <td>{resolveStr(bor.location_dest_name)}</td>
                 <td>{resolveStr(bor.department)}</td>
-                <td>{getStatusLabel(bor.status)}</td>
                 <td>
                   <button
                     className="bor-table-btn"
-                    onClick={() => navigate(`/bor/detail/${encodeURIComponent(bor.no)}`)}
+                    onClick={() =>
+                      navigate(`/bor/detail/${encodeURIComponent(bor.no)}`, {
+                        state: {
+                          view: "bor",
+                          detailList: filteredBors.map((x: any) => ({
+                            no: String(x?.no ?? "").trim(),
+                          })),
+                          detailTotal: filteredBors.length,
+                        },
+                      })
+                    }
                   >
                     Details
                   </button>

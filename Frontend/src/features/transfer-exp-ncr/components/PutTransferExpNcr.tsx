@@ -5,7 +5,8 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
+import DetailNavigator from "../../../components/DetailNavigator/DetailNavigator";
 // import Swal from "sweetalert2";
 import { toast } from "react-toastify";
 
@@ -74,6 +75,23 @@ const PutTransferExpNcr = () => {
   const params = useParams();
   const no = decodeURIComponent(String(params.no ?? "").trim());
 
+  const locationRouter = useLocation();
+  const navState = useMemo(() => {
+    return (locationRouter.state as any) || {};
+  }, [locationRouter.state]);
+
+  const navStatus = navState.status as string | undefined;
+  const navView = navState.view || "transfer";
+  const navMode = navState.mode as "put" | "view" | undefined;
+
+  const stateDetailList = useMemo(() => {
+    return Array.isArray(navState.detailList) ? navState.detailList : [];
+  }, [navState.detailList]);
+
+  const stateDetailTotal = Number(navState.detailTotal ?? 0);
+
+  const [detailList, setDetailList] = useState<Array<{ no: string }>>([]);
+
   // ===== refs =====
   const scanLocationInputRef = useRef<HTMLInputElement>(null);
   const scanBarcodeInputRef = useRef<HTMLInputElement>(null);
@@ -126,6 +144,12 @@ const PutTransferExpNcr = () => {
       return nextTransfer;
     });
   }, []);
+
+  const location = (transfer as any)?.location;
+  const locationDest = (transfer as any)?.location_dest;
+
+  const isExpNcrReturn =
+    location === "WH/M_EXP&NCR" && locationDest === "WH/MDT";
 
   const buildCountByLocFromTransfer = (
     row: TransferType | null,
@@ -382,7 +406,16 @@ const PutTransferExpNcr = () => {
 
     try {
       const resp = await transferApi.getDetailExpNcr(no);
-      const row = pickTransferFromAnyShape(resp.data);
+      let row = pickTransferFromAnyShape(resp.data);
+
+      // Normalize: ensure items field exists
+      if (row && !row.items && (row.lines || row.details)) {
+        row = {
+          ...row,
+          items: row.lines ?? row.details ?? [],
+        };
+      }
+
       setTransfer(row);
 
       setCountByLoc(buildCountByLocFromTransfer(row));
@@ -406,6 +439,60 @@ const PutTransferExpNcr = () => {
   useEffect(() => {
     fetchDetail();
   }, [fetchDetail]);
+
+  useEffect(() => {
+    const stateRows = stateDetailList
+      .map((x: any) => ({
+        no: String(x?.no ?? "").trim(),
+      }))
+      .filter((x: { no: string }) => x.no);
+
+    const shouldFetchAll =
+      stateRows.length === 0 ||
+      (stateDetailTotal > 0 && stateRows.length < stateDetailTotal);
+
+    if (!shouldFetchAll) {
+      setDetailList(stateRows);
+      return;
+    }
+
+    const fetchDetailList = async () => {
+      try {
+        const limit = 100;
+        let page = 1;
+        let totalPages = 1;
+        const allRows: any[] = [];
+
+        do {
+          const resp = await transferApi.getExpNcrPaginated({
+            page,
+            limit,
+            ...(navStatus ? { status: navStatus } : {}),
+          } as any);
+
+          const rows = Array.isArray(resp?.data?.data) ? resp.data.data : [];
+          const meta = resp?.data?.meta ?? {};
+
+          allRows.push(...rows);
+          totalPages = Number(meta?.totalPages ?? 1);
+          page += 1;
+        } while (page <= totalPages);
+
+        const mapped = allRows
+          .map((x: any) => ({
+            no: String(x?.no ?? "").trim(),
+          }))
+          .filter((x: { no: string }) => x.no);
+
+        setDetailList(mapped);
+      } catch (error) {
+        console.error("Error fetching transfer detail list:", error);
+        setDetailList(stateRows);
+      }
+    };
+
+    fetchDetailList();
+  }, [navStatus, stateDetailList, stateDetailTotal]);
 
   useEffect(() => {
     if (!no) return;
@@ -519,18 +606,6 @@ const PutTransferExpNcr = () => {
 
       const firstLoc = normalizedLocations[0];
 
-      if (firstLoc?.ncr_check === false) {
-        toast.error(
-          `Location นี้ไม่อนุญาตให้ทำ NCR Check: ${firstLoc.full_name}`,
-        );
-        setConfirmedLocation(null);
-        setConfirmedLocations([]);
-        setIsLocationScanOpen(true);
-        setScanLocation(firstLoc.full_name);
-        setTimeout(() => scanLocationInputRef.current?.focus(), 0);
-        return;
-      }
-
       setConfirmedLocation({
         id: firstLoc.id,
         full_name: firstLoc.full_name,
@@ -561,7 +636,7 @@ const PutTransferExpNcr = () => {
 
             const barcodeObj = l.barcode ?? old?.barcode ?? null;
 
-            return {
+            return { 
               ...(old || {}),
               ...(l || {}),
               // บังคับ preserve ฟิลด์ที่เคยหายบ่อย
@@ -744,10 +819,12 @@ const PutTransferExpNcr = () => {
         }));
 
       if (linesFromItems.length > 0) {
-        locationsPayload = [{
-          location_full_name: confirmedLocation?.full_name ?? "",
-          lines: linesFromItems,
-        }];
+        locationsPayload = [
+          {
+            location_full_name: confirmedLocation?.full_name ?? "",
+            lines: linesFromItems,
+          },
+        ];
       }
     }
 
@@ -776,7 +853,7 @@ const PutTransferExpNcr = () => {
 
       setLoading(false);
       await successAlert("ยืนยันสำเร็จแล้ว");
-      navigate(-1);
+      navigate(`/tf-exp-ncr`);
     } catch (err: any) {
       setLoading(false);
       toast.error(err?.response?.data?.message || "Confirm ไม่สำเร็จ");
@@ -808,111 +885,161 @@ const PutTransferExpNcr = () => {
     );
   }
 
+  const currentIndex =
+    detailList.findIndex((x) => String(x.no) === String(no)) + 1;
+
+  const total = detailList.length;
+
+  const hasNavigator = detailList.length > 0 && currentIndex > 0;
+
+  const handlePrev = () => {
+    const idx = detailList.findIndex((x) => String(x.no) === String(no));
+    if (idx <= 0) return;
+
+    const prevItem = detailList[idx - 1];
+
+    navigate(`/tf-exp-ncr/put/${encodeURIComponent(prevItem.no)}`, {
+      state: {
+        view: navView,
+        mode: navMode,
+        status: navStatus,
+        detailList,
+        detailTotal: total,
+      },
+    });
+  };
+
+  const handleNext = () => {
+    const idx = detailList.findIndex((x) => String(x.no) === String(no));
+    if (idx < 0 || idx >= detailList.length - 1) return;
+
+    const nextItem = detailList[idx + 1];
+
+    navigate(`/tf-exp-ncr-put/${encodeURIComponent(nextItem.no)}`, {
+      state: {
+        view: navView,
+        mode: navMode,
+        status: navStatus,
+        detailList,
+        detailTotal: total,
+      },
+    });
+  };
+
   return (
     <div className="transfer-exp-ncr-detail-container">
-      <div className="transfer-exp-ncr-detail-header">
+      <div className="transfer-exp-ncr-detail-header transfer-detail-header-with-nav">
         <h1 className="transfer-exp-ncr-detail-title">
           PUT : {(transfer as any)?.no || no || "PUT"}
+          {isExpNcrReturn && (
+            <span className="transfer-exp-ncr-detail-title-sub">
+              {" "}
+              - นำสินค้ากลับจาก EXP&NCR{" "}
+              <i className="fa-solid fa-arrow-rotate-right"></i>
+            </span>
+          )}
         </h1>
+
+        {hasNavigator && (
+          <DetailNavigator
+            currentIndex={currentIndex}
+            total={total}
+            onPrev={handlePrev}
+            onNext={handleNext}
+            disablePrev={currentIndex <= 1}
+            disableNext={currentIndex >= total}
+          />
+        )}
       </div>
 
-      <div className="transfer-exp-ncr-detail-info">
-        {/* ===== row 1 ===== */}
-        <div className="transfer-exp-ncr-info-row">
-          <div className="transfer-exp-ncr-info-item">
-            <label>Department :</label>
-            <span>{(transfer as any)?.department || "data"}</span>
+      <div className="transfer-exp-ncr-main-layout">
+        <div className="transfer-exp-ncr-meta-panel">
+          <div className="transfer-exp-ncr-info-row">
+            <div className="transfer-exp-ncr-info-item">
+              <label>Department :</label>
+              <span>{(transfer as any)?.department || "data"}</span>
+            </div>
+
+            <div className="transfer-exp-ncr-info-item">
+              <label>PO No. :</label>
+              <span>{(transfer as any)?.origin || "data"}</span>
+            </div>
           </div>
 
-          <div className="transfer-exp-ncr-info-item">
-            <label>PO No. :</label>
-            <span>{(transfer as any)?.origin || "data"}</span>
-          </div>
+          <div className="transfer-exp-ncr-info-row">
+            <div className="transfer-exp-ncr-info-item">
+              <label>INV. Sup:</label>
+              <span>{(transfer as any)?.reference || "data"}</span>
+            </div>
 
-          <div className="transfer-exp-ncr-info-item">
-            <label>Scan Location EXP&NCR :</label>
-
-            <input
-              ref={scanLocationInputRef}
-              type="text"
-              className="transfer-exp-ncr-scan-input"
-              value={scanLocation}
-              onChange={(e) => setScanLocation(e.target.value)}
-              onKeyDown={handleScanLocationKeyDown}
-              placeholder={
-                isAllDoneBackend
-                  ? "ดำเนินการเสร็จสิ้นแล้ว"
-                  : "Scan Location EXP&NCR"
-              }
-              disabled={!isLocationScanOpen || isAllDoneBackend}
-              style={{
-                borderColor: confirmedLocation ? "#4CAF50" : undefined,
-                opacity: isLocationScanOpen && !isAllDoneBackend ? 1 : 0.6,
-              }}
-            />
-
-            <button
-              type="button"
-              className={`transfer-exp-ncr-btn-scan-toggle ${
-                isLocationScanOpen ? "active" : ""
-              }`}
-              onClick={toggleLocationScan}
-              disabled={isAllDoneBackend}
-              title={
-                isAllDoneBackend
-                  ? "ดำเนินการเสร็จสิ้นแล้ว ไม่สามารถสแกนได้"
-                  : undefined
-              }
-            >
-              {isLocationScanOpen ? (
-                <i className="fa-solid fa-xmark"></i>
-              ) : (
-                <i className="fa-solid fa-qrcode"></i>
-              )}
-            </button>
+            <div className="transfer-exp-ncr-info-item">
+              <label>เวลารับเข้าเอกสาร:</label>
+              <span>{formatDateTime((transfer as any)?.date) || "data"}</span>
+            </div>
           </div>
         </div>
 
-        {/* ===== row 2 ===== */}
-        <div className="transfer-exp-ncr-info-row">
-          <div className="transfer-exp-ncr-info-item">
-            <label>INV. Sup:</label>
-            <span>{(transfer as any)?.reference || "data"}</span>
-          </div>
+        {!isAllDoneBackend && (
+          <div
+            className={`transfer-exp-ncr-scan-sticky-wrap ${
+              viewMode === "done" ? "no-sticky" : ""
+            }`}
+          >
+            <div className="transfer-exp-ncr-scan-panel">
+              <div className="transfer-exp-ncr-scan-row">
+                <label>Scan Location EXP&NCR :</label>
 
-          <div className="transfer-exp-ncr-info-item">
-            <label>User :</label>
-            <span>{"User"}</span>
-          </div>
+                <input
+                  ref={scanLocationInputRef}
+                  type="text"
+                  className="transfer-exp-ncr-scan-input"
+                  value={scanLocation}
+                  onChange={(e) => setScanLocation(e.target.value)}
+                  onKeyDown={handleScanLocationKeyDown}
+                  placeholder="Scan Location EXP&NCR"
+                  disabled={!isLocationScanOpen || isAllDoneBackend}
+                  style={{
+                    borderColor: confirmedLocation ? "#4CAF50" : undefined,
+                    opacity: isLocationScanOpen && !isAllDoneBackend ? 1 : 0.6,
+                  }}
+                />
 
-          <div className="transfer-exp-ncr-info-item">
-            <label>Scan Barcode/Serial :</label>
-            <input
-              ref={scanBarcodeInputRef}
-              type="text"
-              className="transfer-exp-ncr-scan-input"
-              onKeyDown={handleScanBarcodeKeyDown}
-              placeholder={
-                isAllDoneBackend
-                  ? "ดำเนินการเสร็จสิ้นแล้ว"
-                  : "Scan Barcode/Serial "
-              }
-              disabled={!confirmedLocation || isAllDoneBackend}
-            />
-          </div>
-          <div className="transfer-exp-ncr-info-item">
-            <label>เวลารับเข้าเอกสาร:</label>
-            <span>{formatDateTime((transfer as any)?.date) || "data"}</span>
-          </div>
-        </div>
+                <button
+                  type="button"
+                  className={`transfer-exp-ncr-btn-scan-toggle ${
+                    isLocationScanOpen ? "active" : ""
+                  }`}
+                  onClick={toggleLocationScan}
+                  disabled={isAllDoneBackend}
+                >
+                  {isLocationScanOpen ? (
+                    <i className="fa-solid fa-xmark"></i>
+                  ) : (
+                    <i className="fa-solid fa-qrcode"></i>
+                  )}
+                </button>
+              </div>
 
-        <br />
-        <hr className="transfer-exp-ncr-detail-divider" />
+              <div className="transfer-exp-ncr-scan-row">
+                <label>Scan Barcode/Serial :</label>
 
-        {/* ===== Tabs + Search ===== */}
-        <div className="transfer-exp-ncr-info-row">
+                <input
+                  ref={scanBarcodeInputRef}
+                  type="text"
+                  className="transfer-exp-ncr-scan-input"
+                  onKeyDown={handleScanBarcodeKeyDown}
+                  placeholder="Scan Barcode/Serial"
+                  disabled={!confirmedLocation || isAllDoneBackend}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="transfer-exp-ncr-search-section">
+          <hr className="transfer-exp-ncr-detail-divider" />
+
           <div className="transfer-exp-ncr-search-bar">
-            {/* LEFT */}
             <div className="transfer-exp-ncr-search-left">
               <div className="transfer-exp-ncr-view-tabs">
                 {pendingCount > 0 && (
@@ -955,7 +1082,6 @@ const PutTransferExpNcr = () => {
               ) : null}
             </div>
 
-            {/* RIGHT */}
             <div className="transfer-exp-ncr-search-right">
               <label className="transfer-exp-ncr-search-label">Search</label>
               <div className="transfer-exp-ncr-search-input-container">
@@ -971,128 +1097,129 @@ const PutTransferExpNcr = () => {
             </div>
           </div>
         </div>
-      </div>
 
-      {/* ===== Table ===== */}
-      <div className="table__wrapper">
-        <Table headers={tableHeaders as any}>
-          {rowsToRender.length === 0 ? (
-            <tr>
-              <td colSpan={tableHeaders.length} className="no-data">
-                No items found.
-              </td>
-            </tr>
-          ) : (
-            rowsToRender.map((it: any, index) => {
-              const put = getEffectiveCountPut(it); // ✅ local+backend
-              const qtyLimit = getQtyLimit(it);
+        {/* ===== Table ===== */}
+        <div className="table__wrapper transfer-exp-ncr-table-section">
+          <Table headers={tableHeaders as any}>
+            {rowsToRender.length === 0 ? (
+              <tr>
+                <td colSpan={tableHeaders.length} className="no-data">
+                  No items found.
+                </td>
+              </tr>
+            ) : (
+              rowsToRender.map((it: any, index) => {
+                const put = getEffectiveCountPut(it); // ✅ local+backend
+                const qtyLimit = getQtyLimit(it);
 
-              const isDone = qtyLimit > 0 && put === qtyLimit;
-              const isProgress = put > 0 && qtyLimit > 0 && put < qtyLimit;
+                const isDone = qtyLimit > 0 && put === qtyLimit;
+                const isProgress = put > 0 && qtyLimit > 0 && put < qtyLimit;
 
-              // เดิมคุณมี lockMismatch + row-lock-mismatch
-              const rowClass = [
-                isDone ? "row-done" : isProgress ? "row-progress" : "",
-              ]
-                .filter(Boolean)
-                .join(" ");
+                // เดิมคุณมี lockMismatch + row-lock-mismatch
+                const rowClass = [
+                  isDone ? "row-done" : isProgress ? "row-progress" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ");
 
-              return (
-                <tr key={`${it.id}-${index}`} className={rowClass}>
-                  <td>{index + 1}</td>
-                  <td style={{ minWidth: "200px" }}>{it.code || "--"}</td>
-                  <td style={{ minWidth: "200px" }}>{it.name || "--"}</td>
-                  <td>{it.lot_serial ?? it.lot ?? "--"}</td>
-                  <td>{it.exp ? formatDateTime(it.exp) : "--"}</td>
-                  <td>{it.unit || "--"}</td>
-                  <td style={{ minWidth: 220 }}>
-                    {Array.isArray(it?.lock_no_list) &&
-                    it.lock_no_list.length > 0 ? (
-                      <div
-                        style={{
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: 2,
-                        }}
-                      >
-                        {it.lock_no_list
-                          .filter(Boolean)
-                          .map((lock: string, i: number) => (
-                            <div key={`${lock}-${i}`}>{lock}</div>
-                          ))}
-                      </div>
-                    ) : (
-                      (it.lock_no ?? "--")
-                    )}
-                  </td>
-
-                  <td>{qtyLimit}</td>
-                  <td>
-                    {editingItemId === String(it.id) ? (
-                      <div className="edit-qty-container">
-                        <input
-                          ref={(el) => {
-                            editInputRef.current[String(it.id)] = el;
+                return (
+                  <tr key={`${it.id}-${index}`} className={rowClass}>
+                    <td>{index + 1}</td>
+                    <td style={{ minWidth: "200px" }}>{it.code || "--"}</td>
+                    <td style={{ minWidth: "200px" }}>{it.name || "--"}</td>
+                    <td>{it.lot_serial ?? it.lot ?? "--"}</td>
+                    <td>{it.exp ? formatDateTime(it.exp) : "--"}</td>
+                    <td>{it.unit || "--"}</td>
+                    <td style={{ minWidth: 220 }}>
+                      {Array.isArray(it?.lock_no_list) &&
+                      it.lock_no_list.length > 0 ? (
+                        <div
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 2,
                           }}
-                          type="number"
-                          min={0}
-                          max={qtyLimit}
-                          className="edit-qty-input"
-                          value={editValue}
-                          onChange={(e) => setEditValue(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") handleEditSave(it);
-                            if (e.key === "Escape") handleEditCancel();
-                          }}
-                        />
-                        <button
-                          className="btn-save-edit"
-                          onClick={() => handleEditSave(it)}
                         >
-                          ✓
-                        </button>
-                        <button
-                          className="btn-cancel-edit"
-                          onClick={handleEditCancel}
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ) : (
-                      <div style={{ lineHeight: 1.15 }}>
-                        {(() => {
-                          const itemId = String(it.id);
+                          {it.lock_no_list
+                            .filter(Boolean)
+                            .map((lock: string, i: number) => (
+                              <div key={`${lock}-${i}`}>{lock}</div>
+                            ))}
+                        </div>
+                      ) : (
+                        (it.lock_no ?? "--")
+                      )}
+                    </td>
 
-                          const backendPut = Number(
-                            (it as any).quantity_put ?? 0,
-                          );
-                          const localTotal = getTotalCount(itemId);
-                          const totalPut = Math.max(backendPut, localTotal);
+                    <td>{qtyLimit}</td>
+                    <td>
+                      {editingItemId === String(it.id) ? (
+                        <div className="edit-qty-container">
+                          <input
+                            ref={(el) => {
+                              editInputRef.current[String(it.id)] = el;
+                            }}
+                            type="number"
+                            min={0}
+                            max={qtyLimit}
+                            className="edit-qty-input"
+                            value={editValue}
+                            onChange={(e) => setEditValue(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") handleEditSave(it);
+                              if (e.key === "Escape") handleEditCancel();
+                            }}
+                          />
+                          <button
+                            className="btn-save-edit"
+                            onClick={() => handleEditSave(it)}
+                          >
+                            ✓
+                          </button>
+                          <button
+                            className="btn-cancel-edit"
+                            onClick={handleEditCancel}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ) : (
+                        <div style={{ lineHeight: 1.15 }}>
+                          {(() => {
+                            const itemId = String(it.id);
 
-                          const locBreakdown = getAllLocCountsForItem(it);
+                            const backendPut = Number(
+                              (it as any).quantity_put ?? 0,
+                            );
+                            const localTotal = getTotalCount(itemId);
+                            const totalPut = Math.max(backendPut, localTotal);
 
-                          return (
-                            <>
-                              <div style={{ fontWeight: 700 }}>{totalPut}</div>
+                            const locBreakdown = getAllLocCountsForItem(it);
 
-                              {locBreakdown.length > 0 && (
-                                <div
-                                  style={{
-                                    marginTop: 4,
-                                    fontSize: 12,
-                                    opacity: 0.75,
-                                  }}
-                                >
-                                  {locBreakdown.map((x) => (
-                                    <div key={x.loc}>
-                                      ที่ {x.loc}: {x.qty}
-                                    </div>
-                                  ))}
+                            return (
+                              <>
+                                <div style={{ fontWeight: 700 }}>
+                                  {totalPut}
                                 </div>
-                              )}
 
-                              {/* ✅ ถ้าต้องการให้ “คลิกเพื่อแก้” เฉพาะ input_number */}
-                              {/* {(it as any).input_number ? (
+                                {locBreakdown.length > 0 && (
+                                  <div
+                                    style={{
+                                      marginTop: 4,
+                                      fontSize: 12,
+                                      opacity: 0.75,
+                                    }}
+                                  >
+                                    {locBreakdown.map((x) => (
+                                      <div key={x.loc}>
+                                        ที่ {x.loc}: {x.qty}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+
+                                {/* ✅ ถ้าต้องการให้ “คลิกเพื่อแก้” เฉพาะ input_number */}
+                                {/* {(it as any).input_number ? (
                                 <button
                                   type="button"
                                   className="btn-link-edit"
@@ -1113,27 +1240,28 @@ const PutTransferExpNcr = () => {
                                   แก้ไขจำนวน (Location นี้)
                                 </button>
                               ) : null} */}
-                            </>
-                          );
-                        })()}
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              );
-            })
-          )}
-        </Table>
+                              </>
+                            );
+                          })()}
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </Table>
+        </div>
       </div>
 
       {/* ===== Footer ===== */}
       <div className="transfer-exp-ncr-detail-footer">
         <button
           className="transfer-exp-ncr-btn-cancel"
-          onClick={() => navigate(-1)}
+          onClick={() => navigate("/tf-exp-ncr")}
           disabled={isConfirming}
         >
-          ยกเลิก
+          ย้อนกลับ
         </button>
 
         <button

@@ -36,9 +36,15 @@ export type ConfirmAdjustmentCompleteBody = {
   }[];
 };
 
+export type GetAdjustmentLevel = "manual" | "auto";
+export type GetAdjustmentStatus = "pending" | "completed";
+
 export const adjustmentApi = {
   // ✅ list page: ใช้ combined endpoint ตัวเดียว
-  getAllPaginated: (params: GetAllPaginatedParams) =>
+  getAllPaginated: (params: GetAllPaginatedParams & {
+    level?: GetAdjustmentLevel;
+    status?: GetAdjustmentStatus;
+  }) =>
     http.get<ApiAdjustmentResponse>("/Adjust", {
       params: {
         ...params,

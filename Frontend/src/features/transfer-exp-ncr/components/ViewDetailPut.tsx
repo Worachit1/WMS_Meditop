@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
+import DetailNavigator from "../../../components/DetailNavigator/DetailNavigator";
 import Swal from "sweetalert2";
 
 import { transferApi } from "../services/transfer.api";
@@ -20,6 +21,23 @@ const ViewDetailPut = () => {
   const navigate = useNavigate();
   const params = useParams();
   const no = decodeURIComponent(String(params.no ?? "").trim());
+
+  const locationRouter = useLocation();
+  const navState = useMemo(() => {
+    return (locationRouter.state as any) || {};
+  }, [locationRouter.state]);
+
+  const navStatus = navState.status as string | undefined;
+  const navView = navState.view || "transfer";
+  const navMode = navState.mode as "put" | "view" | undefined;
+
+  const stateDetailList = useMemo(() => {
+    return Array.isArray(navState.detailList) ? navState.detailList : [];
+  }, [navState.detailList]);
+
+  const stateDetailTotal = Number(navState.detailTotal ?? 0);
+
+  const [detailList, setDetailList] = useState<Array<{ no: string }>>([]);
 
   // ===== refs (คงไว้เพื่อให้ layout เหมือนเดิม) =====
   const scanLocationInputRef = useRef<HTMLInputElement>(null);
@@ -42,23 +60,32 @@ const ViewDetailPut = () => {
 
   // ===== Items =====
   const allItems: TransferItemType[] = useMemo(() => {
-    const raw = (transfer as any)?.items;
+    const raw =
+      (transfer as any)?.items ??
+      (transfer as any)?.lines ??
+      (transfer as any)?.details;
     return Array.isArray(raw) ? (raw as TransferItemType[]) : [];
   }, [transfer]);
 
-  const getUserRefFromTransferItems = (transfer: any): string => {
-    const items = Array.isArray(transfer?.items) ? transfer.items : [];
+  const location = (transfer as any)?.location;
+  const locationDest = (transfer as any)?.location_dest;
 
-    const refs = items
-      .map((x: any) => String(x?.user_ref ?? "").trim())
-      .filter((x: string) => x !== "");
+  const isExpNcrReturn =
+    location === "WH/M_EXP&NCR" && locationDest === "WH/MDT";
 
-    if (refs.length === 0) return "-";
+  // const getUserRefFromTransferItems = (transfer: any): string => {
+  //   const items = Array.isArray(transfer?.items) ? transfer.items : [];
 
-    const unique = Array.from(new Set(refs));
+  //   const refs = items
+  //     .map((x: any) => String(x?.user_ref ?? "").trim())
+  //     .filter((x: string) => x !== "");
 
-    return unique.length === 1 ? String(unique[0]) : "-";
-  };
+  //   if (refs.length === 0) return "-";
+
+  //   const unique = Array.from(new Set(refs));
+
+  //   return unique.length === 1 ? String(unique[0]) : "-";
+  // };
 
   // =========================
   // helpers (เหมือนหน้า PUT เดิม)
@@ -171,7 +198,16 @@ const ViewDetailPut = () => {
       // ✅ ใช้ตัวเดียวกับหน้าเดิมไปก่อน (ถ้าคุณมี getDetailPut ก็สลับชื่อฟังก์ชันตรงนี้)
       const resp = await transferApi.getDetailExpNcr(no);
 
-      const row = pickTransferFromAnyShape(resp.data);
+      let row = pickTransferFromAnyShape(resp.data);
+
+      // Normalize: ensure items field exists
+      if (row && !row.items && (row.lines || row.details)) {
+        row = {
+          ...row,
+          items: row.lines ?? row.details ?? [],
+        };
+      }
+
       setTransfer(row);
 
       // view-only: ถ้า backend ส่ง location ล่าสุดมา ก็โชว์ได้
@@ -214,6 +250,101 @@ const ViewDetailPut = () => {
     fetchDetail();
   }, [fetchDetail]);
 
+  useEffect(() => {
+    const stateRows = stateDetailList
+      .map((x: any) => ({
+        no: String(x?.no ?? "").trim(),
+      }))
+      .filter((x: { no: string }) => x.no);
+
+    const shouldFetchAll =
+      stateRows.length === 0 ||
+      (stateDetailTotal > 0 && stateRows.length < stateDetailTotal);
+
+    if (!shouldFetchAll) {
+      setDetailList(stateRows);
+      return;
+    }
+
+    const fetchDetailList = async () => {
+      try {
+        const limit = 100;
+        let page = 1;
+        let totalPages = 1;
+        const allRows: any[] = [];
+
+        do {
+          const resp = await transferApi.getExpNcrPaginated({
+            page,
+            limit,
+            ...(navStatus ? { status: navStatus } : {}),
+          } as any);
+
+          const rows = Array.isArray(resp?.data?.data) ? resp.data.data : [];
+          const meta = resp?.data?.meta ?? {};
+
+          allRows.push(...rows);
+          totalPages = Number(meta?.totalPages ?? 1);
+          page += 1;
+        } while (page <= totalPages);
+
+        const mapped = allRows
+          .map((x: any) => ({
+            no: String(x?.no ?? "").trim(),
+          }))
+          .filter((x: { no: string }) => x.no);
+
+        setDetailList(mapped);
+      } catch (error) {
+        console.error("Error fetching transfer detail list:", error);
+        setDetailList(stateRows);
+      }
+    };
+
+    fetchDetailList();
+  }, [navStatus, stateDetailList, stateDetailTotal]);
+
+  const currentIndex =
+    detailList.findIndex((x) => String(x.no) === String(no)) + 1;
+
+  const total = detailList.length;
+
+  const hasNavigator = detailList.length > 0 && currentIndex > 0;
+
+  const handlePrev = () => {
+    const idx = detailList.findIndex((x) => String(x.no) === String(no));
+    if (idx <= 0) return;
+
+    const prevItem = detailList[idx - 1];
+
+    navigate(`/tf-exp-ncr/view/${encodeURIComponent(prevItem.no)}`, {
+      state: {
+        view: navView,
+        mode: navMode,
+        status: navStatus,
+        detailList,
+        detailTotal: total,
+      },
+    });
+  };
+
+  const handleNext = () => {
+    const idx = detailList.findIndex((x) => String(x.no) === String(no));
+    if (idx < 0 || idx >= detailList.length - 1) return;
+
+    const nextItem = detailList[idx + 1];
+
+    navigate(`/tf-exp-ncr-view/${encodeURIComponent(nextItem.no)}`, {
+      state: {
+        view: navView,
+        mode: navMode,
+        status: navStatus,
+        detailList,
+        detailTotal: total,
+      },
+    });
+  };
+
   const tableHeaders = [
     "No",
     "สินค้า",
@@ -236,10 +367,28 @@ const ViewDetailPut = () => {
 
   return (
     <div className="transfer-exp-ncr-detail-container">
-      <div className="transfer-exp-ncr-detail-header">
+      <div className="transfer-exp-ncr-detail-header transfer-detail-header-with-nav">
         <h1 className="transfer-exp-ncr-detail-title">
-          VIEW PUT : {(transfer as any)?.no || no || "PUT"}
+          VIEW EXP&NCR : {(transfer as any)?.no || no || "PUT"}
+          {isExpNcrReturn && (
+            <span className="transfer-exp-ncr-detail-title-sub">
+              {" "}
+              - นำสินค้ากลับจาก EXP&NCR{" "}
+              <i className="fa-solid fa-arrow-rotate-right"></i>
+            </span>
+          )}
         </h1>
+
+        {hasNavigator && (
+          <DetailNavigator
+            currentIndex={currentIndex}
+            total={total}
+            onPrev={handlePrev}
+            onNext={handleNext}
+            disablePrev={currentIndex <= 1}
+            disableNext={currentIndex >= total}
+          />
+        )}
       </div>
 
       <div className="transfer-exp-ncr-detail-info">
@@ -291,8 +440,8 @@ const ViewDetailPut = () => {
           </div>
 
           <div className="transfer-exp-ncr-info-item">
-            <label>User :</label>
-            <span>{getUserRefFromTransferItems(transfer)}</span>
+            <label>เวลารับเข้าเอกสาร:</label>
+            <span>{formatDateTime((transfer as any)?.date) || "data"}</span>
           </div>
 
           <div className="transfer-exp-ncr-info-item">
@@ -304,11 +453,6 @@ const ViewDetailPut = () => {
               placeholder="View Only"
               disabled
             />
-          </div>
-
-          <div className="transfer-exp-ncr-info-item">
-            <label>เวลารับเข้าเอกสาร:</label>
-            <span>{formatDateTime((transfer as any)?.date) || "data"}</span>
           </div>
         </div>
 
@@ -401,7 +545,7 @@ const ViewDetailPut = () => {
                   <td>{index + 1}</td>
                   <td style={{ minWidth: "200px" }}>{it.code || "--"}</td>
                   <td style={{ minWidth: "200px" }}>{it.name || "--"}</td>
-                    <td>{it.lot_serial ?? it.lot ?? "--"}</td>
+                  <td>{it.lot_serial ?? it.lot ?? "--"}</td>
                   <td>{it.exp ? formatDateTime(it.exp) : "--"}</td>
                   <td>{it.unit || "--"}</td>
                   <td style={{ minWidth: 220 }}>
@@ -430,8 +574,6 @@ const ViewDetailPut = () => {
                   </td>
                   <td>{qtyLimit}</td>
                   <td>{put}</td>
-                  
-                  
                 </tr>
               );
             })
@@ -443,10 +585,10 @@ const ViewDetailPut = () => {
       <div className="transfer-exp-ncr-detail-footer">
         <button
           className="transfer-exp-ncr-btn-cancel"
-          onClick={() => navigate(-1)}
+          onClick={() => navigate("/tf-exp-ncr")}
           disabled={loading}
         >
-          ยกเลิก
+          ย้อนกลับ
         </button>
 
         {/* ไม่มีปุ่มยืนยัน */}

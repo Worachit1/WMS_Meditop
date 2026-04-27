@@ -32,6 +32,16 @@ const TransferExpNcrContainer = () => {
     user_ref: true,
   });
 
+  const [statusTab, setStatusTab] = useState<
+    "pending" | "process" | "completed"
+  >("pending");
+
+  const [statusCounts, setStatusCounts] = useState({
+    pending: 0,
+    process: 0,
+    completed: 0,
+  });
+
   const fetchTransfers = useCallback(
     async (
       page: number,
@@ -55,12 +65,18 @@ const TransferExpNcrContainer = () => {
           limit,
           search: search.trim() || undefined,
           columns: enabledColumns || undefined,
+          status: statusTab,
         });
 
         const { data = [], meta } = response.data as any;
         setTransfers(Array.isArray(data) ? data : []);
         setTotalPages(Number(meta?.totalPages ?? 1));
         setTotalItems(Number(meta?.total ?? 0));
+        setStatusCounts({
+          pending: Number(meta?.statusCounts?.pending ?? 0),
+          process: Number(meta?.statusCounts?.process ?? 0),
+          completed: Number(meta?.statusCounts?.completed ?? 0),
+        });
       } catch (error) {
         console.error("Error fetching transfers:", error);
       } finally {
@@ -73,12 +89,24 @@ const TransferExpNcrContainer = () => {
         }
       }
     },
-    [],
+    [statusTab],
   );
 
   useEffect(() => {
-    fetchTransfers(currentPage, debouncedSearch, itemsPerPage, searchableColumns);
-  }, [fetchTransfers, currentPage, debouncedSearch, itemsPerPage, searchableColumns]);
+    fetchTransfers(
+      currentPage,
+      debouncedSearch,
+      itemsPerPage,
+      searchableColumns,
+    );
+  }, [
+    fetchTransfers,
+    currentPage,
+    debouncedSearch,
+    itemsPerPage,
+    searchableColumns,
+    statusTab,
+  ]);
 
   // debounce search
   useEffect(() => {
@@ -106,7 +134,10 @@ const TransferExpNcrContainer = () => {
           onToggleFilter={() => setShowFilterDropdown((prev) => !prev)}
           searchableColumns={searchableColumns}
           onToggleSearchableColumn={(column) =>
-            setSearchableColumns((prev) => ({ ...prev, [column]: !prev[column] }))
+            setSearchableColumns((prev) => ({
+              ...prev,
+              [column]: !prev[column],
+            }))
           }
           onClearAllColumns={() =>
             setSearchableColumns({
@@ -119,6 +150,12 @@ const TransferExpNcrContainer = () => {
           }
           currentPage={currentPage}
           itemsPerPage={itemsPerPage}
+          statusTab={statusTab}
+          statusCounts={statusCounts}
+          onChangeStatusTab={(tab) => {
+            setStatusTab(tab);
+            setCurrentPage(1);
+          }}
         />
 
         <Pegination

@@ -6,7 +6,8 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
+import DetailNavigator from "../../../../components/DetailNavigator/DetailNavigator";
 import { toast } from "react-toastify";
 
 import {
@@ -336,8 +337,6 @@ const isInProgress = (it: any, mode: ViewMode) => {
   return prog > 0 && (qty === 0 || prog < qty);
 };
 
-
-
 // =========================
 // main
 // =========================
@@ -346,6 +345,22 @@ export default function DetailTransferMovement() {
   const params = useParams();
 
   const no = decodeURIComponent(String(params.no ?? "").trim());
+
+  const locationRouter = useLocation();
+
+  const navState = useMemo(() => {
+    return (locationRouter.state as any) || {};
+  }, [locationRouter.state]);
+
+  const navStatus = navState.status as "pick" | "put" | "completed" | undefined;
+
+  const stateDetailList = useMemo(() => {
+    return Array.isArray(navState.detailList) ? navState.detailList : [];
+  }, [navState.detailList]);
+
+  const stateDetailTotal = Number(navState.detailTotal ?? 0);
+
+  const [detailList, setDetailList] = useState<Array<{ no: string }>>([]);
 
   // refs
   const scanLocationInputRef = useRef<HTMLInputElement>(null);
@@ -471,15 +486,15 @@ export default function DetailTransferMovement() {
     );
   }, [putItems, confirmedLocation]);
 
-//  const isAllCompleteInPutTab = useMemo(() => {
-//   if (viewMode !== "put") return false;
-//   if (putItems.length === 0) return false;
-//   if (!confirmedLocation?.full_name) return false;
+  //  const isAllCompleteInPutTab = useMemo(() => {
+  //   if (viewMode !== "put") return false;
+  //   if (putItems.length === 0) return false;
+  //   if (!confirmedLocation?.full_name) return false;
 
-//   return putItems.every((it: any) =>
-//     isCompleteAtPutLocation(it, confirmedLocation.full_name),
-//   );
-// }, [viewMode, putItems, confirmedLocation]);
+  //   return putItems.every((it: any) =>
+  //     isCompleteAtPutLocation(it, confirmedLocation.full_name),
+  //   );
+  // }, [viewMode, putItems, confirmedLocation]);
 
   const isPutConfirmMode =
     viewMode === "put" || (viewMode === "done" && isTransferStatusPut);
@@ -688,6 +703,60 @@ export default function DetailTransferMovement() {
     });
   }, [confirmedLocation]);
 
+  useEffect(() => {
+    const stateRows = stateDetailList
+      .map((x: any) => ({
+        no: String(x?.no ?? "").trim(),
+      }))
+      .filter((x: { no: string }) => x.no);
+
+    const shouldFetchAll =
+      stateRows.length === 0 ||
+      (stateDetailTotal > 0 && stateRows.length < stateDetailTotal);
+
+    if (!shouldFetchAll) {
+      setDetailList(stateRows);
+      return;
+    }
+
+    const fetchDetailList = async () => {
+      try {
+        const limit = 100;
+        let page = 1;
+        let totalPages = 1;
+        const allRows: any[] = [];
+
+        do {
+          const resp = await transferApi.getMovementPaginated({
+            page,
+            limit,
+            ...(navStatus ? { status: navStatus } : {}),
+          } as any);
+
+          const rows = Array.isArray(resp?.data?.data) ? resp.data.data : [];
+          const meta = resp?.data?.meta ?? {};
+
+          allRows.push(...rows);
+          totalPages = Number(meta?.totalPages ?? 1);
+          page += 1;
+        } while (page <= totalPages);
+
+        const mapped = allRows
+          .map((x: any) => ({
+            no: String(x?.no ?? "").trim(),
+          }))
+          .filter((x: { no: string }) => x.no);
+
+        setDetailList(mapped);
+      } catch (error) {
+        console.error("Error fetching transfer movement detail list:", error);
+        setDetailList(stateRows);
+      }
+    };
+
+    fetchDetailList();
+  }, [navStatus, stateDetailList, stateDetailTotal]);
+
   // =========================
   // Scan Location
   // =========================
@@ -762,7 +831,9 @@ export default function DetailTransferMovement() {
     e.preventDefault();
 
     // อ่านค่าจาก ref ก่อน เพื่อเช็ค ChangeLocation
-    const rawImmediate = String(scanBarcodeInputRef.current?.value ?? "").trim();
+    const rawImmediate = String(
+      scanBarcodeInputRef.current?.value ?? "",
+    ).trim();
     if (rawImmediate.toLowerCase().replace(/\s/g, "") === "changelocation") {
       if (scanBarcodeInputRef.current) {
         scanBarcodeInputRef.current.value = "";
@@ -1255,133 +1326,204 @@ export default function DetailTransferMovement() {
   const user = (transfer as any)?.user;
   const userLabel = getUserLabel(user);
 
+  const currentIndex =
+    detailList.findIndex((x) => String(x.no) === String(no)) + 1;
+
+  const total = detailList.length;
+
+  const hasNavigator = detailList.length > 0 && currentIndex > 0;
+
+  const handlePrev = () => {
+    const idx = detailList.findIndex((x) => String(x.no) === String(no));
+    if (idx <= 0) return;
+
+    const prevItem = detailList[idx - 1];
+
+    navigate(`/detail-transfer-movement/${encodeURIComponent(prevItem.no)}`, {
+      state: {
+        view: "transfer-movement",
+        status: navStatus,
+        detailList,
+        detailTotal: total,
+      },
+    });
+  };
+
+  const handleNext = () => {
+    const idx = detailList.findIndex((x) => String(x.no) === String(no));
+    if (idx < 0 || idx >= detailList.length - 1) return;
+
+    const nextItem = detailList[idx + 1];
+
+    navigate(`/detail-transfer-movement/${encodeURIComponent(nextItem.no)}`, {
+      state: {
+        view: "transfer-movement",
+        status: navStatus,
+        detailList,
+        detailTotal: total,
+      },
+    });
+  };
+
   return (
     <div className="dt-tf-mv-container">
-      <div className="dt-tf-mv-header">
+      <div className="dt-tf-mv-header dt-tf-mv-header-with-nav">
         <div className="dt-tf-mv-title">
           MOVE : {String((transfer as any)?.no ?? no ?? "M-XXXXXX")}
         </div>
+
+        {hasNavigator && (
+          <DetailNavigator
+            currentIndex={currentIndex}
+            total={total}
+            onPrev={handlePrev}
+            onNext={handleNext}
+            disablePrev={currentIndex <= 1}
+            disableNext={currentIndex >= total}
+          />
+        )}
       </div>
 
-      <div className="dt-tf-mv-info">
-        <div className="dt-tf-mv-info-left">
-          <div className="dt-tf-mv-info-row">
-            <div className="dt-tf-mv-info-item">
-              <label>Department :</label>
-              <span>{asText((transfer as any)?.department)}</span>
-            </div>
-            <div className="dt-tf-mv-info-item">
-              <label>User :</label>
-              <span>{userLabel}</span>
-            </div>
-          </div>
-        </div>
+      <div className="dt-tf-mv-main-layout">
+  <div className="dt-tf-mv-meta-panel">
+    <div className="dt-tf-mv-info-row">
+      <div className="dt-tf-mv-info-item">
+        <label>Department :</label>
+        <span>{asText((transfer as any)?.department)}</span>
+      </div>
 
-        <div className="dt-tf-mv-info-right">
-          <div className="dt-tf-mv-scan-row">
-            <label>Scan Location</label>
-            <div className="dt-tf-mv-scan-wrap">
-              <input
-                ref={scanLocationInputRef}
-                type="text"
-                className="dt-tf-mv-scan-input"
-                value={scanLocation}
-                onChange={(e) => setScanLocation(e.target.value)}
-                onKeyDown={handleScanLocationKeyDown}
-                placeholder={
-                  viewMode === "put"
-                    ? "สแกน Location ปลายทาง"
-                    : "สแกน Location ต้นทาง"
-                }
-                disabled={!isLocationScanOpen || viewMode === "done"}
-                style={{
-                  borderColor: confirmedLocation ? "#4CAF50" : undefined,
-                  opacity: isLocationScanOpen && viewMode !== "done" ? 1 : 0.6,
-                }}
-              />
-              <button
-                type="button"
-                className={`dt-tf-mv-btn-toggle ${isLocationScanOpen ? "active" : ""}`}
-                onClick={toggleLocationScan}
-                disabled={viewMode === "done"}
-                title={
-                  viewMode === "done"
-                    ? "Done แล้ว"
-                    : isLocationScanOpen
-                      ? "ปิด Location"
-                      : "เปิด Location"
-                }
-              >
-                {isLocationScanOpen ? (
-                  <i className="fa-solid fa-xmark" />
-                ) : (
-                  <i className="fa-solid fa-qrcode" />
-                )}
-              </button>
-            </div>
-          </div>
+      <div className="dt-tf-mv-info-item">
+        <label>User :</label>
+        <span>{userLabel}</span>
+      </div>
+    </div>
 
-          <div className="dt-tf-mv-scan-row">
-            <label>Scan Barcode/Serial</label>
-            <input
-              ref={scanBarcodeInputRef}
-              type="text"
-              className="dt-tf-mv-scan-input"
-              onKeyDown={handleScanBarcodeKeyDown}
-              placeholder="สแกน Barcode/Serial"
-              disabled={!confirmedLocation || viewMode === "done"}
-            />
-          </div>
+    <div className="dt-tf-mv-info-row">
+      <div className="dt-tf-mv-info-item">
+        <label>เวลาสร้างเอกสาร :</label>
+        <span>{formatDateTime(asText((transfer as any)?.created_at))}</span>
+      </div>
+    </div>
+  </div>
+
+  <div
+    className={`dt-tf-mv-scan-sticky-wrap ${
+      viewMode === "done" ? "no-sticky" : ""
+    }`}
+  >
+    <div className="dt-tf-mv-scan-panel">
+      <div className="dt-tf-mv-scan-row">
+        <label>Scan Location</label>
+
+        <div className="dt-tf-mv-scan-wrap">
+          <input
+            ref={scanLocationInputRef}
+            type="text"
+            className="dt-tf-mv-scan-input"
+            value={scanLocation}
+            onChange={(e) => setScanLocation(e.target.value)}
+            onKeyDown={handleScanLocationKeyDown}
+            placeholder={
+              viewMode === "put"
+                ? "สแกน Location ปลายทาง"
+                : "สแกน Location ต้นทาง"
+            }
+            disabled={!isLocationScanOpen || viewMode === "done"}
+            style={{
+              borderColor: confirmedLocation ? "#4CAF50" : undefined,
+              opacity: isLocationScanOpen && viewMode !== "done" ? 1 : 0.6,
+            }}
+          />
+
+          <button
+            type="button"
+            className={`dt-tf-mv-btn-toggle ${
+              isLocationScanOpen ? "active" : ""
+            }`}
+            onClick={toggleLocationScan}
+            disabled={viewMode === "done"}
+            title={
+              viewMode === "done"
+                ? "Done แล้ว"
+                : isLocationScanOpen
+                  ? "ปิด Location"
+                  : "เปิด Location"
+            }
+          >
+            {isLocationScanOpen ? (
+              <i className="fa-solid fa-xmark" />
+            ) : (
+              <i className="fa-solid fa-qrcode" />
+            )}
+          </button>
         </div>
       </div>
 
-      <div className="dt-tf-mv-tabs">
-        <button
-          type="button"
-          className={`dt-tf-mv-tab ${viewMode === "pick" ? "active" : ""}`}
-          onClick={() => setViewMode("pick")}
-        >
-          รายการ Pick <span className="dt-tf-mv-badge">{pickCount}</span>
-        </button>
+      <div className="dt-tf-mv-scan-row">
+        <label>Scan Barcode/Serial</label>
 
-        <button
-          type="button"
-          className={`dt-tf-mv-tab ${viewMode === "put" ? "active" : ""}`}
-          onClick={() => setViewMode("put")}
-        >
-          รายการ Put <span className="dt-tf-mv-badge">{putCount}</span>
-        </button>
-
-        <button
-          type="button"
-          className={`dt-tf-mv-tab ${viewMode === "done" ? "active" : ""}`}
-          onClick={() => setViewMode("done")}
-        >
-          ดำเนินการเสร็จสิ้น <span className="dt-tf-mv-badge">{doneCount}</span>
-        </button>
-
-        <div className="dt-tf-mv-tab-right">
-          <div className="dt-tf-mv-search">
-            <i className="fa-solid fa-magnifying-glass dt-tf-mv-search-icon" />
-            <input
-              className="dt-tf-mv-search-input"
-              value={searchFilter}
-              onChange={(e) => setSearchFilter(e.target.value)}
-              placeholder="Search"
-            />
-          </div>
-
-          {confirmedLocation ? (
-            <div className="dt-tf-mv-hint">
-              Location ปัจจุบัน: <b>{confirmedLocation.full_name}</b>
-            </div>
-          ) : null}
-        </div>
+        <input
+          ref={scanBarcodeInputRef}
+          type="text"
+          className="dt-tf-mv-scan-input"
+          onKeyDown={handleScanBarcodeKeyDown}
+          placeholder="สแกน Barcode/Serial"
+          disabled={!confirmedLocation || viewMode === "done"}
+        />
       </div>
+    </div>
+  </div>
+
+  <div className="dt-tf-mv-tabs-section">
+    <div className="dt-tf-mv-tabs">
+      <button
+        type="button"
+        className={`dt-tf-mv-tab ${viewMode === "pick" ? "active" : ""}`}
+        onClick={() => setViewMode("pick")}
+      >
+        รายการ Pick <span className="dt-tf-mv-badge">{pickCount}</span>
+      </button>
+
+      <button
+        type="button"
+        className={`dt-tf-mv-tab ${viewMode === "put" ? "active" : ""}`}
+        onClick={() => setViewMode("put")}
+      >
+        รายการ Put <span className="dt-tf-mv-badge">{putCount}</span>
+      </button>
+
+      <button
+        type="button"
+        className={`dt-tf-mv-tab ${viewMode === "done" ? "active" : ""}`}
+        onClick={() => setViewMode("done")}
+      >
+        ดำเนินการเสร็จสิ้น <span className="dt-tf-mv-badge">{doneCount}</span>
+      </button>
+
+      <div className="dt-tf-mv-tab-right">
+        <div className="dt-tf-mv-search">
+          <i className="fa-solid fa-magnifying-glass dt-tf-mv-search-icon" />
+          <input
+            className="dt-tf-mv-search-input"
+            value={searchFilter}
+            onChange={(e) => setSearchFilter(e.target.value)}
+            placeholder="Search"
+          />
+        </div>
+
+        {confirmedLocation ? (
+          <div className="dt-tf-mv-hint">
+            Location ปัจจุบัน: <b>{confirmedLocation.full_name}</b>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  </div>
+</div>
 
       <br />
 
-      <div className="table__wrapper">
+      <div className="table__wrapper dt-tf-mv-table-section">
         <Table headers={tableHeaders as any}>
           {sortedItems.length === 0 ? (
             <tr>
@@ -1605,8 +1747,6 @@ export default function DetailTransferMovement() {
                       )}
                     </td>
                   )}
-
-          
                 </tr>
               );
             })
@@ -1617,10 +1757,10 @@ export default function DetailTransferMovement() {
       <div className="dt-tf-mv-footer">
         <button
           className="dt-tf-mv-btn-cancel"
-          onClick={() => navigate(-1)}
+          onClick={() => navigate("/tf-movement")}
           disabled={loading}
         >
-          ยกเลิก
+          ย้อนกลับ
         </button>
 
         {(viewMode !== "done" || isTransferStatusPut) && (

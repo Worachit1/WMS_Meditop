@@ -34,6 +34,16 @@ export interface AdjustmentMeta {
   limit: number;
   total: number;
   totalPages: number;
+ statusCounts: {
+  manual: {
+    pending: number;
+    completed: number;
+  };
+  auto: {
+    pending: number;
+    completed: number;
+  };
+};
 }
 
 export interface ApiAdjustmentResponse {

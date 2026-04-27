@@ -46,12 +46,14 @@ export type ScanTransferLocationResponse = {
 };
 
 export const transferApi = {
-  getExpNcrPaginated: (params: {
-    page: number;
-    limit: number;
-    search?: string;
-    columns?: string;
-  }) => http.get<TransferListResponse>("/transfers/get", { params }),
+ getExpNcrPaginated: (params: {
+  page: number;
+  limit: number;
+  search?: string;
+  columns?: string;
+  status?: "pending" | "process" | "completed";
+}) => http.get<TransferListResponse>("/transfers/get", { params }),
+
 
   getDetailExpNcr: (no: string) =>
     http.get<TransferListResponse>(

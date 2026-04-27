@@ -71,6 +71,8 @@ type Props = {
     no: boolean;
     date: boolean;
     department: boolean;
+    invoice?: boolean;
+    origin?: boolean;
   };
   onToggleSearchableDocColumn: (
     column: keyof Props["searchableDocColumns"],
@@ -91,6 +93,20 @@ type Props = {
 
   view: OutboundView;
   onChangeView: (v: OutboundView) => void;
+
+  pickingPackTab: "not_packed" | "packed";
+  onChangePickingTab: (v: "not_packed" | "packed") => void;
+  pickingStatusCounts: {
+    process: number;
+    completed: number;
+  };
+
+  packingTab: "process" | "completed";
+  onChangePackingTab: (v: "process" | "completed") => void;
+  packingStatusCounts: {
+    process: number;
+    completed: number;
+  };
 };
 
 const OutboundTable = ({
@@ -115,6 +131,12 @@ const OutboundTable = ({
   currentPage = 1,
   itemsPerPage = 10,
   view,
+  pickingPackTab,
+  onChangePickingTab,
+  pickingStatusCounts,
+  packingTab,
+  onChangePackingTab,
+  packingStatusCounts,
 }: Props) => {
   const isDoc = view === "doc";
   const isPicking = view === "picking";
@@ -124,12 +146,6 @@ const OutboundTable = ({
     "all",
   ]);
   const [showDeptDropdown, setShowDeptDropdown] = useState(false);
-  const [packingStatusTab, setPackingStatusTab] = useState<
-    "process" | "completed"
-  >("process");
-  const [pickingPackTab, setPickingPackTab] = useState<
-    "not_packed" | "packed"
-  >("not_packed");
 
   const toggleDepartment = (dept: string) => {
     if (dept === "all") {
@@ -167,21 +183,10 @@ const OutboundTable = ({
     );
   }, [docs, selectedDepartments]);
 
-  const filteredPickingBatches = useMemo(() => {
-    if (pickingPackTab === "packed") {
-      return pickingBatches.filter((b) => b.status === "completed");
-    }
-    return pickingBatches.filter((b) => b.status === "process");
-  }, [pickingBatches, pickingPackTab]);
+  const filteredPickingBatches = pickingBatches;
 
-  const pickingNotPackedCount = useMemo(
-    () => pickingBatches.filter((b) => b.status === "process").length,
-    [pickingBatches],
-  );
-  const pickingPackedCount = useMemo(
-    () => pickingBatches.filter((b) => b.status === "completed").length,
-    [pickingBatches],
-  );
+  const pickingNotPackedCount = Number(pickingStatusCounts?.process ?? 0);
+  const pickingPackedCount = Number(pickingStatusCounts?.completed ?? 0);
 
   const getDocNo = (doc: any): string => {
     const value = doc?.no;
@@ -205,25 +210,14 @@ const OutboundTable = ({
   const filteredPackingDocs = useMemo(
     () =>
       packingDocs.filter((row) =>
-        packingStatusTab === "completed"
+        packingTab === "completed"
           ? String(row.status).toLowerCase() === "completed"
-          : String(row.status).toLowerCase() !== "completed",
+          : String(row.status).toLowerCase() === "process",
       ),
-    [packingDocs, packingStatusTab],
+    [packingDocs, packingTab],
   );
 
-  const packingProcessCount = useMemo(
-    () =>
-      packingDocs.filter((r) => String(r.status).toLowerCase() !== "completed")
-        .length,
-    [packingDocs],
-  );
-  const packingCompletedCount = useMemo(
-    () =>
-      packingDocs.filter((r) => String(r.status).toLowerCase() === "completed")
-        .length,
-    [packingDocs],
-  );
+  
 
   const docHeaders = [
     "No",
@@ -311,7 +305,10 @@ const OutboundTable = ({
                   {selectedDepartments.includes("all")
                     ? "ทั้งหมด"
                     : selectedDepartments.join(", ")}
-                  <i className="fa fa-chevron-down" style={{ marginLeft: 6 }} />
+                  <i
+                    className="fa fa-chevron-down"
+                    style={{ marginLeft: 45 }}
+                  />
                 </button>
                 {showDeptDropdown && (
                   <div className="filter-dropdown-2">
@@ -487,7 +484,7 @@ const OutboundTable = ({
           <button
             type="button"
             className={`groupOrder-tab ${pickingPackTab === "not_packed" ? "active" : ""}`}
-            onClick={() => setPickingPackTab("not_packed")}
+            onClick={() => onChangePickingTab("not_packed")}
           >
             กำลังดำเนินการ
             {pickingNotPackedCount > 0 && (
@@ -497,7 +494,7 @@ const OutboundTable = ({
           <button
             type="button"
             className={`groupOrder-tab ${pickingPackTab === "packed" ? "active" : ""}`}
-            onClick={() => setPickingPackTab("packed")}
+            onClick={() => onChangePickingTab("packed")}
           >
             ดำเนินการเสร็จสิ้น
             {pickingPackedCount > 0 && (
@@ -511,22 +508,27 @@ const OutboundTable = ({
         <div className="groupOrder-view-tabs">
           <button
             type="button"
-            className={`groupOrder-tab ${packingStatusTab === "process" ? "active" : ""}`}
-            onClick={() => setPackingStatusTab("process")}
+            className={`groupOrder-tab ${packingTab === "process" ? "active" : ""}`}
+            onClick={() => onChangePackingTab("process")}
           >
             กำลังดำเนินการ
-            {packingProcessCount > 0 && (
-              <span className="badge">{packingProcessCount}</span>
+            {Number(packingStatusCounts?.process ?? 0) > 0 && (
+              <span className="badge">
+                {Number(packingStatusCounts?.process ?? 0)}
+              </span>
             )}
           </button>
+
           <button
             type="button"
-            className={`groupOrder-tab ${packingStatusTab === "completed" ? "active" : ""}`}
-            onClick={() => setPackingStatusTab("completed")}
+            className={`groupOrder-tab ${packingTab === "completed" ? "active" : ""}`}
+            onClick={() => onChangePackingTab("completed")}
           >
             ดำเนินการเสร็จสิ้น
-            {packingCompletedCount > 0 && (
-              <span className="badge">{packingCompletedCount}</span>
+            {Number(packingStatusCounts?.completed ?? 0) > 0 && (
+              <span className="badge">
+                {Number(packingStatusCounts?.completed ?? 0)}
+              </span>
             )}
           </button>
         </div>
@@ -578,21 +580,26 @@ const OutboundTable = ({
                   <td>{(currentPage - 1) * itemsPerPage + index + 1}</td>
                   <td>{formatDateTime(b.created_at)}</td>
                   <td>{b.name}</td>
-                  <td>{b.status === "process" ? "IN PROCESS" : b.status ??
-                    b.status === "completed" ? "COMPLETED" : "-"}</td>
+                  <td>
+                    {String(b.status).toLowerCase() === "process"
+                      ? "IN PROCESS"
+                      : String(b.status).toLowerCase() === "completed"
+                        ? "COMPLETED"
+                        : "-"}
+                  </td>
                   <td>{b.user_pick || "-"}</td>
                   <td>
                     {String(b.status).toLowerCase() === "completed" ? (
                       <Link
                         to={`/group-order?batch=${encodeURIComponent(b.name)}&readonly=1`}
-                        className="outbound-picking-btn outbound-picking-completed"
+                        className="outbound-picking-completed"
                       >
                         Completed
                       </Link>
                     ) : (
                       <Link
                         to={`/group-order?batch=${encodeURIComponent(b.name)}`}
-                        className="outbound-picking-btn"
+                        className="outbound-picking-draft"
                       >
                         Picking
                       </Link>
@@ -634,6 +641,17 @@ const OutboundTable = ({
                       {isCompleted ? (
                         <Link
                           to={`/scan-box?packId=${row.id}&readonly=1`}
+                          state={{
+                            view: "packing",
+                            status: packingTab,
+                            detailList: filteredPackingDocs.map((x) => ({
+                              id: x.id,
+                            })),
+                            detailTotal:
+                              packingTab === "completed"
+                                ? Number(packingStatusCounts?.completed ?? 0)
+                                : Number(packingStatusCounts?.process ?? 0),
+                          }}
                           className="outbound-packing-btn outbound-packing-confirmed"
                         >
                           Completed
@@ -641,6 +659,17 @@ const OutboundTable = ({
                       ) : (
                         <Link
                           to={`/scan-box?packId=${row.id}`}
+                          state={{
+                            view: "packing",
+                            status: packingTab,
+                            detailList: filteredPackingDocs.map((x) => ({
+                              id: x.id,
+                            })),
+                            detailTotal:
+                              packingTab === "completed"
+                                ? Number(packingStatusCounts?.completed ?? 0)
+                                : Number(packingStatusCounts?.process ?? 0),
+                          }}
                           className="outbound-packing-btn outbound-packing-draft"
                         >
                           Continue

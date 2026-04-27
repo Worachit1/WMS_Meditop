@@ -20,7 +20,7 @@ type Props = {
   onToggleFilter: () => void;
 
   searchableColumns: {
-     date: boolean;
+    date: boolean;
     no: boolean;
     department: boolean;
     status: boolean;
@@ -29,12 +29,18 @@ type Props = {
   onToggleSearchableColumn: (column: keyof Props["searchableColumns"]) => void;
   onClearAllColumns: () => void;
 
-
   currentPage?: number;
   itemsPerPage?: number;
+
+  statusTab: "pending" | "process" | "completed";
+  statusCounts: {
+    pending: number;
+    process: number;
+    completed: number;
+  };
+  onChangeStatusTab: (tab: "pending" | "process" | "completed") => void;
 };
 
-type ViewTab = "waiting" | "manage" | "done";
 
 const toNum = (v: any) => {
   const n = Number(v);
@@ -87,12 +93,11 @@ const isManage = (t: any) => {
   return counted === qty && put !== counted;
 };
 
-const isWaiting = (t: any) => !isManage(t) && !isDone(t);
 
 const statusText = (t: any) => {
-  if (isDone(t)) return "Done";
-  if (isManage(t)) return "In Progress";
-  return "Waiting";
+  if (isDone(t)) return "COMPLETED";
+  if (isManage(t)) return "PROCESS";
+  return "PENDING";
 };
 
 const TransferExpNcrTable = ({
@@ -107,10 +112,14 @@ const TransferExpNcrTable = ({
   onClearAllColumns,
   currentPage = 1,
   itemsPerPage = 10,
+  statusTab,
+  statusCounts,
+  onChangeStatusTab,
 }: Props) => {
   const navigate = useNavigate();
-  const [tab, setTab] = useState<ViewTab>("waiting");
-  const [selectedDepartments, setSelectedDepartments] = useState<string[]>(["all"]);
+  const [selectedDepartments, setSelectedDepartments] = useState<string[]>([
+    "all",
+  ]);
   const [showDeptDropdown, setShowDeptDropdown] = useState(false);
 
   const toggleDepartment = (dept: string) => {
@@ -136,33 +145,27 @@ const TransferExpNcrTable = ({
     return Array.from(depts).sort();
   }, [transfers]);
 
-  const waitingTransfers = useMemo(
-    () => (transfers || []).filter(isWaiting),
-    [transfers],
-  );
-  const manageTransfers = useMemo(
-    () => (transfers || []).filter(isManage),
-    [transfers],
-  );
-  const doneTransfers = useMemo(
-    () => (transfers || []).filter(isDone),
-    [transfers],
-  );
-
-  const tabTransfers = useMemo(() => {
-    if (tab === "manage") return manageTransfers;
-    if (tab === "done") return doneTransfers;
-    return waitingTransfers;
-  }, [tab, waitingTransfers, manageTransfers, doneTransfers]);
 
   const filteredTabTransfers = useMemo(() => {
-    if (selectedDepartments.includes("all") || selectedDepartments.length === 0) {
-      return tabTransfers;
+    if (
+      selectedDepartments.includes("all") ||
+      selectedDepartments.length === 0
+    ) {
+      return transfers || [];
     }
-    return tabTransfers.filter((t: any) =>
-      selectedDepartments.includes(t.department ?? "")
+
+    return (transfers || []).filter((t: any) =>
+      selectedDepartments.includes(t.department ?? ""),
     );
-  }, [tabTransfers, selectedDepartments]);
+  }, [transfers, selectedDepartments]);
+
+  const currentDetailList = useMemo(() => {
+    return filteredTabTransfers
+      .map((x: any) => ({
+        no: String(x?.no ?? "").trim(),
+      }))
+      .filter((x: any) => x.no);
+  }, [filteredTabTransfers]);
 
   const getUserRefFromTransferItems = (t: any) => {
     const items = getItems(t);
@@ -177,19 +180,37 @@ const TransferExpNcrTable = ({
   const openDetail = (t: TransferType) => {
     const no = String((t as any)?.no ?? "").trim();
     if (!no) return;
-    navigate(`/tf-exp-ncr/${encodeURIComponent(no)}`);
+
+    navigate(`/tf-exp-ncr/${encodeURIComponent(no)}`, {
+      state: {
+        detailList: currentDetailList,
+        fromTab: statusTab,
+      },
+    });
   };
 
   const openPut = (t: TransferType) => {
     const no = String((t as any)?.no ?? "").trim();
     if (!no) return;
-    navigate(`/tf-exp-ncr-put/${encodeURIComponent(no)}`);
+
+    navigate(`/tf-exp-ncr-put/${encodeURIComponent(no)}`, {
+      state: {
+        detailList: currentDetailList,
+        fromTab: statusTab,
+      },
+    });
   };
 
   const openView = (t: TransferType) => {
     const no = String((t as any)?.no ?? "").trim();
     if (!no) return;
-    navigate(`/tf-exp-ncr-view/${encodeURIComponent(no)}`);
+
+    navigate(`/tf-exp-ncr-view/${encodeURIComponent(no)}`, {
+      state: {
+        detailList: currentDetailList,
+        fromTab: statusTab,
+      },
+    });
   };
 
   const tableHeaders = useMemo(
@@ -204,25 +225,31 @@ const TransferExpNcrTable = ({
     ],
     [],
   );
+
   return (
     <>
       <div className="page-header">
-        <div className="page-title">Transfer - <span className="transfer-exp-ncr-title">EXP&amp;NCR</span></div>
+        <div className="page-title">
+          Transfer - <span className="transfer-exp-ncr-title">EXP&amp;NCR</span>
+        </div>
 
         <div className="toolbar">
           {departmentOptions.length > 1 && (
-            <div className="inbound-dept-filter">
+            <div className="tf-exp-ncr-dept-filter">
               <label>แผนก:</label>
               <div className="filter-wrap">
                 <button
                   type="button"
-                  className="inbound-dept-select"
+                  className="tf-exp-ncr-dept-select"
                   onClick={() => setShowDeptDropdown((v) => !v)}
                 >
                   {selectedDepartments.includes("all")
                     ? "ทั้งหมด"
                     : selectedDepartments.join(", ")}
-                  <i className="fa fa-chevron-down" style={{ marginLeft: 6 }} />
+                  <i
+                    className="fa fa-chevron-down"
+                    style={{ marginLeft: 45 }}
+                  />
                 </button>
                 {showDeptDropdown && (
                   <div className="filter-dropdown-2">
@@ -267,82 +294,81 @@ const TransferExpNcrTable = ({
                 className="clear-btn"
                 onClick={onClearSearch}
               >
-                  <i className="fa fa-xmark"></i>
+                <i className="fa fa-xmark"></i>
               </button>
             )}
           </div>
 
           <div className="filter-wrap">
-          <button className="filter-btn" onClick={onToggleFilter}>
-            <i className="fa fa-filter"></i> Filter
-          </button>
+            <button className="filter-btn" onClick={onToggleFilter}>
+              <i className="fa fa-filter"></i> Filter
+            </button>
 
-          {showFilterDropdown && (
-            <div className="filter-dropdown-2">
-              <div className="filter-title">
-                Search In Columns
-                <button
-                  type="button"
-                  className="filter-clear-btn"
-                  onClick={onClearAllColumns}
-                >
-                  <i className="fa fa-xmark"></i>
-                </button>
+            {showFilterDropdown && (
+              <div className="filter-dropdown-2">
+                <div className="filter-title">
+                  Search In Columns
+                  <button
+                    type="button"
+                    className="filter-clear-btn"
+                    onClick={onClearAllColumns}
+                  >
+                    <i className="fa fa-xmark"></i>
+                  </button>
+                </div>
+
+                {Object.entries({
+                  date: "Date/Time",
+                  no: "Doc No.",
+                  department: "Department",
+                  status: "Status",
+                  user_ref: "User",
+                }).map(([key, label]) => (
+                  <label className="filter-option" key={key}>
+                    <input
+                      type="checkbox"
+                      checked={
+                        searchableColumns[key as keyof typeof searchableColumns]
+                      }
+                      onChange={() =>
+                        onToggleSearchableColumn(
+                          key as keyof typeof searchableColumns,
+                        )
+                      }
+                    />
+                    <span>{label}</span>
+                  </label>
+                ))}
               </div>
-
-              {Object.entries({
-                date: "Date/Time",
-                no: "Doc No.",
-                department: "Department",
-                status: "Status",
-                user_ref: "User",
-              }).map(([key, label]) => (
-                <label className="filter-option" key={key}>
-                  <input
-                    type="checkbox"
-                    checked={
-                      searchableColumns[key as keyof typeof searchableColumns]
-                    }
-                    onChange={() =>
-                      onToggleSearchableColumn(
-                        key as keyof typeof searchableColumns,
-                      )
-                    }
-                  />
-                  <span>{label}</span>
-                </label>
-              ))}
-            </div>
-          )}
+            )}
+          </div>
         </div>
-      </div>
       </div>
 
       <div className="transfer-exp-ncr-list-tabs">
         <button
           type="button"
-          className={`transfer-exp-ncr-tab ${tab === "waiting" ? "active" : ""}`}
-          onClick={() => setTab("waiting")}
+          className={`transfer-exp-ncr-tab ${statusTab === "pending" ? "active" : ""}`}
+          onClick={() => onChangeStatusTab("pending")}
         >
-          รอการดำเนินการ{" "}
-          <span className="badge">{waitingTransfers.length}</span>
+          รอการดำเนินการ <span className="badge">{statusCounts.pending}</span>
         </button>
 
         <button
           type="button"
-          className={`transfer-exp-ncr-tab ${tab === "manage" ? "active" : ""}`}
-          onClick={() => setTab("manage")}
+          className={`transfer-exp-ncr-tab ${statusTab === "process" ? "active" : ""}`}
+          onClick={() => onChangeStatusTab("process")}
         >
-          จัดการสินค้า <span className="badge">{manageTransfers.length}</span>
+          จัดการสินค้า <span className="badge">{statusCounts.process}</span>
         </button>
 
         <button
           type="button"
-          className={`transfer-exp-ncr-tab ${tab === "done" ? "active" : ""}`}
-          onClick={() => setTab("done")}
+          className={`transfer-exp-ncr-tab ${statusTab === "completed" ? "active" : ""}`}
+          onClick={() => onChangeStatusTab("completed")}
         >
           ดำเนินการเสร็จสิ้น{" "}
-          <span className="badge">{doneTransfers.length}</span>
+          <span className="badge">{statusCounts.completed}</span>
         </button>
       </div>
 
@@ -359,20 +385,31 @@ const TransferExpNcrTable = ({
               <tr key={t.id ?? `${t.no}-${index}`}>
                 <td>{(currentPage - 1) * itemsPerPage + index + 1}</td>
                 <td>{t?.date ? formatDateTime(t.date) : "-"}</td>
-                <td>{t?.no ?? "-"}</td>
+                <td>
+                  {t?.no ?? "-"}{" "}
+                  {(() => {
+                    const isExpNcrReturn =
+                      t?.location === "WH/M_EXP&NCR" &&
+                      t?.location_dest === "WH/MDT";
+
+                    return isExpNcrReturn ? (
+                      <i className="fa-solid fa-arrow-rotate-right" />
+                    ) : null;
+                  })()}
+                </td>
                 <td>{t?.department ?? "-"}</td>
                 <td>{statusText(t)}</td>
                 <td>{getUserRefFromTransferItems(t)}</td>
 
                 <td>
-                  {tab === "waiting" ? (
+                  {statusTab === "pending" ? (
                     <button
                       className="transfer-exp-ncr-details-btn"
                       onClick={() => openDetail(t)}
                     >
                       Details
                     </button>
-                  ) : tab === "manage" ? (
+                  ) : statusTab === "process" ? (
                     <button
                       className="transfer-exp-ncr-details-btn"
                       onClick={() => openPut(t)}

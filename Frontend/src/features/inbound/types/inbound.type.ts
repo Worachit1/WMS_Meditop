@@ -74,6 +74,10 @@ export interface InboundMeta {
   limit: number;
   total: number;
   totalPages: number;
+  statusCounts: {
+    pending: number;
+    completed: number;
+  };
 }
 
 export interface ApiInboundResponse {

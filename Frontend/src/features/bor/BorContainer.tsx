@@ -44,7 +44,6 @@ const BorContainer = () => {
     location_name: true,
     location_dest_name: true,
     department: true,
-    status: true,
   });
 
   const buildEnabledColumns = useCallback(
@@ -165,7 +164,6 @@ const BorContainer = () => {
                 location_name: false,
                 location_dest_name: false,
                 department: false,
-                status: false,
             })
           }
           onExportAll={handleExportAll}

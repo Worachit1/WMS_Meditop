@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import type { AdjustmentType } from "../types/adjustment.type";
 
 import Table from "../../../components/Table/Table";
@@ -31,6 +31,20 @@ type Props = {
   currentPage?: number;
   itemsPerPage?: number;
   onRefresh?: () => void;
+  levelTab: "manual" | "auto";
+  statusTab: "pending" | "completed";
+  statusCounts: {
+    manual: {
+      pending: number;
+      completed: number;
+    };
+    auto: {
+      pending: number;
+      completed: number;
+    };
+  };
+  onChangeLevelTab: (level: "manual" | "auto") => void;
+  onChangeStatusTab: (status: "pending" | "completed") => void;
 };
 
 const formatDateTime = (dateString: string) => {
@@ -78,9 +92,6 @@ const statusLabel = (a: any) => {
   return "Completed";
 };
 
-type TabKey = "active" | "completed";
-type SourceFilter = "adjust" | "outbound";
-
 const AdjustmentTable = ({
   adjustments,
   searchQuery,
@@ -93,11 +104,16 @@ const AdjustmentTable = ({
   onClearAllColumns,
   currentPage = 1,
   itemsPerPage = 10,
+  levelTab,
+  statusTab,
+  statusCounts,
+  onChangeLevelTab,
+  onChangeStatusTab,
 }: Props) => {
   const navigate = useNavigate();
-  const [tab, setTab] = useState<TabKey>("active");
-  const [sourceFilter, setSourceFilter] = useState<SourceFilter>("adjust");
-  const [selectedDepartments, setSelectedDepartments] = useState<string[]>(["all"]);
+  const [selectedDepartments, setSelectedDepartments] = useState<string[]>([
+    "all",
+  ]);
   const [showDeptDropdown, setShowDeptDropdown] = useState(false);
 
   const departmentOptions = useMemo(() => {
@@ -124,54 +140,68 @@ const AdjustmentTable = ({
     }
   };
 
-  const sourceFilteredAdjustments = useMemo(() => {
-    let list = (adjustments as any[]).filter(
-      (a) => detectSrc(a) === sourceFilter,
-    );
+  const viewAdjustments = useMemo(() => {
+    let list = adjustments as any[];
+
     if (!selectedDepartments.includes("all")) {
       list = list.filter((a) =>
         selectedDepartments.includes(a?.department ?? ""),
       );
     }
+
     return list;
-  }, [adjustments, sourceFilter, selectedDepartments]);
-
-  const { activeAdjustments, completedAdjustments } = useMemo(() => {
-    const active = [] as any[];
-    const done = [] as any[];
-    for (const a of sourceFilteredAdjustments) {
-      if (isCompletedAdj(a)) done.push(a);
-      else active.push(a);
-    }
-    return { activeAdjustments: active, completedAdjustments: done };
-  }, [sourceFilteredAdjustments]);
-
-  const viewAdjustments =
-    tab === "completed" ? completedAdjustments : activeAdjustments;
-
-  // ✅ Auto (outbound) ไม่มี active → บังคับ tab completed
-  useEffect(() => {
-    if (sourceFilter === "outbound" && activeAdjustments.length === 0) {
-      setTab("completed");
-    }
-  }, [sourceFilter, activeAdjustments.length]);
+  }, [adjustments, selectedDepartments]);
 
   // ✅ View ไปหน้า detail
   const openDetail = (adj: any) => {
-    const id = adj?.id;
-    if (!id) return;
+  const id = adj?.id;
+  if (!id) return;
 
-    const src = detectSrc(adj);
-    navigate(`/adjustment/${id}?src=${src}`);
-  };
+  const src = detectSrc(adj);
 
-  const openManualAdjust = (adj: any) => {
-    const id = adj?.id;
-    if (!id) return;
+  navigate(`/adjustment/${id}?src=${src}`, {
+    state: {
+      navGroup,
+      level: levelTab,
+      status: statusTab,
+      detailList: viewAdjustments.map((x: any) => ({
+        id: Number(x.id),
+        src: detectSrc(x),
+      })),
+      detailTotal:
+        levelTab === "auto"
+          ? Number(statusCounts.auto.completed ?? 0)
+          : statusTab === "completed"
+            ? Number(statusCounts.manual.completed ?? 0)
+            : Number(statusCounts.manual.pending ?? 0),
+    },
+  });
+};
 
-    const src = detectSrc(adj);
-    navigate(`/adjustment/${id}/manual?src=${src}`);
-  };
+ const openManualAdjust = (adj: any) => {
+  const id = adj?.id;
+  if (!id) return;
+
+  const src = detectSrc(adj);
+
+  navigate(`/adjustment/${id}/manual?src=${src}`, {
+    state: {
+      navGroup,
+      level: levelTab,
+      status: statusTab,
+      detailList: viewAdjustments.map((x: any) => ({
+        id: Number(x.id),
+        src: detectSrc(x),
+      })),
+      detailTotal:
+        levelTab === "auto"
+          ? Number(statusCounts.auto.completed ?? 0)
+          : statusTab === "completed"
+            ? Number(statusCounts.manual.completed ?? 0)
+            : Number(statusCounts.manual.pending ?? 0),
+    },
+  });
+};
 
   // ✅ Process/Continue ตอนนี้ทำเป็น toast ไว้ก่อน (ภายหลังค่อย navigate)
   const handleProcessOrContinue = (adj: any) => {
@@ -182,6 +212,13 @@ const AdjustmentTable = ({
 
     toast.info(`[${label}] ${no} (${src}) - coming soon`);
   };
+
+  const navGroup =
+  levelTab === "auto"
+    ? "auto_completed"
+    : statusTab === "completed"
+      ? "manual_completed"
+      : "manual_pending";
 
   const tableHeaders = [
     "No",
@@ -202,24 +239,28 @@ const AdjustmentTable = ({
 
       <div className="adjustment-toolbar-row">
         <div className="adjustment-tabs">
-          {!(sourceFilter === "outbound" && activeAdjustments.length === 0) && (
+          {levelTab !== "auto" && (
             <button
               type="button"
-              className={`adjustment-tab ${tab === "active" ? "active" : ""}`}
-              onClick={() => setTab("active")}
+              className={`adjustment-tab ${statusTab === "pending" ? "active" : ""}`}
+              onClick={() => onChangeStatusTab("pending")}
             >
               กำลังดำเนินการ{" "}
-              <span className="badge">{activeAdjustments.length}</span>
+              <span className="badge">
+                {statusCounts[levelTab]?.pending ?? 0}
+              </span>
             </button>
           )}
 
           <button
             type="button"
-            className={`adjustment-tab ${tab === "completed" ? "active" : ""}`}
-            onClick={() => setTab("completed")}
+            className={`adjustment-tab ${statusTab === "completed" ? "active" : ""}`}
+            onClick={() => onChangeStatusTab("completed")}
           >
             ดำเนินการเสร็จสิ้น{" "}
-            <span className="badge">{completedAdjustments.length}</span>
+            <span className="badge">
+              {statusCounts[levelTab]?.completed ?? 0}
+            </span>
           </button>
         </div>
 
@@ -228,8 +269,11 @@ const AdjustmentTable = ({
             <label className="adjustment-source-option">
               <input
                 type="checkbox"
-                checked={sourceFilter === "adjust"}
-                onChange={() => setSourceFilter("adjust")}
+                checked={levelTab === "manual"}
+                onChange={() => {
+                  onChangeLevelTab("manual");
+                  onChangeStatusTab("pending");
+                }}
               />
               <span>Manual</span>
             </label>
@@ -237,14 +281,17 @@ const AdjustmentTable = ({
             <label className="adjustment-source-option">
               <input
                 type="checkbox"
-                checked={sourceFilter === "outbound"}
-                onChange={() => setSourceFilter("outbound")}
+                checked={levelTab === "auto"}
+                onChange={() => {
+                  onChangeLevelTab("auto");
+                  onChangeStatusTab("completed");
+                }}
               />
               <span>Auto</span>
             </label>
           </div>
 
-          {departmentOptions.length > 1 && (
+          {departmentOptions.length > 0 && (
             <div className="adjustment-dept-filter">
               <label>แผนก:</label>
               <div className="filter-wrap">
@@ -370,8 +417,9 @@ const AdjustmentTable = ({
                 : `adjustment-${index}`;
 
               const ui = toUiStatus(adj);
-              const isCompletedTab = tab === "completed" || ui === "completed";
-              const isPendingTab = ui === "pending";
+              const isCompletedTab =
+                statusTab === "completed" || ui === "completed";
+              const isPendingTab = statusTab === "pending";
 
               const actionText = isCompletedTab
                 ? "View"

@@ -55,8 +55,6 @@ export const outboundApi = {
       `/outbounds/get/odoo/transfers/user/${encodeURIComponent(batchName)}`,
       { params },
     ),
-
-    
 };
 
 export const boxApi = {
@@ -89,17 +87,17 @@ export const goodsoutApi = {
   },
 
   searchByBatchAndCode: (
-  batchName: string,
-  params: {
-    code?: string;
-    product_id?: number;
-    search?: string;
-  },
-) =>
-  http.get(
-    `/outbounds/get/odoo/transfers/user/${encodeURIComponent(batchName)}`,
-    { params },
-  ),
+    batchName: string,
+    params: {
+      code?: string;
+      product_id?: number;
+      search?: string;
+    },
+  ) =>
+    http.get(
+      `/outbounds/get/odoo/transfers/user/${encodeURIComponent(batchName)}`,
+      { params },
+    ),
 
   getOutboundItem: (no: string, itemId: number) =>
     http.get(`/outbounds/${encodeURIComponent(no)}/items/${itemId}`),
@@ -160,19 +158,19 @@ export const goodsoutApi = {
       lines: { goods_out_item_id: string; pick: number }[];
     },
   ) => http.post(`/outbounds/${encodeURIComponent(no)}/scan/confirm`, data),
-confirmToStockMulti: (
-  no: string,
-  data: {
-    user_ref: string;
-    locations: {
-      location_full_name: string;
-      lines: { goods_out_item_id: string }[];
-    }[];
-  },
-) =>
-  http.post(`/outbounds/${encodeURIComponent(no)}/scan/confirm`, data, {
-    timeout: 60000,
-  }),
+  confirmToStockMulti: (
+    no: string,
+    data: {
+      user_ref: string;
+      locations: {
+        location_full_name: string;
+        lines: { goods_out_item_id: string }[];
+      }[];
+    },
+  ) =>
+    http.post(`/outbounds/${encodeURIComponent(no)}/scan/confirm`, data, {
+      timeout: 60000,
+    }),
 
   createOutboundLotAdjustment: (
     no: string,
@@ -209,29 +207,44 @@ confirmToStockMulti: (
   getOutboundByNo: (no: string) =>
     http.get(`/outbounds/${encodeURIComponent(no)}`),
 
- scanBarcode: (
-  no: string,
-  data: { barcode: string; location_full_name: string; qty_input?: number },
-) => http.post(`/outbounds/${encodeURIComponent(no)}/scan/barcode`, data),
+  scanBarcode: (
+    no: string,
+    data: { barcode: string; location_full_name: string; qty_input?: number },
+  ) => http.post(`/outbounds/${encodeURIComponent(no)}/scan/barcode`, data),
 
-scanReturn: (
-  no: string,
-  data: { barcode: string; location_full_name: string; qty_input?: number },
-) => http.post(`/outbounds/${encodeURIComponent(no)}/scan/return`, data),
+  scanReturn: (
+    no: string,
+    data: { barcode: string; location_full_name: string; qty_input?: number },
+  ) => http.post(`/outbounds/${encodeURIComponent(no)}/scan/return`, data),
 
-checkOutboundItemBarcode: (
-  no: string,
-  itemId: string | number,
-  payload: { barcode: string },
-) =>
-  http.post(
-    `/outbounds/${encodeURIComponent(no)}/items/${itemId}/check`,
-    payload,
-    { timeout: 60000 },
-  ),
+  checkOutboundItemBarcode: (
+    no: string,
+    itemId: string | number,
+    payload: { barcode: string },
+  ) =>
+    http.post(
+      `/outbounds/${encodeURIComponent(no)}/items/${itemId}/check`,
+      payload,
+      { timeout: 60000 },
+    ),
 
+    scanReturnProduct: (no: string, body: {
+  barcode: string;
+  location_full_name: string;
+  qty_input?: number;
+}) => {
+  return http.post(
+    `/outbounds/${encodeURIComponent(no)}/return/scan`,
+    body,
+  );
+},
 
-
+confirmReturn: (no: string) => {
+  return http.post(
+    `/outbounds/${encodeURIComponent(no)}/return/confirm`,
+    {},
+  );
+},
 };
 
 export const doc_invoiceApi = {
@@ -256,7 +269,12 @@ export const batchApi = {
   getBatchByInvoice: (invoiceNo: string) =>
     http.get(`/batches/get/by-invoice/${encodeURIComponent(invoiceNo)}`),
 
-  getBatchByUserPick(params: { page: number; limit: number; search?: string }) {
+  getBatchByUserPick(params: {
+    page: number;
+    limit: number;
+    search?: string;
+    status?: string; // ✅ เพิ่ม
+  }) {
     return http.get("/batch-outbounds/get/groups", { params });
   },
 
@@ -336,21 +354,21 @@ export const packProductApi = {
       { data, timeout: 60000 },
     ),
 
-      finalize: (
-  packProductId: number | string,
-  data?: { user_ref?: string; force?: boolean },
-) =>
-  http.post(
-    `/outbounds/pack-products/${packProductId}/finalize`,
-    data ?? {},
-    { timeout: 60000 },
-  ),
+  finalize: (
+    packProductId: number | string,
+    data?: { user_ref?: string; force?: boolean },
+  ) =>
+    http.post(
+      `/outbounds/pack-products/${packProductId}/finalize`,
+      data ?? {},
+      { timeout: 60000 },
+    ),
 
   getAll: (params?: {
-  page?: number;
-  limit?: number;
-  search?: string;
-  status?: string;
-}) =>
-  http.get<PackProductListResponse>("/outbounds/pack-products", { params }),
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: string;
+  }) =>
+    http.get<PackProductListResponse>("/outbounds/pack-products", { params }),
 };

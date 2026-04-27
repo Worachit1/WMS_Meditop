@@ -25,11 +25,21 @@ const TransferMovementContainer = () => {
 
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [searchableColumns, setSearchableColumns] = useState({
-   no: true,
+    no: true,
     department: true,
     date: true,
     status: true,
     user_ref: true,
+  });
+
+  const [statusTab, setStatusTab] = useState<"pick" | "put" | "completed">(
+    "pick",
+  );
+
+  const [statusCounts, setStatusCounts] = useState({
+    pick: 0,
+    put: 0,
+    completed: 0,
   });
 
   const fetchTransfers = useCallback(
@@ -50,17 +60,25 @@ const TransferMovementContainer = () => {
           .map(([col]) => col)
           .join(",");
 
-        const response = await transferApi.getExpNcrPaginated({
+        const response = await transferApi.getMovementPaginated({
           page,
           limit,
           search: search.trim() || undefined,
           columns: enabledColumns || undefined,
+          status: statusTab,
         });
 
         const { data = [], meta } = response.data as any;
+
         setTransfers(Array.isArray(data) ? data : []);
         setTotalPages(Number(meta?.totalPages ?? 1));
         setTotalItems(Number(meta?.total ?? 0));
+
+        setStatusCounts({
+          pick: Number(meta?.statusCounts?.pick ?? 0),
+          put: Number(meta?.statusCounts?.put ?? 0),
+          completed: Number(meta?.statusCounts?.completed ?? 0),
+        });
       } catch (error) {
         console.error("Error fetching transfers:", error);
       } finally {
@@ -73,12 +91,24 @@ const TransferMovementContainer = () => {
         }
       }
     },
-    [],
+    [statusTab],
   );
 
   useEffect(() => {
-    fetchTransfers(currentPage, debouncedSearch, itemsPerPage, searchableColumns);
-  }, [fetchTransfers, currentPage, debouncedSearch, itemsPerPage, searchableColumns]);
+    fetchTransfers(
+      currentPage,
+      debouncedSearch,
+      itemsPerPage,
+      searchableColumns,
+    );
+  }, [
+    fetchTransfers,
+    currentPage,
+    debouncedSearch,
+    itemsPerPage,
+    searchableColumns,
+    statusTab,
+  ]);
 
   // debounce search
   useEffect(() => {
@@ -106,7 +136,10 @@ const TransferMovementContainer = () => {
           onToggleFilter={() => setShowFilterDropdown((prev) => !prev)}
           searchableColumns={searchableColumns}
           onToggleSearchableColumn={(column) =>
-            setSearchableColumns((prev) => ({ ...prev, [column]: !prev[column] }))
+            setSearchableColumns((prev) => ({
+              ...prev,
+              [column]: !prev[column],
+            }))
           }
           onClearAllColumns={() =>
             setSearchableColumns({
@@ -119,6 +152,12 @@ const TransferMovementContainer = () => {
           }
           currentPage={currentPage}
           itemsPerPage={itemsPerPage}
+          statusTab={statusTab}
+          statusCounts={statusCounts}
+          onChangeStatusTab={(tab) => {
+            setStatusTab(tab);
+            setCurrentPage(1);
+          }}
         />
 
         <Pegination
