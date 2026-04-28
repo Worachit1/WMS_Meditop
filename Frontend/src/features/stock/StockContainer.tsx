@@ -122,6 +122,8 @@ const StockContainer = () => {
             setSearchableColumns((prev) => ({ ...prev, [column]: !prev[column] }))
           }
           onPrint={handlePrint}
+          currentPage={currentPage}
+          itemsPerPage={itemsPerPage}
         />
 
         <Pegination

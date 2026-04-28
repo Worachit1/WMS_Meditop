@@ -1,3 +1,6 @@
+import { useState } from "react";
+import ProfileModal from "./profile/ProfileModal";
+
 import type { UserType } from "../types/user.type";
 
 import IconButton from "../../../components/Button/IconButton";
@@ -30,7 +33,6 @@ type Props = {
   onAddNew: () => void;
   onEdit: (user: UserType) => void;
   onDelete: (user: UserType) => void;
-  onProfile: (user: UserType) => void;
   currentPage?: number;
   itemsPerPage?: number;
 };
@@ -51,6 +53,13 @@ const UserTable = ({
   currentPage = 1,
   itemsPerPage = 10,
 }: Props) => {
+  const [profileUserId, setProfileUserId] = useState<number | null>(null);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+
+  const openProfile = (id: number) => {
+    setProfileUserId(id);
+    setIsProfileOpen(true);
+  };
   const tableHeaders = [
     "No",
     "Full Name",
@@ -166,7 +175,7 @@ const UserTable = ({
                 className="clear-btn"
                 onClick={onClearSearch}
               >
-                 <i className="fa fa-xmark"></i>
+                <i className="fa fa-xmark"></i>
               </button>
             )}
           </div>
@@ -178,7 +187,8 @@ const UserTable = ({
 
             {showFilterDropdown && (
               <div className="filter-dropdown">
-                <div className="filter-title">Search In Columns
+                <div className="filter-title">
+                  Search In Columns
                   <button
                     type="button"
                     className="filter-clear-btn"
@@ -240,11 +250,15 @@ const UserTable = ({
                 <td>{user.status}</td>
                 <td>{user.remark}</td>
                 <td>
-                  <div className="actions-buttons">
+                  <div className="user-actions-buttons">
                     <IconButton variant="edit" onClick={() => onEdit(user)} />
                     <IconButton
                       variant="delete"
                       onClick={() => onDelete(user)}
+                    />
+                    <IconButton
+                      variant="profile"
+                      onClick={() => openProfile(user.id)}
                     />
                   </div>
                 </td>
@@ -253,6 +267,14 @@ const UserTable = ({
           )}
         </Table>
       </div>
+      <ProfileModal
+        isOpen={isProfileOpen}
+        onClose={() => {
+          setIsProfileOpen(false);
+          setProfileUserId(null);
+        }}
+        userId={profileUserId}
+      />
     </>
   );
 };

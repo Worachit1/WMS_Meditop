@@ -398,3 +398,8 @@ label.toggle-switch {
   font-size: 12px;
   color: #666;
 }
+
+.user-actions-buttons{
+  display: flex;
+  gap: 8px;
+}

@@ -1,5 +1,5 @@
 type Props = {
-  variant: "add" | "edit" | "delete" | "upload" | "print" | "detail" | "sync" | "export";
+  variant: "add" | "edit" | "delete" | "upload" | "print" | "detail" | "sync" | "export" | "profile";
   onClick?: () => void;
   disabled?: boolean;
   label?: string;
@@ -14,6 +14,7 @@ const ICON_MAP = {
   detail: "fa-solid fa-eye",
   sync: "fa-solid fa-rotate",
   export: "fa-solid fa-file-export",
+  profile: "fa-solid fa-user",
 };
 
 const LABEL_MAP = {
@@ -25,6 +26,7 @@ const LABEL_MAP = {
   detail: "",
   sync: "",
   export: "Export",
+  profile: "",
 };
 
 const IconButton = ({ variant, onClick, disabled, label }: Props) => {

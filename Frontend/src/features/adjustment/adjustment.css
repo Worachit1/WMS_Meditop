@@ -29,7 +29,7 @@
 
 
 .adjustment-action-btn-process {
-  background: #22c55e; /* green */
+  background: #1a73e8; /* green */
   color: #fff;
 }
 
@@ -133,8 +133,8 @@
 
 /* ปุ่ม View สีเทา */
 .adjustment-action-btn-view {
-  background: #9e9e9e;
-  border: 1px solid #9e9e9e;
+  background: #4CAF50;
+  border: none;
   color: #fff;
   cursor: pointer;
 }

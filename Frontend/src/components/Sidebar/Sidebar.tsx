@@ -5,6 +5,8 @@ import meditoplogo from "../../assets/images/logo-meditop.png";
 
 import PinModal from "../../features/user/components/PinModal";
 
+import ProfileModal from "../../features/user/components/profile/ProfileModal";
+
 interface User {
   id: number;
   first_name: string;
@@ -55,6 +57,9 @@ const Sidebar = ({
   const userLevel = (localStorage.getItem("user_level") || "").trim();
   const isOperator = userLevel.trim().toLowerCase() === "operator";
 
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [profileUserId, setProfileUserId] = useState<number | null>(null);
+
   const handleMasterClick = () => {
     if (collapsed) {
       setCollapsed(false);
@@ -86,7 +91,7 @@ const Sidebar = ({
       return;
     }
     setReportOpen((prev) => !prev);
-    };
+  };
 
   useEffect(() => {
     if (isMobile) {
@@ -140,6 +145,13 @@ const Sidebar = ({
       }
     };
   }, [tooltipTimer]);
+
+  const loginUser = JSON.parse(localStorage.getItem("user") || "{}");
+
+  const handleOpenProfile = () => {
+    setProfileUserId(loginUser.id);
+    setIsProfileOpen(true);
+  };
 
   return (
     <>
@@ -552,15 +564,13 @@ const Sidebar = ({
                     </span>
                     <span className="submenu-text">Swap</span>
                   </Link>
-
                 </li>
               </ul>
-
             )}
           </li>
 
-            {/* Report */}
-            <li className="menu-item">
+          {/* Report */}
+          <li className="menu-item">
             <button
               type="button"
               className="menu-link master-toggle"
@@ -623,12 +633,10 @@ const Sidebar = ({
                     <span className="submenu-text">Stocks</span>
                   </Link>
                 </li>
-
               </ul>
             )}
           </li>
         </ul>
-
 
         {/* Sidebar Footer - User Profile */}
         {!collapsed && (
@@ -670,6 +678,10 @@ const Sidebar = ({
               )}
               {showDropdown && !collapsed && user && (
                 <div className="dropdown-menu-sidebar">
+                  <button type="button" onClick={handleOpenProfile}>
+                    <i className="fa-solid fa-user"></i>
+                    <span>Profile</span>
+                  </button>
                   {!isOperator && (
                     <button onClick={() => setPinModalOpen(true)}>
                       <i className="fa-solid fa-lock"></i> PIN
@@ -700,6 +712,15 @@ const Sidebar = ({
           setUserPinLocal(newPin);
           // ถ้าคุณมี state user จาก parent แนะนำให้ sync ขึ้นไปด้วย
         }}
+      />
+
+      <ProfileModal
+        isOpen={isProfileOpen}
+        onClose={() => {
+          setIsProfileOpen(false);
+          setProfileUserId(null);
+        }}
+        userId={profileUserId}
       />
     </>
   );

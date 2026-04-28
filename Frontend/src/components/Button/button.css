@@ -75,13 +75,18 @@
   transform: translateY(-1px);
   box-shadow: 0 8px 20px rgba(217, 5, 5, 0.3);
 }
-
-
-
 .icon-btn--edit:hover,
 .icon-btn--delete:hover,
-.icon-btn--print:hover {
+.icon-btn--print:hover,
+.icon-btn--profile:hover {
   transform: translateY(-1px) scale(1.2);
+}
+
+
+.icon-btn--profile {
+  background: #ffffff;
+  color: #333;
+  font-size: 20px;
 }
 
 .form__actions {

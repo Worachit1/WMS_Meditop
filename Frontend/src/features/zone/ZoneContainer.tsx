@@ -211,6 +211,8 @@ const ZoneContainer = () => {
           onAddNew={handleAddNew}
           onEdit={handleEdit}
           onDelete={handleDelete}
+          currentPage={currentPage}
+          itemsPerPage={itemsPerPage}
         />
 
         <Pegination

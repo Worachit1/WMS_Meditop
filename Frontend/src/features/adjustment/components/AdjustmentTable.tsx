@@ -303,7 +303,7 @@ const AdjustmentTable = ({
                   {selectedDepartments.includes("all")
                     ? "ทั้งหมด"
                     : selectedDepartments.join(", ")}
-                  <i className="fa fa-chevron-down" style={{ marginLeft: 8 }} />
+                  <i className="fa fa-chevron-down" style={{ marginLeft: 42 }} />
                 </button>
                 {showDeptDropdown && (
                   <div className="filter-dropdown-2">

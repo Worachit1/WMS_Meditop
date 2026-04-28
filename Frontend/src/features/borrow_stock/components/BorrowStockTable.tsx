@@ -32,14 +32,21 @@ type Props = {
   currentPage?: number;
   itemsPerPage?: number;
   onRefresh?: () => void;
+  statusTab: "pending" | "completed";
+  onChangeStatusTab: (tab: "pending" | "completed") => void;
+  statusCounts: {
+    pending: number;
+    completed: number;
+  };
 };
 
-type ViewMode = "pending" | "done";
 
 function formatDepartments(deps: any): string[] {
   if (!deps) return ["-"];
   if (Array.isArray(deps)) {
-    const names = deps.map((d: any) => d?.short_name ?? d?.full_name ?? "-").filter(Boolean);
+    const names = deps
+      .map((d: any) => d?.short_name ?? d?.full_name ?? "-")
+      .filter(Boolean);
     return names.length > 0 ? names : ["-"];
   }
   if (typeof deps === "string") return [deps];
@@ -77,10 +84,12 @@ const BorrowStockTable = ({
   currentPage = 1,
   itemsPerPage = 10,
   onRefresh,
+    statusTab,
+  onChangeStatusTab,
+  statusCounts,
 }: Props) => {
   const navigate = useNavigate();
 
-  const [viewMode, setViewMode] = useState<ViewMode>("pending");
   const [verifyingId, setVerifyingId] = useState<number | null>(null);
 
   const [selectedDepartments, setSelectedDepartments] = useState<string[]>([
@@ -101,14 +110,12 @@ const BorrowStockTable = ({
         return [...withoutAll, dept];
       });
     }
-    setViewMode("pending");
+    onChangeStatusTab("pending");
   };
 
   const onView = (row: BorrowStockType) => {
     navigate(`/borrow_stock/view/${row.id}`);
   };
-
-
 
   const tableHeaders = [
     "No",
@@ -171,26 +178,11 @@ const BorrowStockTable = ({
     );
   }, [borrow_stocks, selectedDepartments]);
 
-  const { pendingList, doneList } = useMemo(() => {
-    const pending: BorrowStockType[] = [];
-    const done: BorrowStockType[] = [];
 
-    (filteredBorrowStocks || []).forEach((x: any) => {
-      const st = String(x?.status ?? "").toLowerCase();
+ const viewRows = filteredBorrowStocks;
 
-      if (st === "completed") done.push(x);
-      else if (st === "pending" || st === "in-progress" || st === "in-process")
-        pending.push(x);
-      else pending.push(x);
-    });
-
-    return { pendingList: pending, doneList: done };
-  }, [filteredBorrowStocks]);
-
-  const pendingCount = pendingList.length;
-  const doneCount = doneList.length;
-
-  const viewRows = viewMode === "done" ? doneList : pendingList;
+const pendingCount = Number(statusCounts?.pending ?? 0);
+const doneCount = Number(statusCounts?.completed ?? 0);
 
   const handleVerify = async (row: BorrowStockType) => {
     if (verifyingId) return;
@@ -344,16 +336,16 @@ const BorrowStockTable = ({
       >
         <button
           type="button"
-          className={`borrow-tab ${viewMode === "pending" ? "active" : ""}`}
-          onClick={() => setViewMode("pending")}
+         className={`borrow-tab ${statusTab === "pending" ? "active" : ""}`}
+onClick={() => onChangeStatusTab("pending")}
         >
           รอดำเนินการ <span className="badge">{pendingCount}</span>
         </button>
 
         <button
           type="button"
-          className={`borrow-tab ${viewMode === "done" ? "active" : ""}`}
-          onClick={() => setViewMode("done")}
+        className={`borrow-tab ${statusTab === "completed" ? "active" : ""}`}
+onClick={() => onChangeStatusTab("completed")}
         >
           ดำเนินการเสร็จสิ้น <span className="badge">{doneCount}</span>
         </button>
@@ -364,19 +356,17 @@ const BorrowStockTable = ({
           {viewRows.length === 0 ? (
             <tr>
               <td colSpan={tableHeaders.length} className="no-data">
-                {viewMode === "done"
-                  ? "No completed borrow stocks found."
-                  : "No pending borrow stocks found."}
+                {statusTab === "completed"
+  ? "No completed borrow stocks found."
+  : "No pending borrow stocks found."}
               </td>
             </tr>
           ) : (
             viewRows.map((borrow_stock: any, index: number) => {
               const st = String(borrow_stock?.status ?? "").toLowerCase();
-              const canVerify =
-                viewMode === "pending" &&
-                (st === "pending" ||
-                  st === "in-progress" ||
-                  st === "in-process");
+             const canVerify =
+  statusTab === "pending" &&
+  (st === "pending" || st === "in-progress" || st === "in-process");
               const busy = verifyingId === borrow_stock.id;
 
               return (
@@ -385,18 +375,22 @@ const BorrowStockTable = ({
                   <td>{formatDateTime(borrow_stock.created_at)}</td>
                   <td>{borrow_stock.location_name ?? "-"}</td>
                   <td>
-                    {formatDepartments(borrow_stock.departments).map((name, i) => (
-                      <React.Fragment key={i}>
-                        {name}
-                        {i < formatDepartments(borrow_stock.departments).length - 1 && <br />}
-                      </React.Fragment>
-                    ))}
+                    {formatDepartments(borrow_stock.departments).map(
+                      (name, i) => (
+                        <React.Fragment key={i}>
+                          {name}
+                          {i <
+                            formatDepartments(borrow_stock.departments).length -
+                              1 && <br />}
+                        </React.Fragment>
+                      ),
+                    )}
                   </td>
                   <td>{getStatusLabel(borrow_stock.status) ?? "-"}</td>
                   <td>{borrow_stock.user_ref ?? "-"}</td>
                   <td>
                     <div className="borrow_stock-actions-buttons">
-                      {viewMode === "pending" ? (
+                     {statusTab === "pending" ? (
                         <>
                           <button
                             type="button"

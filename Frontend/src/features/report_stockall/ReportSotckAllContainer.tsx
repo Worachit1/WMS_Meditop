@@ -171,6 +171,8 @@ const ReportStockAllContainer = () => {
           sortKey={sortKey}
           sortDir={sortDir}
           onSortChange={handleSortChange}
+          currentPage={currentPage}
+          itemsPerPage={itemsPerPage}
         />
 
         <Pegination

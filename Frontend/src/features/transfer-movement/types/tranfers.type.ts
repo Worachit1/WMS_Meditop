@@ -31,6 +31,9 @@ export type TransferItemType = {
 
   lock_no?: string | null;
   lock_no_dest?: string | null;
+  location_full_name?: string | null;
+  location_name?: string | null;
+  lock_locations?: string | null;
 
   // ✅ NEW
   lock_no_dest_list?: TransferPutLocationType[];

@@ -7,7 +7,7 @@ import type {
   StartBorrowStockResponse,
   ScanBarcodePreviewResponse,
   ScanBorrowStockBarcodeResponse,
-  ScanBorrowStockBarcodePreviewBody,
+  ScanBorpZEAWYtiB6bJ16NuLbGCc6CZ6jJdKfb63,
   StartBorrowStockBody,
   AddScannedBorrowStockItemBody,
   AddScannedBorrowStockItemResponse,
@@ -20,55 +20,59 @@ export type BorrowLocationOption = {
 };
 
 export const borrowStockApi = {
-  getAll: (params?: any) => http.get("/borrow_stocks/getAll", { params }),
+  getAll: (params?: any) => http.get("/borrow-stocks/getAll", { params }),
 
   getAllPaginated: (params: {
     page: number;
     limit: number;
     search?: string;
     columns?: string;
-  }) => http.get<ApiBorrowStockResponse>("/borrow_stocks/get", { params }),
+    status?: string;
+  }) => http.get<ApiBorrowStockResponse>("/borrow-stocks/get", { params }),
 
   getById: (id: string) =>
     http.get<BorrowStockType | { doc: BorrowStockType }>(
-      `/borrow_stocks/get/${id}`,
+      `/borrow-stocks/get/${id}`,
     ),
 
-  scanBarcodePreview(body: ScanBorrowStockBarcodePreviewBody) {
+  scanBarcodePreview(body: ScanBorpZEAWYtiB6bJ16NuLbGCc6CZ6jJdKfb63) {
     return http.post<ScanBarcodePreviewResponse>(
-      "/borrow_stocks/scan/pre",
+      "/borrow-stocks/scan/pre",
       body,
     );
   },
 
   start(body: StartBorrowStockBody) {
-    return http.post<StartBorrowStockResponse>("/borrow_stocks/start", body);
+    return http.post<StartBorrowStockResponse>("/borrow-stocks/start", body);
   },
 
-  scanBarcode(id: number, body: { barcode: string; location_full_name: string }) {
+  scanBarcode(
+    id: number,
+    body: { barcode: string; location_full_name: string },
+  ) {
     return http.post<ScanBorrowStockBarcodeResponse>(
-      `/borrow_stocks/${id}/scan_barcode`,
+      `/borrow-stocks/${id}/scan-barcode`,
       body,
     );
   },
 
   addScannedItem(id: number, body: AddScannedBorrowStockItemBody) {
     return http.post<AddScannedBorrowStockItemResponse>(
-      `/borrow_stocks/${id}/items`,
+      `/borrow-stocks/${id}/items`,
       body,
     );
   },
 
   updateItem(id: number, itemId: number, body: UpdateBorrowStockItemBody) {
     return http.patch<{ doc: BorrowStockType }>(
-      `/borrow_stocks/${id}/items/${itemId}`,
+      `/borrow-stocks/${id}/items/${itemId}`,
       body,
     );
   },
 
   deleteItem(id: number, itemId: number) {
     return http.delete<{ doc: BorrowStockType }>(
-      `/borrow_stocks/${id}/items/${itemId}`,
+      `/borrow-stocks/${id}/items/${itemId}`,
     );
   },
 
@@ -82,25 +86,25 @@ export const borrowStockApi = {
       department_ids: params.department_ids?.join(","),
     };
 
-    return http.get("/borrow_stocks/bor/get/location", { params: query });
+    return http.get("/borrow-stocks/bor/get/location", { params: query });
   },
 
   confirm(id: number) {
     return http.post<ConfirmBorrowStockResponse>(
-      `/borrow_stocks/${id}/confirm`,
+      `/borrow-stocks/${id}/confirm`,
     );
   },
 
   update(id: number, body: { status: string }) {
     return http.patch<{ doc: BorrowStockType }>(
-      `/borrow_stocks/update/${id}`,
+      `/borrow-stocks/update/${id}`,
       body,
     );
   },
 
   remove(id: number) {
-    return http.delete(`/borrow_stocks/delete/${id}`);
-  }
+    return http.delete(`/borrow-stocks/delete/${id}`);
+  },
 };
 
 export const locationApi = {

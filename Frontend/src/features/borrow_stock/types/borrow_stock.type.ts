@@ -175,7 +175,7 @@ export type ScanBarcodePreviewResponse = {
   message?: string | null;
 };
 
-export type ScanBorrowStockBarcodePreviewBody = {
+export type ScanBorpZEAWYtiB6bJ16NuLbGCc6CZ6jJdKfb63 = {
   barcode: string;
   location_full_name: string;
   allow_outside_location?: boolean;
@@ -209,6 +209,10 @@ export interface BorrowStockMeta {
   limit: number;
   total: number;
   totalPages: number;
+   statusCounts?: {
+      pending: number;
+      completed: number;
+    };
 }
 
 export interface ApiBorrowStockResponse {

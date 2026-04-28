@@ -203,12 +203,6 @@ const ScanBox = () => {
 
   const navStatus = navState.status || searchParams.get("status") || undefined;
 
-  const stateDetailList = Array.isArray(navState.detailList)
-    ? navState.detailList
-    : [];
-
-  const stateDetailTotal = Number(navState.detailTotal ?? 0);
-
   const [detailList, setDetailList] = useState<Array<{ id: number }>>([]);
 
   const [viewMode, setViewMode] = useState<ViewMode>(
@@ -718,58 +712,18 @@ const ScanBox = () => {
   }, [batchItems]);
 
   useEffect(() => {
-    const stateRows = stateDetailList
-      .map((x: any) => ({
-        id: Number(x?.id ?? 0),
-      }))
-      .filter((x: { id: number }) => x.id > 0);
+  const navState = (location.state as any) || {};
 
-    const shouldFetchAll =
-      stateRows.length === 0 ||
-      (stateDetailTotal > 0 && stateRows.length < stateDetailTotal);
+  const rows = Array.isArray(navState.detailList)
+    ? navState.detailList
+        .map((x: any) => ({
+          id: Number(x?.id ?? 0),
+        }))
+        .filter((x: { id: number }) => x.id > 0)
+    : [];
 
-    if (!shouldFetchAll) {
-      setDetailList(stateRows);
-      return;
-    }
-
-    const fetchDetailList = async () => {
-      try {
-        const limit = 100;
-        let page = 1;
-        let totalPages = 1;
-        const allRows: any[] = [];
-
-        do {
-          const resp = await packProductApi.getAll({
-            page,
-            limit,
-            ...(navStatus ? { status: navStatus } : {}),
-          });
-
-          const rows = Array.isArray(resp?.data?.data) ? resp.data.data : [];
-          const meta = resp?.data?.meta ?? {};
-
-          allRows.push(...rows);
-          totalPages = Number(meta?.totalPages ?? 1);
-          page += 1;
-        } while (page <= totalPages);
-
-        const mapped = allRows
-          .map((x: any) => ({
-            id: Number(x?.id ?? 0),
-          }))
-          .filter((x: { id: number }) => x.id > 0);
-
-        setDetailList(mapped);
-      } catch (error) {
-        console.error("Error fetching packing detail list:", error);
-        setDetailList([]);
-      }
-    };
-
-    fetchDetailList();
-  }, [navStatus, stateDetailList, stateDetailTotal]);
+  setDetailList(rows);
+}, [location.key]);
 
   const getDocNo = (inv: any): string => {
     const candidates = [inv?.no, inv?.origin, inv?.origin?.no];

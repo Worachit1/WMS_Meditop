@@ -206,6 +206,8 @@ const BuildingContainer = () => {
           onAddNew={handleAddNew}
           onEdit={handleEdit}
           onDelete={handleDelete}
+          currentPage={currentPage}
+          itemsPerPage={itemsPerPage}
         />
         <Pegination
           currentPage={currentPage}

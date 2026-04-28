@@ -129,8 +129,8 @@
 .batchinv-content {
   margin-top: 12px;
   display: grid;
-  grid-template-columns: 1fr 70px 1fr;
-  gap: 16px;
+  grid-template-columns: 1fr 2px 1fr;
+  gap: 1px;
   align-items: center;
 }
 
@@ -343,15 +343,6 @@
   display: flex;
   align-items: center;
   justify-content: flex-start;
-}
-
-/* ===== Main layout (เดิม) ===== */
-.batchinv-content {
-  margin-top: 10px; /* ระยะห่างจากหัวลงมาที่กรอบ table */
-  display: grid;
-  grid-template-columns: 1fr 70px 1fr;
-  gap: 16px;
-  align-items: start;
 }
 
 /* total ให้เล็กเหมือนในภาพ */

@@ -206,20 +206,31 @@ const GoodTable = ({
     if (!result.isConfirmed) return;
 
     setIsSyncing(true);
+    
+    // แสดง loading alert
+    Swal.fire({
+      title: "กำลังซิงค์ข้อมูล...",
+      text: "การ Sync ใช้เวลานานกรุณารอประมาณ 10-15 นาที",
+      allowOutsideClick: false,
+      didOpen: () => {
+        Swal.showLoading();
+      },
+    });
+    
     try {
       await http.post("/goods/sync");
       Swal.fire({
         icon: "success",
         title: "Sync สำเร็จ",
         text: "ซิงค์ข้อมูล Product เรียบร้อยแล้ว",
-        timer: 3000,
+        timer: 15 * 60 * 1000,
         showConfirmButton: false,
       });
 
-      // รอ 3 วินาทีก่อน reload
+      // รอ 15 นาทีก่อน reload
       setTimeout(() => {
         window.location.reload();
-      }, 3000);
+      }, 15 * 60 * 1000);
     } catch (error: any) {
       Swal.fire({
         icon: "error",
@@ -349,7 +360,7 @@ const GoodTable = ({
                       : "-"}
                   </td>
                   <td>{good.department_code}</td>
-                  <td>{good.zone_type}</td>
+                  <td>{good.zone_type || "-"}</td>
                   <td>{good.unit}</td>
                   <td>
                     <input

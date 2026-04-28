@@ -202,6 +202,8 @@ const LocationContainer = () => {
           onAddNew={handleAddNew}
           onEdit={handleEdit}
           onPrint={handlePrint}
+          currentPage={currentPage}
+          itemsPerPage={itemsPerPage}
         />
 
         <Pegination

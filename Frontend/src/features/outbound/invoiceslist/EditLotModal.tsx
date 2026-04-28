@@ -175,15 +175,23 @@ const EditLotModal = ({
         setItemData(data);
 
         // ✅ reset lot_new ทุกครั้งที่เปิด modal
+        const availableQty = Math.max(
+          0,
+          Number(data.qty ?? 0) - Number(data.pick ?? 0),
+        );
+
         setFormData({
           lot_serial_old: data.lot_serial || "",
           lot_serial_new: "",
           lot_id_new: null,
-          qty: Number(data.qty ?? 0),
+          qty: availableQty,
         });
 
         setScanValue("");
-        setTimeout(() => scanRef.current?.focus(), 0);
+        setTimeout(() => {
+          scanRef.current?.focus();
+          scanRef.current?.select();
+        }, 0);
       } catch {
         toast.error("ไม่สามารถดึงข้อมูล Item ได้");
       } finally {
@@ -193,6 +201,17 @@ const EditLotModal = ({
 
     fetchItem();
   }, [isOpen, invoiceItem]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const t = setTimeout(() => {
+      scanRef.current?.focus();
+      scanRef.current?.select();
+    }, 50);
+
+    return () => clearTimeout(t);
+  }, [isOpen]);
 
   /* ================= Handlers ================= */
 
@@ -204,59 +223,59 @@ const EditLotModal = ({
   };
 
   const handleScanKeyDown = async (
-  e: React.KeyboardEvent<HTMLInputElement>,
-) => {
-  if (e.key !== "Enter" && e.key !== "Tab") return;
-  e.preventDefault();
+    e: React.KeyboardEvent<HTMLInputElement>,
+  ) => {
+    if (e.key !== "Enter" && e.key !== "Tab") return;
+    e.preventDefault();
 
-  if (!itemData || !invoiceItem) return;
+    if (!itemData || !invoiceItem) return;
 
-  const raw = scanValue.trim();
-  if (!raw) return;
+    const raw = scanValue.trim();
+    if (!raw) return;
 
-  try {
-    setIsSubmitting(true);
+    try {
+      setIsSubmitting(true);
 
-    const res = await goodsoutApi.checkOutboundItemBarcode(
-      invoiceItem.outbound_no,
-      String(invoiceItem.goods_out_id),
-      { barcode: raw },
-    );
+      const res = await goodsoutApi.checkOutboundItemBarcode(
+        invoiceItem.outbound_no,
+        String(invoiceItem.goods_out_id),
+        { barcode: raw },
+      );
 
-    const checked = res.data?.data;
+      const checked = res.data?.data;
 
-    const lotNew = String(checked?.lot_serial ?? "").trim();
-    // const normalizedScan = String(checked?.normalized_scan ?? "").trim();
+      const lotNew = String(checked?.lot_serial ?? "").trim();
+      // const normalizedScan = String(checked?.normalized_scan ?? "").trim();
 
-    if (!lotNew) {
-      toast.error("อ่าน Lot ใหม่จาก barcode ไม่ได้");
+      if (!lotNew) {
+        toast.error("อ่าน Lot ใหม่จาก barcode ไม่ได้");
+        setScanValue("");
+        setTimeout(() => scanRef.current?.focus(), 0);
+        return;
+      }
+
+      setFormData((prev) => ({
+        ...prev,
+        lot_serial_new: lotNew,
+      }));
+
+      // จะโชว์ค่าแปลงแล้วในช่อง scan ก็ได้
+      setScanValue("");
+
+      toast.success(`Lot ใหม่: ${lotNew}`);
+
+      scanRef.current?.blur();
+      setTimeout(() => qtyRef.current?.focus(), 100);
+    } catch (error: any) {
+      toast.error(
+        error?.response?.data?.message || "ไม่สามารถตรวจสอบ barcode ได้",
+      );
       setScanValue("");
       setTimeout(() => scanRef.current?.focus(), 0);
-      return;
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setFormData((prev) => ({
-      ...prev,
-      lot_serial_new: lotNew,
-    }));
-
-    // จะโชว์ค่าแปลงแล้วในช่อง scan ก็ได้
-    setScanValue("");
-
-    toast.success(`Lot ใหม่: ${lotNew}`);
-
-    scanRef.current?.blur();
-    setTimeout(() => qtyRef.current?.focus(), 100);
-  } catch (error: any) {
-    toast.error(
-      error?.response?.data?.message || "ไม่สามารถตรวจสอบ barcode ได้",
-    );
-    setScanValue("");
-    setTimeout(() => scanRef.current?.focus(), 0);
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+  };
 
   /* ================= PATCH ================= */
 
@@ -276,8 +295,18 @@ const EditLotModal = ({
       return;
     }
 
-    if (formData.qty > itemData.qty) {
-      toast.error("QTY ห้ามเกินจำนวนเดิม");
+    const availableQty = Math.max(
+      0,
+      Number(itemData.qty ?? 0) - Number(itemData.pick ?? 0),
+    );
+
+    if (formData.qty > availableQty) {
+      toast.error("QTY ห้ามเกินจำนวนคงเหลือ");
+      return;
+    }
+
+    if (availableQty <= 0) {
+      toast.error("รายการนี้ไม่มีจำนวนคงเหลือสำหรับเปลี่ยน Lot");
       return;
     }
 
@@ -347,8 +376,13 @@ const EditLotModal = ({
                 <span className="edit-OVW-value">{itemData.code}</span>
               </div>
               <div className="edit-OVW-info-row">
-                <label className="edit-OVW-label">QTY :</label>
-                <span className="edit-OVW-value">{itemData.qty}</span>
+                <label className="edit-OVW-label">QTY คงเหลือ :</label>
+                <span className="edit-OVW-value">
+                  {Math.max(
+                    0,
+                    Number(itemData.qty ?? 0) - Number(itemData.pick ?? 0),
+                  )}
+                </span>
               </div>
             </div>
 
@@ -368,6 +402,7 @@ const EditLotModal = ({
                   className="edit-OVW-input"
                   placeholder="สแกน QR: [barcode + lot + yymmdd]"
                   disabled={isSubmitting}
+                  autoFocus
                 />
               </div>
 

@@ -260,6 +260,7 @@ const GroupOrder = () => {
   const [isInvoicePanelCollapsed, setIsInvoicePanelCollapsed] = useState(() => {
     return localStorage.getItem("grouporder_invoice_panel_collapsed") === "1";
   });
+  
 
   useEffect(() => {
     localStorage.setItem(
@@ -294,7 +295,25 @@ const GroupOrder = () => {
   const [lockAll, setLockAll] = useState(true);
   const [selectedLocks, setSelectedLocks] = useState<Set<string>>(new Set());
 
-  const [isReturnMode, _setIsReturnMode] = useState(false);
+  const [isReturnMode, setIsReturnMode] = useState(false);
+
+  type ReturnTarget = {
+    outbound_no: string;
+  };
+
+  type ReturnRow = {
+    outbound_no: string;
+    goods_out_item_id: number;
+    product_id: number | null;
+    code: string | null;
+    name: string | null;
+    lot_serial: string | null;
+    qty: number;
+    location_full_name: string;
+  };
+
+  const [returnTargets, setReturnTargets] = useState<ReturnTarget[]>([]);
+  const [returnRows, setReturnRows] = useState<ReturnRow[]>([]);
 
   const [rtcModal, setRtcModal] = useState<RtcModalState>({
     open: false,
@@ -304,7 +323,7 @@ const GroupOrder = () => {
     rtc_qty: "",
   });
 
-  const [viewTab, setViewTab] = useState<"pending" | "done" | "rtc">(
+  const [viewTab, setViewTab] = useState<"pending" | "done" | "rtc" | "return">(
     isReadOnly ? "done" : "pending",
   );
 
@@ -1667,14 +1686,17 @@ const GroupOrder = () => {
       ),
     ];
 
-    if (allOutboundNos.length === 0) {
+    const targetNos =
+      isReturnMode && selectedReturnNos.length > 0
+        ? selectedReturnNos
+        : allOutboundNos;
+
+    if (targetNos.length === 0) {
       toast.error("ไม่พบรายการ Invoice จาก Batch");
       return;
     }
 
-    // ✅ ยิง scan/location แค่ครั้งเดียว
-    // ใช้ใบแรกเป็นตัว validate location ว่ามีอยู่จริงและ backend รับได้
-    const targetOutboundNo = allOutboundNos[0];
+    const targetOutboundNo = targetNos[0];
 
     try {
       const resp = await goodsoutApi.scanLocation(targetOutboundNo, {
@@ -1888,187 +1910,57 @@ const GroupOrder = () => {
     };
   };
 
-  const handleItemBarcodeSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const selectedReturnNos = useMemo(() => {
+    return returnTargets
+      .map((x) => String(x.outbound_no ?? "").trim())
+      .filter(Boolean);
+  }, [returnTargets]);
 
-    if (!itemBarcodeInput.trim()) return;
+  const startReturnMode = useCallback(
+    async (targets: ReturnTarget[]) => {
+      const nos = targets
+        .map((x) => String(x.outbound_no ?? "").trim())
+        .filter(Boolean);
 
-    const raw = normalize(itemBarcodeInput);
+      if (nos.length === 0) {
+        toast.warning("กรุณาเลือก Doc No. สำหรับ Return");
+        return;
+      }
 
-    // ถ้าสแกนได้ "ChangeLocation" → เปลี่ยน focus ไป location แทน
-    if (raw.toLowerCase() === "changelocation") {
-      setItemBarcodeInput("");
+      setReturnTargets(nos.map((outbound_no) => ({ outbound_no })));
+      setReturnRows([]);
+      setIsReturnMode(true);
+
+      // ✅ บังคับไป tab done เสมอ
+      setViewTab("done");
+
+      // focus location ก่อน
+      setIsLocationScanActive(true);
+      setIsItemScanActive(false);
+
       setScanLocation("");
       setConfirmedLocation(null);
-      setIsItemScanActive(false);
-      setIsLocationScanActive(true);
+      setItemBarcodeInput("");
+
       persistConfirmedLocation(currentBatchKey, null);
-      setTimeout(() => locationInputRef.current?.focus(), 0);
-      toast.info("โหมดเปลี่ยน Location: กรุณา Scan Location ใหม่");
-      return;
-    }
 
-    if (!confirmedLocation) {
-      Swal.fire({
-        icon: "warning",
-        title: "กรุณา Scan Location ก่อน",
-        text: "ต้อง Scan Location ก่อนถึงจะสแกนสินค้าได้",
-        timer: 1400,
-        showConfirmButton: false,
-      });
-      setItemBarcodeInput("");
       setTimeout(() => locationInputRef.current?.focus(), 120);
-      return;
-    }
+    },
+    [currentBatchKey],
+  );
 
-    const allOutboundNos = [
-      ...new Set(
-        invoiceList.map((x) => String(x?.no ?? "").trim()).filter(Boolean),
-      ),
-    ];
-
-    if (allOutboundNos.length === 0) {
-      toast.error("ไม่พบ outbound สำหรับสแกน");
-      setItemBarcodeInput("");
-      return;
-    }
-
-    const matchResult = pickBatchItemByScan(raw);
-    let qtyInput = 1;
-
-    if (matchResult.ok && Boolean((matchResult.item as any).input_number)) {
-      const { value: enteredQty, isConfirmed } = await Swal.fire({
-        title: "กรอกจำนวน",
-        text: `สินค้า: ${matchResult.item.code} - ${matchResult.item.name}`,
-        input: "number",
-        inputPlaceholder: "กรอกจำนวน",
-        inputAttributes: { min: "1", step: "1" },
-        showCancelButton: true,
-        confirmButtonText: "ยืนยัน",
-        cancelButtonText: "ยกเลิก",
-        inputValidator: (value) => {
-          const n = Number(value);
-          if (!value || !Number.isInteger(n) || n <= 0) {
-            return "กรุณากรอกจำนวนที่มากกว่า 0";
-          }
-        },
-      });
-
-      if (!isConfirmed || !enteredQty) {
-        setItemBarcodeInput("");
-        setTimeout(() => itemInputRef.current?.focus(), 120);
-        return;
-      }
-
-      qtyInput = Number(enteredQty);
-    }
-
-    // Determine which outbound to scan: prefer the one that has a matching line with remaining qty
-    try {
-      if (selectedReturnTarget) {
-        await goodsoutApi.scanReturn(selectedReturnTarget.outbound_no, {
-          barcode: raw,
-          location_full_name: confirmedLocation.full_name,
-          qty_input: qtyInput,
-        });
-
-        await loadRecentOutbounds();
-        setItemBarcodeInput("");
-        return;
-      }
-
-      if (matchResult.ok) {
-        if (isScannedItemLockMismatch(matchResult.item)) {
-          await toast.error(
-            "สินค้าที่สแกนมี Lock ที่ไม่ตรงกับ Location นี้ อาจทำให้สแกนไม่สำเร็จ",
-          );
-
-          setItemBarcodeInput("");
-          setTimeout(() => itemInputRef.current?.focus(), 120);
-          return;
-        }
-
-        const requestedQty = Math.max(1, Math.floor(Number(qtyInput ?? 1)));
-
-        const remainingAtScannedLocation = getScannedLocationRemainingQty(
-          matchResult.item,
-        );
-
-        if (requestedQty > remainingAtScannedLocation) {
-          toast.error(
-            `สินค้าใน ${confirmedLocation?.full_name ?? "Location นี้"} มีไม่พอ (เหลือ ${remainingAtScannedLocation})`,
-          );
-          setItemBarcodeInput("");
-          setTimeout(() => itemInputRef.current?.focus(), 120);
-          return;
-        }
-
-        const split = distributeQtyAcrossOutboundLines(
-          matchResult.item,
-          requestedQty,
-        );
-
-        if (split.requests.length === 0) {
-          throw new Error("ไม่พบจำนวนคงเหลือที่สามารถสแกนเพิ่มได้ในทุกใบงาน");
-        }
-
-        let lastResp: any = null;
-
-        for (const reqPart of split.requests) {
-          lastResp = await goodsoutApi.scanBarcode(reqPart.outbound_no, {
-            barcode: raw,
-            location_full_name: confirmedLocation.full_name,
-            qty_input: reqPart.qty_input,
-          });
-        }
-
-        if (split.unallocatedQty > 0) {
-          toast.warning(
-            `ระบบดำเนินการได้ ${split.allocatedQty} จาก ${split.requestedQty} ชิ้น เนื่องจากจำนวนคงเหลือไม่พอ`,
-          );
-        }
-
-        if (!lastResp) {
-          throw new Error("สแกนสินค้าไม่สำเร็จ");
-        }
-      } else {
-        let resp: any = null;
-        let lastErr: any = null;
-
-        for (const no of allOutboundNos) {
-          try {
-            resp = await goodsoutApi.scanBarcode(no, {
-              barcode: raw,
-              location_full_name: confirmedLocation.full_name,
-              qty_input: qtyInput,
-            });
-            break;
-          } catch (err: any) {
-            lastErr = err;
-          }
-        }
-
-        if (!resp) {
-          throw lastErr ?? new Error("สแกนสินค้าไม่สำเร็จ");
-        }
-      }
-
-      await loadRecentOutbounds();
-      setItemBarcodeInput("");
-    } catch (err: any) {
-      toast.error(err?.message || "สแกนสินค้าไม่สำเร็จ");
-      setItemBarcodeInput("");
-    }
-  };
-
-  const isDoneRow = (it: BatchItem) =>
-    getEffectivePick(it) >= Number(it.quantity ?? 0);
-
-  const isProgressRow = (it: BatchItem) => {
-    const pick = getEffectivePick(it);
-    const qty = Number(it.quantity ?? 0);
-    return pick > 0 && pick < qty;
-  };
+  const stopReturnMode = useCallback(() => {
+    setIsReturnMode(false);
+    setReturnTargets([]);
+    setReturnRows([]);
+    setSelectedReturnTarget(null);
+    setItemBarcodeInput("");
+    setScanLocation("");
+    setConfirmedLocation(null);
+    setIsLocationScanActive(false);
+    setIsItemScanActive(false);
+    persistConfirmedLocation(currentBatchKey, null);
+  }, [currentBatchKey]);
 
   const isScannedItemLockMismatch = useCallback(
     (item: BatchItem) => {
@@ -2160,12 +2052,424 @@ const GroupOrder = () => {
     ],
   );
 
+  const getReturnQty = (item: any) => {
+    return Number(
+      item?.return ??
+        item?.return_qty ??
+        item?.returnQty ??
+        item?.qty_return ??
+        0,
+    );
+  };
+
+  const getReturnLocationText = (item: any) => {
+    const rows = Array.isArray(item?.return_locations)
+      ? item.return_locations
+      : [];
+
+    if (rows.length > 0) {
+      return rows
+        .filter((x: any) => Number(x?.return ?? 0) > 0)
+        .map((x: any) => {
+          const name = String(x?.location_name ?? "-").trim();
+          const qty = Number(x?.return ?? 0);
+          return `${name} (จำนวน ${qty})`;
+        })
+        .join("\n"); // ✅ เปลี่ยนตรงนี้
+    }
+
+    return (
+      item?.return_location_name ??
+      item?.location_return?.location_name ??
+      item?.location_full_name ??
+      "-"
+    );
+  };
+
+  const makeReturnRowKey = (row: Partial<ReturnRow>) => {
+    return [
+      row.outbound_no ?? "",
+      row.product_id ?? row.code ?? "",
+      row.lot_serial ?? "",
+      String(row.location_full_name ?? "").trim(),
+    ].join("|");
+  };
+
+  const returnDisplayRows = useMemo<ReturnRow[]>(() => {
+    const map = new Map<string, ReturnRow>();
+
+    for (const inv of invoiceList) {
+      for (const item of inv.items as any[]) {
+        const returnQty = getReturnQty(item);
+        if (returnQty <= 0) continue;
+
+        const row: ReturnRow = {
+          outbound_no: inv.no,
+          goods_out_item_id: Number(item.id ?? item.goods_out_item_id ?? 0),
+          product_id: item.product_id ?? null,
+          code: item.code ?? null,
+          name: item.name ?? null,
+          lot_serial: item.lot_serial ?? null,
+          qty: returnQty,
+          location_full_name: getReturnLocationText(item),
+        };
+
+        const key = makeReturnRowKey(row);
+
+        if (!map.has(key)) {
+          map.set(key, row);
+        }
+      }
+    }
+
+    for (const row of returnRows) {
+      const key = makeReturnRowKey(row);
+
+      if (!map.has(key)) {
+        map.set(key, row);
+      }
+    }
+
+    return Array.from(map.values());
+  }, [invoiceList, returnRows]);
+
+  const handleItemBarcodeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!itemBarcodeInput.trim()) return;
+
+    const raw = normalize(itemBarcodeInput);
+
+    if (raw.toLowerCase() === "changelocation") {
+      setItemBarcodeInput("");
+      setScanLocation("");
+      setConfirmedLocation(null);
+      setIsItemScanActive(false);
+      setIsLocationScanActive(true);
+      persistConfirmedLocation(currentBatchKey, null);
+      setTimeout(() => locationInputRef.current?.focus(), 0);
+      toast.info("โหมดเปลี่ยน Location: กรุณา Scan Location ใหม่");
+      return;
+    }
+
+    if (!confirmedLocation) {
+      Swal.fire({
+        icon: "warning",
+        title: "กรุณา Scan Location ก่อน",
+        text: "ต้อง Scan Location ก่อนถึงจะสแกนสินค้าได้",
+        timer: 1400,
+        showConfirmButton: false,
+      });
+      setItemBarcodeInput("");
+      setTimeout(() => locationInputRef.current?.focus(), 120);
+      return;
+    }
+
+    const allOutboundNos = [
+      ...new Set(
+        invoiceList.map((x) => String(x?.no ?? "").trim()).filter(Boolean),
+      ),
+    ];
+
+    if (allOutboundNos.length === 0) {
+      toast.error("ไม่พบ outbound สำหรับสแกน");
+      setItemBarcodeInput("");
+      return;
+    }
+
+    const matchResult = pickBatchItemByScan(raw);
+    let qtyInput = 1;
+
+    if (matchResult.ok && Boolean((matchResult.item as any).input_number)) {
+      const { value: enteredQty, isConfirmed } = await Swal.fire({
+        title: "กรอกจำนวน",
+        text: `สินค้า: ${matchResult.item.code} - ${matchResult.item.name}`,
+        input: "number",
+        inputPlaceholder: "กรอกจำนวน",
+        inputAttributes: { min: "1", step: "1" },
+        showCancelButton: true,
+        confirmButtonText: "ยืนยัน",
+        cancelButtonText: "ยกเลิก",
+        inputValidator: (value) => {
+          const n = Number(value);
+          if (!value || !Number.isInteger(n) || n <= 0) {
+            return "กรุณากรอกจำนวนที่มากกว่า 0";
+          }
+        },
+      });
+
+      if (!isConfirmed || !enteredQty) {
+        setItemBarcodeInput("");
+        setTimeout(() => itemInputRef.current?.focus(), 120);
+        return;
+      }
+
+      qtyInput = Number(enteredQty);
+    }
+
+    if (isReturnMode) {
+      const targetNos = selectedReturnNos.length > 0 ? selectedReturnNos : [];
+
+      if (targetNos.length === 0) {
+        toast.error("กรุณาเลือก Doc No. สำหรับ Return");
+        setItemBarcodeInput("");
+        setTimeout(() => itemInputRef.current?.focus(), 120);
+        return;
+      }
+
+      let resp: any = null;
+      let lastErr: any = null;
+
+      for (const outboundNo of targetNos) {
+        try {
+          if (isReadOnly) {
+            // completed: เพิ่ม return เพื่อรอ confirm เอากลับ location
+            resp = await goodsoutApi.scanReturnProduct(outboundNo, {
+              barcode: raw,
+              location_full_name: confirmedLocation.full_name,
+              qty_input: qtyInput,
+            });
+          } else {
+            // process: return แบบเก่า = ลบ pick เดิม
+            resp = await goodsoutApi.scanReturn(outboundNo, {
+              barcode: raw,
+              location_full_name: confirmedLocation.full_name,
+              qty_input: qtyInput,
+            });
+          }
+
+          break;
+        } catch (err: any) {
+          lastErr = err;
+        }
+      }
+
+      if (!resp) {
+        toast.error(lastErr?.message || "สแกน Return ไม่สำเร็จ");
+        setItemBarcodeInput("");
+        setTimeout(() => itemInputRef.current?.focus(), 120);
+        return;
+      }
+
+      const data = resp?.data?.data ?? resp?.data ?? {};
+
+      if (isReadOnly) {
+        const nextRow: ReturnRow = {
+          outbound_no: String(data.outbound_no ?? "").trim(),
+          goods_out_item_id: Number(data.goods_out_item_id ?? 0),
+          product_id: data.product_id ?? null,
+          code: data.code ?? null,
+          name: data.name ?? null,
+          lot_serial: data.lot_serial ?? null,
+          qty: Number(data.qty_return_added ?? qtyInput ?? 1),
+          location_full_name: String(
+            data.location_full_name ?? confirmedLocation.full_name,
+          ).trim(),
+        };
+
+        setReturnRows((prev) => {
+          const key = `${nextRow.outbound_no}_${nextRow.goods_out_item_id}_${nextRow.location_full_name}`;
+          const found = prev.some(
+            (x) =>
+              `${x.outbound_no}_${x.goods_out_item_id}_${x.location_full_name}` ===
+              key,
+          );
+
+          if (!found) return [...prev, nextRow];
+
+          return prev.map((x) =>
+            `${x.outbound_no}_${x.goods_out_item_id}_${x.location_full_name}` ===
+            key
+              ? { ...x, qty: Number(x.qty ?? 0) + nextRow.qty }
+              : x,
+          );
+        });
+
+        setViewTab("return");
+        toast.success("สแกน Return สำเร็จ");
+      } else {
+        await loadRecentOutbounds();
+        toast.success("ลบ Pick สำเร็จ");
+      }
+
+      setItemBarcodeInput("");
+      setTimeout(() => itemInputRef.current?.focus(), 120);
+      return;
+    }
+
+    try {
+      if (selectedReturnTarget) {
+        await goodsoutApi.scanReturnProduct(selectedReturnTarget.outbound_no, {
+          barcode: raw,
+          location_full_name: confirmedLocation.full_name,
+          qty_input: qtyInput,
+        });
+
+        await loadRecentOutbounds();
+        setItemBarcodeInput("");
+        return;
+      }
+
+      if (matchResult.ok) {
+        if (isScannedItemLockMismatch(matchResult.item)) {
+          toast.error(
+            "สินค้าที่สแกนมี Lock ที่ไม่ตรงกับ Location นี้ อาจทำให้สแกนไม่สำเร็จ",
+          );
+
+          setItemBarcodeInput("");
+          setTimeout(() => itemInputRef.current?.focus(), 120);
+          return;
+        }
+
+        const requestedQty = Math.max(1, Math.floor(Number(qtyInput ?? 1)));
+
+        const remainingAtScannedLocation = getScannedLocationRemainingQty(
+          matchResult.item,
+        );
+
+        if (requestedQty > remainingAtScannedLocation) {
+          toast.error(
+            `สินค้าใน ${confirmedLocation?.full_name ?? "Location นี้"} มีไม่พอ (เหลือ ${remainingAtScannedLocation})`,
+          );
+          setItemBarcodeInput("");
+          setTimeout(() => itemInputRef.current?.focus(), 120);
+          return;
+        }
+
+        const split = distributeQtyAcrossOutboundLines(
+          matchResult.item,
+          requestedQty,
+        );
+
+        if (split.requests.length === 0) {
+          throw new Error("ไม่พบจำนวนคงเหลือที่สามารถสแกนเพิ่มได้ในทุกใบงาน");
+        }
+
+        let lastResp: any = null;
+
+        for (const reqPart of split.requests) {
+          lastResp = await goodsoutApi.scanBarcode(reqPart.outbound_no, {
+            barcode: raw,
+            location_full_name: confirmedLocation.full_name,
+            qty_input: reqPart.qty_input,
+          });
+        }
+
+        if (split.unallocatedQty > 0) {
+          toast.warning(
+            `ระบบดำเนินการได้ ${split.allocatedQty} จาก ${split.requestedQty} ชิ้น เนื่องจากจำนวนคงเหลือไม่พอ`,
+          );
+        }
+
+        if (!lastResp) {
+          throw new Error("สแกนสินค้าไม่สำเร็จ");
+        }
+      } else {
+        let resp: any = null;
+        let lastErr: any = null;
+
+        for (const no of allOutboundNos) {
+          try {
+            resp = await goodsoutApi.scanBarcode(no, {
+              barcode: raw,
+              location_full_name: confirmedLocation.full_name,
+              qty_input: qtyInput,
+            });
+            break;
+          } catch (err: any) {
+            lastErr = err;
+          }
+        }
+
+        if (!resp) {
+          throw lastErr ?? new Error("สแกนสินค้าไม่สำเร็จ");
+        }
+      }
+
+      await loadRecentOutbounds();
+      setItemBarcodeInput("");
+    } catch (err: any) {
+      toast.error(err?.message || "สแกนสินค้าไม่สำเร็จ");
+      setItemBarcodeInput("");
+    }
+  };
+
+  const isDoneRow = (it: BatchItem) =>
+    getEffectivePick(it) >= Number(it.quantity ?? 0);
+
+  const isProgressRow = (it: BatchItem) => {
+    const pick = getEffectivePick(it);
+    const qty = Number(it.quantity ?? 0);
+    return pick > 0 && pick < qty;
+  };
+
+  const normalizeZoneType = (value: any) => {
+    return String(value ?? "")
+      .trim()
+      .replace(/\s+/g, "")
+      .toUpperCase();
+  };
+
+  const getScannedLocationZoneType = () => {
+    const locName = normalizeLocName(
+      normalizeLockNo(confirmedLocation?.full_name ?? ""),
+    );
+
+    if (!locName) return "";
+
+    for (const it of batchItems as any[]) {
+      const lockLocations = Array.isArray(it?.lock_locations)
+        ? it.lock_locations
+        : [];
+
+      const matched = lockLocations.find(
+        (x: any) => normalizeLocName(x?.location_name) === locName,
+      );
+
+      const zone =
+        matched?.zone_type ??
+        matched?.temperature ??
+        matched?.temp ??
+        matched?.zoneType ??
+        null;
+
+      if (zone) return normalizeZoneType(zone);
+    }
+
+    return "";
+  };
+
+  const getItemZoneType = (it: BatchItem) => {
+    const anyItem = it as any;
+
+    return normalizeZoneType(
+      anyItem?.zone_type ??
+        anyItem?.temperature ??
+        anyItem?.temp ??
+        anyItem?.zoneType ??
+        anyItem?.product_zone_type,
+    );
+  };
+
   const isLockMismatchRow = (it: BatchItem) => {
     const scannedLoc = normalizeLocName(
       normalizeLockNo(confirmedLocation?.full_name ?? ""),
     );
+
     if (!scannedLoc) return false;
 
+    // ✅ Return mode: ไม่เช็ค lock/location แล้ว เช็คแค่อุณหภูมิ
+    if (isReturnMode) {
+      const itemZone = getItemZoneType(it);
+      const scannedZone = getScannedLocationZoneType();
+
+      // ถ้าข้อมูล zone ไม่มี ไม่ทำแดง เพื่อไม่ block ผิด
+      if (!itemZone || !scannedZone) return false;
+
+      return itemZone !== scannedZone;
+    }
+
+    // ✅ Pick mode เดิม: location ต้องตรง lock
     const lockLocations = Array.isArray((it as any)?.lock_locations)
       ? ((it as any).lock_locations as Array<{
           location_name?: string;
@@ -2182,6 +2486,7 @@ const GroupOrder = () => {
       .filter(Boolean);
 
     if (locks.length === 0) return false;
+
     return !locks.includes(scannedLoc);
   };
 
@@ -2617,10 +2922,7 @@ const GroupOrder = () => {
             </div>
 
             {batchRemark && (
-              <div
-                className="invoice-remark"
-                style={{ padding: "8px 12px", fontSize: 13, color: "#555" }}
-              >
+              <div className="invoice-remark">
                 <strong>Remark:</strong> {batchRemark}
               </div>
             )}
@@ -2628,7 +2930,7 @@ const GroupOrder = () => {
         </div>
 
         <div className="groupOrder-main-panel">
-          {!isReadOnly && (
+          {(!isReadOnly || isReturnMode) && (
             <div className="scan-panel-sticky-wrap">
               <div className="scan-panel">
                 <div className="scan-row">
@@ -2695,22 +2997,24 @@ const GroupOrder = () => {
 
                 <div
                   className={`scan-hint ${confirmedLocation ? "ok" : ""} ${
-                    selectedReturnTarget ? "return-mode" : ""
+                    isReturnMode ? "return-mode" : ""
                   }`}
                 >
                   {confirmedLocation
                     ? `${
-                        selectedReturnTarget
-                          ? `↩️ RETURN: ${selectedReturnTarget.outbound_no}`
-                          : "✅ PICK MODE"
+                        isReturnMode
+                          ? `↩️ RETURN: ${selectedReturnNos.join(", ")}`
+                          : selectedReturnTarget
+                            ? `↩️ RETURN: ${selectedReturnTarget.outbound_no}`
+                            : "✅ PICK MODE"
                       } : ${confirmedLocation.full_name}`
                     : ""}
 
-                  {selectedReturnTarget && (
+                  {isReturnMode && (
                     <button
                       type="button"
                       className="groupOrder-btn-cancel-return"
-                      onClick={() => setSelectedReturnTarget(null)}
+                      onClick={stopReturnMode}
                     >
                       ยกเลิก Return
                     </button>
@@ -2720,7 +3024,7 @@ const GroupOrder = () => {
             </div>
           )}
 
-          <div className="batch-panel">
+          <div className="groupOrder-batch-panel">
             <div
               className="groupOrder-search-wrapper"
               style={{ margin: "10px 0" }}
@@ -2766,17 +3070,122 @@ const GroupOrder = () => {
                     RTC <span className="badge">{rtcCandidates.length}</span>
                   </button>
                 )}
+
+                {isReadOnly &&
+                  (isReturnMode || returnDisplayRows.length > 0) && (
+                    <button
+                      type="button"
+                      className={`groupOrder-tab ${viewTab === "return" ? "active" : ""}`}
+                      onClick={() => setViewTab("return")}
+                    >
+                      Return{" "}
+                      <span className="badge">{returnDisplayRows.length}</span>
+                    </button>
+                  )}
               </div>
             </div>
 
-            {viewTab === "rtc" ? (
+            {isReadOnly && viewTab === "return" ? (
+              <div className="table-scroll">
+                <table className="picking-batch-table">
+                  <thead>
+                    <tr>
+                      <th>No.</th>
+                      <th>Doc No.</th>
+                      <th>
+                        <button
+                          type="button"
+                          className="th-sort-btn"
+                          onClick={() => toggleSort("code")}
+                          title="Sort SKU"
+                        >
+                          สินค้า{" "}
+                          <SortIcon
+                            active={sort.key === "code"}
+                            dir={sort.dir}
+                          />
+                        </button>
+                      </th>
+                      <th>
+                        <button
+                          type="button"
+                          className="th-sort-btn"
+                          onClick={() => toggleSort("name")}
+                          title="Sort ชื่อ"
+                        >
+                          ชื่อ{" "}
+                          <SortIcon
+                            active={sort.key === "name"}
+                            dir={sort.dir}
+                          />
+                        </button>
+                      </th>
+                      <th>QTY</th>
+                      <th>Lock.No</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {returnDisplayRows.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} style={{ textAlign: "center" }}>
+                          ยังไม่มีรายการ Return
+                        </td>
+                      </tr>
+                    ) : (
+                      returnDisplayRows.map((row, index) => (
+                        <tr
+                          key={`${row.outbound_no}_${row.goods_out_item_id}_${index}`}
+                        >
+                          <td>{index + 1}</td>
+                          <td>{row.outbound_no}</td>
+                          <td>{row.code || "-"}</td>
+                          <td>{row.name || "-"}</td>
+                          <td>{row.qty}</td>
+                          <td style={{ whiteSpace: "pre-line" }}>
+                            {row.location_full_name || "-"}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            ) : viewTab === "rtc" ? (
               <div className="table-scroll">
                 <table className="picking-batch-table">
                   <thead>
                     <tr>
                       <th>No.</th>
                       <th>Outbound</th>
-                      <th>สินค้า</th>
+                      <th>
+                        <button
+                          type="button"
+                          className="th-sort-btn"
+                          onClick={() => toggleSort("code")}
+                          title="Sort SKU"
+                        >
+                          สินค้า{" "}
+                          <SortIcon
+                            active={sort.key === "code"}
+                            dir={sort.dir}
+                          />
+                        </button>
+                      </th>
+                      <th>
+                        <button
+                          type="button"
+                          className="th-sort-btn"
+                          onClick={() => toggleSort("name")}
+                          title="Sort ชื่อ"
+                        >
+                          ชื่อ{" "}
+                          <SortIcon
+                            active={sort.key === "name"}
+                            dir={sort.dir}
+                          />
+                        </button>
+                      </th>
                       <th>ชื่อ</th>
                       <th>Lot. Serial</th>
                       <th>QTY</th>
@@ -2980,56 +3389,60 @@ const GroupOrder = () => {
                                       Detail
                                     </button>
 
-                                    {Boolean((item as any).rtc_check) && (
-                                      <button
-                                        className="grouporder-dropdown-item"
-                                        onClick={() => {
-                                          setRtcModal({
-                                            open: true,
-                                            item: {
-                                              goods_out_item_id: Number(
-                                                (item as any).invoice_item_id ??
-                                                  (item as any).goods_out_id ??
-                                                  0,
-                                              ),
-                                              outbound_no: String(
-                                                item.outbound_no ?? "",
-                                              ).trim(),
-                                              code: String(
-                                                item.code ?? "",
-                                              ).trim(),
-                                              name: String(
-                                                item.name ?? "",
-                                              ).trim(),
-                                              lot_serial:
-                                                item.lot_serial ?? null,
-                                              qty: Number(item.quantity ?? 0),
-                                              pick: Number(item.pick ?? 0),
-                                              rtc: Number(
-                                                (item as any).rtc ?? 0,
-                                              ),
-                                              rtc_check: Boolean(
-                                                (item as any).rtc_check,
-                                              ),
-                                            },
-                                            location_full_name:
-                                              confirmedLocation?.full_name ??
-                                              "",
-                                            barcode_input: "",
-                                            rtc_qty: String(
-                                              Number((item as any).rtc ?? 0) ||
+                                    {Boolean((item as any).rtc_check) &&
+                                      isReadOnly && (
+                                        <button
+                                          className="grouporder-dropdown-item"
+                                          onClick={() => {
+                                            setRtcModal({
+                                              open: true,
+                                              item: {
+                                                goods_out_item_id: Number(
+                                                  (item as any)
+                                                    .invoice_item_id ??
+                                                    (item as any)
+                                                      .goods_out_id ??
+                                                    0,
+                                                ),
+                                                outbound_no: String(
+                                                  item.outbound_no ?? "",
+                                                ).trim(),
+                                                code: String(
+                                                  item.code ?? "",
+                                                ).trim(),
+                                                name: String(
+                                                  item.name ?? "",
+                                                ).trim(),
+                                                lot_serial:
+                                                  item.lot_serial ?? null,
+                                                qty: Number(item.quantity ?? 0),
+                                                pick: Number(item.pick ?? 0),
+                                                rtc: Number(
+                                                  (item as any).rtc ?? 0,
+                                                ),
+                                                rtc_check: Boolean(
+                                                  (item as any).rtc_check,
+                                                ),
+                                              },
+                                              location_full_name:
+                                                confirmedLocation?.full_name ??
                                                 "",
-                                            ),
-                                          });
-                                          closeDropdown();
-                                        }}
-                                      >
-                                        <span className="menu-icon">
-                                          <i className="fa-solid fa-rotate-left"></i>
-                                        </span>
-                                        Return
-                                      </button>
-                                    )}
+                                              barcode_input: "",
+                                              rtc_qty: String(
+                                                Number(
+                                                  (item as any).rtc ?? 0,
+                                                ) || "",
+                                              ),
+                                            });
+                                            closeDropdown();
+                                          }}
+                                        >
+                                          <span className="menu-icon">
+                                            <i className="fa-solid fa-rotate-left"></i>
+                                          </span>
+                                          Return
+                                        </button>
+                                      )}
                                   </div>,
                                   document.body,
                                 )}
@@ -3123,6 +3536,42 @@ const GroupOrder = () => {
             disabled={isSubmitting}
           >
             ยืนยัน
+          </button>
+        )}
+
+        {isReturnMode && isReadOnly && (
+          <button
+            className="groupOrder-btn-submit"
+            disabled={isSubmitting || returnDisplayRows.length === 0}
+            onClick={async () => {
+              if (selectedReturnNos.length === 0) {
+                toast.error("ไม่พบ Doc No. สำหรับ Confirm Return");
+                return;
+              }
+
+              const c = await confirmAlert(
+                "ยืนยัน Return สินค้ากลับ Location ?",
+              );
+              if (!c.isConfirmed) return;
+
+              try {
+                setIsSubmitting(true);
+
+                for (const outboundNo of selectedReturnNos) {
+                  await goodsoutApi.confirmReturn(outboundNo);
+                }
+
+                await successAlert("Confirm Return สำเร็จ");
+                stopReturnMode();
+                await loadRecentOutbounds();
+              } catch (err: any) {
+                toast.error(err?.message || "Confirm Return ไม่สำเร็จ");
+              } finally {
+                setIsSubmitting(false);
+              }
+            }}
+          >
+            ยืนยัน Return
           </button>
         )}
       </div>
@@ -3382,10 +3831,18 @@ const GroupOrder = () => {
         }
         batchName={currentBatchKey ?? ""}
         onChooseReturnTarget={(target) => {
+          const outboundNo = String(
+            target?.outbound_no ?? target?.outbound_no ?? "",
+          ).trim();
+
+          if (!outboundNo) {
+            toast.error("ไม่พบ Doc No. สำหรับ Return");
+            return;
+          }
+
           setSelectedReturnTarget(target);
           setIsInvoiceListModalOpen(false);
-          setItemBarcodeInput("");
-          setTimeout(() => itemInputRef.current?.focus(), 120);
+          startReturnMode([{ outbound_no: outboundNo }]);
         }}
       />
     </div>

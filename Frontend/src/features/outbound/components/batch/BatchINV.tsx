@@ -87,7 +87,7 @@ function normalizeTransfersToDocList(rowsRaw: any[]): BatchInvRow[] {
         parseDateAny(r.date) ||
         parseDateAny(r.outbound_date) ||
         parseDateAny(r.scheduled_date) ||
-        parseDateAny(r.created_at); 
+        parseDateAny(r.created_at);
 
       if (!Number.isFinite(outbound_id) || !outbound_no) return null;
 
@@ -177,7 +177,12 @@ const BatchINV: React.FC = () => {
       const origin = normalizeText(row.origin);
       const department = normalizeText(row.department);
 
-      return no.includes(q) || invoice.includes(q) || origin.includes(q) || department.includes(q);
+      return (
+        no.includes(q) ||
+        invoice.includes(q) ||
+        origin.includes(q) ||
+        department.includes(q)
+      );
     });
   }, [invoiceList, searchText]);
 
@@ -362,10 +367,9 @@ const BatchINV: React.FC = () => {
   };
 
   const onCancel = async () => {
-
     setSelectedInv(new Set());
     setSelectedBatch(new Set());
-    window.location.pathname = "/outbound";
+    navigate("/outbound?view=picking");
   };
 
   const onCreate = async () => {
@@ -560,10 +564,27 @@ const BatchINV: React.FC = () => {
                           onChange={() => toggleSelectInv(row.outbound_id)}
                         />
                       </td>
-                      <td className="batchinv-td-text" title={row.outbound_no}>{row.outbound_no}</td>
-                      <td className="batchinv-td-text" title={row.invoice || "-"}>{row.invoice || "-"}</td>
-                      <td className="batchinv-td-text" title={row.origin || "-"}>{row.origin || "-"}</td>
-                      <td className="batchinv-td-text" title={row.department || "-"}>{row.department || "-"}</td>
+                      <td className="batchinv-td-text" title={row.outbound_no}>
+                        {row.outbound_no}
+                      </td>
+                      <td
+                        className="batchinv-td-text"
+                        title={row.invoice || "-"}
+                      >
+                        {row.invoice || "-"}
+                      </td>
+                      <td
+                        className="batchinv-td-text"
+                        title={row.origin || "-"}
+                      >
+                        {row.origin || "-"}
+                      </td>
+                      <td
+                        className="batchinv-td-text"
+                        title={row.department || "-"}
+                      >
+                        {row.department || "-"}
+                      </td>
                     </tr>
                   ))
                 )}
@@ -602,11 +623,10 @@ const BatchINV: React.FC = () => {
               <thead>
                 <tr>
                   <th className="batchinv-th-select">Select</th>
-                 <th>Doc No.</th>
+                  <th>Doc No.</th>
                   <th>Invoice</th>
                   <th>Origin</th>
                   <th>Department</th>
-
                 </tr>
               </thead>
               <tbody>
@@ -626,10 +646,27 @@ const BatchINV: React.FC = () => {
                           onChange={() => toggleSelectBatch(row.outbound_id)}
                         />
                       </td>
-                      <td className="batchinv-td-text" title={row.outbound_no}>{row.outbound_no}</td>
-                      <td className="batchinv-td-text" title={row.invoice || "-"}>{row.invoice || "-"}</td>
-                      <td className="batchinv-td-text" title={row.origin || "-"}>{row.origin || "-"}</td>
-                      <td className="batchinv-td-text" title={row.department || "-"}>{row.department || "-"}</td>
+                      <td className="batchinv-td-text" title={row.outbound_no}>
+                        {row.outbound_no}
+                      </td>
+                      <td
+                        className="batchinv-td-text"
+                        title={row.invoice || "-"}
+                      >
+                        {row.invoice || "-"}
+                      </td>
+                      <td
+                        className="batchinv-td-text"
+                        title={row.origin || "-"}
+                      >
+                        {row.origin || "-"}
+                      </td>
+                      <td
+                        className="batchinv-td-text"
+                        title={row.department || "-"}
+                      >
+                        {row.department || "-"}
+                      </td>
                     </tr>
                   ))
                 )}

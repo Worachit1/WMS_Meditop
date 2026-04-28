@@ -217,8 +217,6 @@ const OutboundTable = ({
     [packingDocs, packingTab],
   );
 
-  
-
   const docHeaders = [
     "No",
     "Date",
@@ -287,7 +285,14 @@ const OutboundTable = ({
           </Link>
         )}
         {isPacking && (
-          <Link to="/scan-box" className="outbound-btn-packing">
+          <Link
+            to="/scan-box"
+            state={{
+              view: "packing",
+              status: packingTab,
+            }}
+            className="outbound-btn-packing"
+          >
             Packing
           </Link>
         )}
@@ -654,7 +659,7 @@ const OutboundTable = ({
                           }}
                           className="outbound-packing-btn outbound-packing-confirmed"
                         >
-                          Completed
+                          View
                         </Link>
                       ) : (
                         <Link

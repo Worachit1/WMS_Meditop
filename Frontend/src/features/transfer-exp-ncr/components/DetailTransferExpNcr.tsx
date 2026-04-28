@@ -618,7 +618,6 @@ const DetailTransferExpNcr = () => {
       } as TransferItemType);
 
       if (qtyLimit > 0 && totalNow >= qtyLimit) {
-        toast.warning(`นับครบแล้ว (ห้ามเกิน ${qtyLimit})`);
         if (scanBarcodeInputRef.current) scanBarcodeInputRef.current.value = "";
         return;
       }

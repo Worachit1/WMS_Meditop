@@ -1,0 +1,135 @@
+.user-prf-card {
+  width: 100%;
+  max-width: 600px;
+  overflow: hidden;
+}
+
+.user-prf-header {
+  background: #f5f5f5;
+  padding: 22px 38px;
+}
+
+.user-prf-body {
+  padding: 25px 10px 35px;
+}
+
+.user-prf-avatar-wrap {
+  display: flex;
+  justify-content: center;
+  margin: 0 0 20px;
+}
+
+.user-prf-avatar-img,
+.user-prf-avatar-placeholder {
+  width: 135px;
+  height: 135px;
+  border-radius: 50%;
+}
+
+.user-prf-avatar-img {
+  object-fit: cover;
+  border: 5px solid #aaa;
+}
+
+.user-prf-avatar-placeholder {
+  position: relative;
+  border: 5px solid #aaa;
+  background: #fff;
+  overflow: hidden;
+}
+
+.user-prf-avatar-head {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #aaa;
+  position: absolute;
+  top: 21px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.user-prf-avatar-body {
+  width: 72px;
+  height: 48px;
+  border-radius: 50% 50% 0 0;
+  background: #aaa;
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.user-prf-row {
+  display: flex;
+  gap: 18px;
+  margin-bottom: 14px;
+}
+
+.user-prf-row-2 .user-prf-field {
+  flex: 1;
+ 
+}
+
+.user-prf-field {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  align-items: center;
+  gap: 0;
+}
+
+.user-prf-field label {
+  font-size: 16px;
+  color: #111;
+}
+
+.user-prf-field label span {
+  color: red;
+}
+
+.user-prf-field input,
+.user-prf-field textarea {
+  width: 100%;
+  border: 1px solid #bdbdbd;
+  border-radius: 4px;
+  background: #fff;
+  color: #333;
+  font-size: 16px;
+  padding: 7px 20px;
+  outline: none;
+}
+
+.user-prf-field input {
+  height: 40px;
+}
+
+.user-prf-field textarea {
+  height: 56px;
+  resize: none;
+}
+
+.user-prf-textarea-field {
+  align-items: flex-start;
+}
+
+.user-prf-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 6px;
+}
+
+.user-prf-close-btn {
+  width: 80px;
+  height: 28px;
+  border: none;
+  border-radius: 4px;
+  background: #555;
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.user-prf-close-btn:hover {
+  background: #333;
+}

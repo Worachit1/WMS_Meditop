@@ -23,23 +23,6 @@
 
 
 /* transfer-exp-ncr.css */
-
-/* ===== Button link style (optional) ===== */
-.transfer-exp-ncr-details-btn {
-  padding: 6px 12px;
-  background-color: #1a73e8;
-  color: white;
-  border-radius: 4px;
-  text-decoration: none;
-  font-size: 16px;
-  transition: all 0.2s ease;
-  display: inline-block;
-}
-.transfer-exp-ncr-details-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: rgba(0, 0, 0, 0.2) 0px 4px 8px;
-}
-
 /* ===== Detail Page ===== */
 .transfer-exp-ncr-detail-container {
   padding: 0;
@@ -466,10 +449,10 @@ tr.transfer-exp-ncr-row-done td {
 }
 
 .transfer-exp-ncr-scan-row label {
-  width: 170px;
-  min-width: 170px;
-  font-size: 16px;
+  width: 150px;
+  font-size: 13px;
   font-weight: 700;
+  color : #444;
   white-space: nowrap;
 }
 
@@ -509,9 +492,8 @@ tr.transfer-exp-ncr-row-done td {
   }
 
   .transfer-exp-ncr-scan-row label {
-    width: 155px;
-    min-width: 155px;
-    font-size: 14px;
+    width: 150px;
+    font-size: 13px;
   }
 }
 

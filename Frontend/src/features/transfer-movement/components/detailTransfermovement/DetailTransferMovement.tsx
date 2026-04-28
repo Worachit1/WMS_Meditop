@@ -81,6 +81,19 @@ const getPutDestSummary = (it: any) => {
     .join(", ");
 };
 
+const isItemTargetCurrentPutLocation = (it: any, locFullName: string) => {
+  const loc = tokenOnly(locFullName);
+  if (!loc) return false;
+
+  const rows = getPutLocations(it);
+
+  if (rows.length > 0) {
+    return rows.some((x: any) => tokenOnly(x?.location_name ?? "") === loc);
+  }
+
+  return tokenOnly(it?.lock_no_dest ?? "") === loc;
+};
+
 const isCompleteAtPutLocation = (it: any, locFullName: string) => {
   const qty = n0(it?.qty);
   const putAtLoc = getPutQtyAtLocation(it, locFullName);
@@ -392,6 +405,10 @@ export default function DetailTransferMovement() {
     {},
   );
 
+  const [_confirmedLocations, setConfirmedLocations] = useState<
+    ConfirmedLocation[]
+  >([]);
+
   // ✅ กัน Enter -> blur ยิงซ้ำ
   const skipBlurCommitRef = useRef<Record<string, boolean>>({});
 
@@ -478,10 +495,15 @@ export default function DetailTransferMovement() {
 
   // ✅ PUT ต้องสแกนครบทุก item ของ location ที่เลือก ถึงยืนยันได้
   const isAllCompleteForPutConfirm = useMemo(() => {
-    if (putItems.length === 0) return false;
     if (!confirmedLocation?.full_name) return false;
 
-    return putItems.every((it: any) =>
+    const targetItems = putItems.filter((it: any) =>
+      isItemTargetCurrentPutLocation(it, confirmedLocation.full_name),
+    );
+
+    if (targetItems.length === 0) return false;
+
+    return targetItems.every((it: any) =>
       isCompleteAtPutLocation(it, confirmedLocation.full_name),
     );
   }, [putItems, confirmedLocation]);
@@ -498,6 +520,37 @@ export default function DetailTransferMovement() {
 
   const isPutConfirmMode =
     viewMode === "put" || (viewMode === "done" && isTransferStatusPut);
+
+  useEffect(() => {
+    if (!isPutConfirmMode) return;
+    if (!confirmedLocation?.full_name) return;
+
+    console.log("confirmedLocation:", confirmedLocation?.full_name);
+    console.log("isAllCompleteForPutConfirm:", isAllCompleteForPutConfirm);
+
+    putItems.forEach((it: any) => {
+      console.log({
+        id: it?.id,
+        qty: n0(it?.qty),
+        lock_no_dest: it?.lock_no_dest,
+        rows: getPutLocations(it),
+        target: isItemTargetCurrentPutLocation(
+          it,
+          confirmedLocation?.full_name ?? "",
+        ),
+        putAtLoc: getPutQtyAtLocation(it, confirmedLocation?.full_name ?? ""),
+        complete: isCompleteAtPutLocation(
+          it,
+          confirmedLocation?.full_name ?? "",
+        ),
+      });
+    });
+  }, [
+    isPutConfirmMode,
+    confirmedLocation,
+    putItems,
+    isAllCompleteForPutConfirm,
+  ]);
 
   // =========================
   // api shape guard
@@ -593,32 +646,40 @@ export default function DetailTransferMovement() {
   // =========================
   // fetch detail
   // =========================
-  const fetchDetail = useCallback(async () => {
-    if (!no) return;
-    setLoading(true);
-    try {
-      const resp = await transferApi.getDetailExpNcr(no);
-      const row = pickTransferFromAnyShape(resp.data);
-      setTransfer(row);
+  const fetchDetail = useCallback(
+    async (withLoading = true) => {
+      if (!no) return;
 
-      setScannedIds(new Set());
-      setScannedKeyById({});
-      setEditQtyById({});
-      setSavingQtyById({});
+      if (withLoading) setLoading(true);
 
-      setScanLocation("");
-      setConfirmedLocation(null);
-      setIsLocationScanOpen(false);
-      if (scanBarcodeInputRef.current) scanBarcodeInputRef.current.value = "";
-    } catch (err: any) {
-      toast.error(
-        err?.response?.data?.message || "Fetch transfer detail ไม่สำเร็จ",
-      );
-      setTransfer(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [no]);
+      try {
+        const resp = await transferApi.getDetailExpNcr(no);
+        const row = pickTransferFromAnyShape(resp.data);
+        setTransfer(row);
+
+        setScannedIds(new Set());
+        setScannedKeyById({});
+        setEditQtyById({});
+        setSavingQtyById({});
+
+        setScanLocation("");
+        setConfirmedLocation(null);
+        setIsLocationScanOpen(false);
+
+        if (scanBarcodeInputRef.current) {
+          scanBarcodeInputRef.current.value = "";
+        }
+      } catch (err: any) {
+        toast.error(
+          err?.response?.data?.message || "Fetch transfer detail ไม่สำเร็จ",
+        );
+        setTransfer(null);
+      } finally {
+        if (withLoading) setLoading(false);
+      }
+    },
+    [no],
+  );
 
   useEffect(() => {
     fetchDetail();
@@ -805,6 +866,17 @@ export default function DetailTransferMovement() {
         0;
 
       setConfirmedLocation({ id: locId, full_name: String(locName) });
+      const nextLoc = { id: locId, full_name: String(locName) };
+
+      setConfirmedLocation(nextLoc);
+      setConfirmedLocations((prev) => {
+        const exists = prev.some(
+          (x) => tokenOnly(x.full_name) === tokenOnly(nextLoc.full_name),
+        );
+        return exists ? prev : [...prev, nextLoc];
+      });
+
+      setScanLocation(String(locName));
       setScanLocation(String(locName));
       setIsLocationScanOpen(false);
 
@@ -1142,42 +1214,49 @@ export default function DetailTransferMovement() {
 
     const user_ref = getUserLabel((transfer as any)?.user) || "ref. login";
 
-    const completedPickIds = pickItems
-      .filter((it: any) => isComplete(it, "pick"))
-      .map((it: any) => String(it?.id));
+    // ✅ ใช้เฉพาะ item ที่ pick แล้ว
+    const completedItems = pickItems.filter((it: any) =>
+      isComplete(it, "pick"),
+    );
 
-    if (completedPickIds.length === 0) {
-      warningAlert("ยังไม่มีรายการที่ Pick ครบ (qty_pick ยังไม่ถึง qty)");
+    if (completedItems.length === 0) {
+      warningAlert("ยังไม่มีรายการที่ Pick ครบ");
       return;
     }
 
+    // ✅ group ตาม location จริงของ item
     const groups = new Map<string, string[]>();
-    for (const it of pickItems) {
-      const id = String((it as any)?.id);
-      if (!completedPickIds.includes(id)) continue;
 
+    for (const it of completedItems) {
       const locName = String(
-        (it as any)?.location_full_name ??
-          (it as any)?.location_name ??
-          confirmedLocation?.full_name ??
+        it?.location_full_name ??
+          it?.location_name ??
+          it?.lock_no ??
+          it?.lock_no_list ??
           "",
       ).trim();
 
       if (!locName) continue;
+
       const arr = groups.get(locName) ?? [];
-      arr.push(id);
+      arr.push(String(it.id));
       groups.set(locName, arr);
     }
 
-    const locations = Array.from(groups.entries())
-      .map(([location_full_name, ids]) => ({
+    const locations = Array.from(groups.entries()).map(
+      ([location_full_name, ids]) => ({
         location_full_name,
-        lines: ids.map((transfer_item_id) => ({
-          transfer_item_id: String(transfer_item_id),
+        lines: ids.map((id) => ({
+          transfer_item_id: id,
           status: "put",
         })),
-      }))
-      .filter((x) => x.lines.length > 0);
+      }),
+    );
+
+    if (locations.length === 0) {
+      warningAlert("ไม่พบ Location สำหรับยืนยัน");
+      return;
+    }
 
     const totalLines = locations.reduce((s, x) => s + x.lines.length, 0);
 
@@ -1188,8 +1267,12 @@ export default function DetailTransferMovement() {
 
     try {
       setLoading(true);
-      await transferApi.confirmToPick(no, { user_ref, locations });
-      setLoading(false);
+
+      await transferApi.confirmToPick(no, {
+        user_ref,
+        locations,
+      });
+
       await successAlert("ยืนยันสำเร็จแล้ว");
       await fetchDetail();
     } catch (err: any) {
@@ -1226,8 +1309,13 @@ export default function DetailTransferMovement() {
 
   const doConfirmPutWithPin = async () => {
     const pin = pinValue.trim();
+
     if (!/^\d{4,6}$/.test(pin)) {
       setPinErr("กรุณากรอก PIN (4-6 หลัก)");
+      setPinValue(""); // ✅ clear
+      setTimeout(() => {
+        document.getElementById("dt-tf-mv-pin-input")?.focus();
+      }, 0);
       return;
     }
 
@@ -1242,13 +1330,16 @@ export default function DetailTransferMovement() {
     const user_ref = getUserLabel((transfer as any)?.user) || "ref. login";
 
     const completedPutIds = putItems
+      .filter((it: any) => isItemTargetCurrentPutLocation(it, loc))
       .filter((it: any) => isCompleteAtPutLocation(it, loc))
       .map((it: any) => String(it?.id));
 
     if (completedPutIds.length === 0) {
       setPinErr("ยังไม่มีรายการที่ Put ครบใน Location นี้");
+      setPinValue(""); // ✅ clear
       return;
     }
+
     try {
       setLoading(true);
 
@@ -1265,12 +1356,21 @@ export default function DetailTransferMovement() {
         ],
       });
 
-      setLoading(false);
+      // ✅ success → reset ทุกอย่าง
       closePinModal();
+      setPinValue("");
+      setPinErr("");
+
       await successAlert("Put สำเร็จแล้ว");
-      await fetchDetail();
+      await fetchDetail(false);
     } catch (err: any) {
+      // ❌ fail → clear แล้ว focus ใหม่
       setPinErr(err?.response?.data?.message || "Confirm Put ไม่สำเร็จ");
+      setPinValue("");
+
+      setTimeout(() => {
+        document.getElementById("dt-tf-mv-pin-input")?.focus();
+      }, 0);
     } finally {
       setLoading(false);
     }
@@ -1280,8 +1380,6 @@ export default function DetailTransferMovement() {
     if (viewMode === "pick") return confirmPick();
 
     if (isPutConfirmMode) {
-      if (!confirmedLocation?.full_name)
-        return warningAlert("กรุณา Scan Location ก่อน");
       if (!isAllCompleteForPutConfirm)
         return warningAlert("กรุณาสแกนสินค้าให้ครบก่อนยืนยัน Put");
       return openPinModal();
@@ -1385,141 +1483,145 @@ export default function DetailTransferMovement() {
       </div>
 
       <div className="dt-tf-mv-main-layout">
-  <div className="dt-tf-mv-meta-panel">
-    <div className="dt-tf-mv-info-row">
-      <div className="dt-tf-mv-info-item">
-        <label>Department :</label>
-        <span>{asText((transfer as any)?.department)}</span>
-      </div>
+        <div className="dt-tf-mv-meta-panel">
+          <div className="dt-tf-mv-info-row">
+            <div className="dt-tf-mv-info-item">
+              <label>Department :</label>
+              <span>{asText((transfer as any)?.department)}</span>
+            </div>
 
-      <div className="dt-tf-mv-info-item">
-        <label>User :</label>
-        <span>{userLabel}</span>
-      </div>
-    </div>
-
-    <div className="dt-tf-mv-info-row">
-      <div className="dt-tf-mv-info-item">
-        <label>เวลาสร้างเอกสาร :</label>
-        <span>{formatDateTime(asText((transfer as any)?.created_at))}</span>
-      </div>
-    </div>
-  </div>
-
-  <div
-    className={`dt-tf-mv-scan-sticky-wrap ${
-      viewMode === "done" ? "no-sticky" : ""
-    }`}
-  >
-    <div className="dt-tf-mv-scan-panel">
-      <div className="dt-tf-mv-scan-row">
-        <label>Scan Location</label>
-
-        <div className="dt-tf-mv-scan-wrap">
-          <input
-            ref={scanLocationInputRef}
-            type="text"
-            className="dt-tf-mv-scan-input"
-            value={scanLocation}
-            onChange={(e) => setScanLocation(e.target.value)}
-            onKeyDown={handleScanLocationKeyDown}
-            placeholder={
-              viewMode === "put"
-                ? "สแกน Location ปลายทาง"
-                : "สแกน Location ต้นทาง"
-            }
-            disabled={!isLocationScanOpen || viewMode === "done"}
-            style={{
-              borderColor: confirmedLocation ? "#4CAF50" : undefined,
-              opacity: isLocationScanOpen && viewMode !== "done" ? 1 : 0.6,
-            }}
-          />
-
-          <button
-            type="button"
-            className={`dt-tf-mv-btn-toggle ${
-              isLocationScanOpen ? "active" : ""
-            }`}
-            onClick={toggleLocationScan}
-            disabled={viewMode === "done"}
-            title={
-              viewMode === "done"
-                ? "Done แล้ว"
-                : isLocationScanOpen
-                  ? "ปิด Location"
-                  : "เปิด Location"
-            }
-          >
-            {isLocationScanOpen ? (
-              <i className="fa-solid fa-xmark" />
-            ) : (
-              <i className="fa-solid fa-qrcode" />
-            )}
-          </button>
-        </div>
-      </div>
-
-      <div className="dt-tf-mv-scan-row">
-        <label>Scan Barcode/Serial</label>
-
-        <input
-          ref={scanBarcodeInputRef}
-          type="text"
-          className="dt-tf-mv-scan-input"
-          onKeyDown={handleScanBarcodeKeyDown}
-          placeholder="สแกน Barcode/Serial"
-          disabled={!confirmedLocation || viewMode === "done"}
-        />
-      </div>
-    </div>
-  </div>
-
-  <div className="dt-tf-mv-tabs-section">
-    <div className="dt-tf-mv-tabs">
-      <button
-        type="button"
-        className={`dt-tf-mv-tab ${viewMode === "pick" ? "active" : ""}`}
-        onClick={() => setViewMode("pick")}
-      >
-        รายการ Pick <span className="dt-tf-mv-badge">{pickCount}</span>
-      </button>
-
-      <button
-        type="button"
-        className={`dt-tf-mv-tab ${viewMode === "put" ? "active" : ""}`}
-        onClick={() => setViewMode("put")}
-      >
-        รายการ Put <span className="dt-tf-mv-badge">{putCount}</span>
-      </button>
-
-      <button
-        type="button"
-        className={`dt-tf-mv-tab ${viewMode === "done" ? "active" : ""}`}
-        onClick={() => setViewMode("done")}
-      >
-        ดำเนินการเสร็จสิ้น <span className="dt-tf-mv-badge">{doneCount}</span>
-      </button>
-
-      <div className="dt-tf-mv-tab-right">
-        <div className="dt-tf-mv-search">
-          <i className="fa-solid fa-magnifying-glass dt-tf-mv-search-icon" />
-          <input
-            className="dt-tf-mv-search-input"
-            value={searchFilter}
-            onChange={(e) => setSearchFilter(e.target.value)}
-            placeholder="Search"
-          />
-        </div>
-
-        {confirmedLocation ? (
-          <div className="dt-tf-mv-hint">
-            Location ปัจจุบัน: <b>{confirmedLocation.full_name}</b>
+            <div className="dt-tf-mv-info-item">
+              <label>User :</label>
+              <span>{userLabel}</span>
+            </div>
           </div>
-        ) : null}
+
+          <div className="dt-tf-mv-info-row">
+            <div className="dt-tf-mv-info-item">
+              <label>เวลาสร้างเอกสาร :</label>
+              <span>
+                {formatDateTime(asText((transfer as any)?.created_at))}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div
+          className={`dt-tf-mv-scan-sticky-wrap ${
+            viewMode === "done" ? "no-sticky" : ""
+          }`}
+        >
+          <div className="dt-tf-mv-scan-panel">
+            <div className="dt-tf-mv-scan-row">
+              <label>Scan Location</label>
+
+              <div className="dt-tf-mv-scan-wrap">
+                <input
+                  ref={scanLocationInputRef}
+                  type="text"
+                  className="dt-tf-mv-scan-input"
+                  value={scanLocation}
+                  onChange={(e) => setScanLocation(e.target.value)}
+                  onKeyDown={handleScanLocationKeyDown}
+                  placeholder={
+                    viewMode === "put"
+                      ? "สแกน Location ปลายทาง"
+                      : "สแกน Location ต้นทาง"
+                  }
+                  disabled={!isLocationScanOpen || viewMode === "done"}
+                  style={{
+                    borderColor: confirmedLocation ? "#4CAF50" : undefined,
+                    opacity:
+                      isLocationScanOpen && viewMode !== "done" ? 1 : 0.6,
+                  }}
+                />
+
+                <button
+                  type="button"
+                  className={`dt-tf-mv-btn-toggle ${
+                    isLocationScanOpen ? "active" : ""
+                  }`}
+                  onClick={toggleLocationScan}
+                  disabled={viewMode === "done"}
+                  title={
+                    viewMode === "done"
+                      ? "Done แล้ว"
+                      : isLocationScanOpen
+                        ? "ปิด Location"
+                        : "เปิด Location"
+                  }
+                >
+                  {isLocationScanOpen ? (
+                    <i className="fa-solid fa-xmark" />
+                  ) : (
+                    <i className="fa-solid fa-qrcode" />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <div className="dt-tf-mv-scan-row">
+              <label>Scan Barcode/Serial</label>
+
+              <input
+                ref={scanBarcodeInputRef}
+                type="text"
+                className="dt-tf-mv-scan-input"
+                onKeyDown={handleScanBarcodeKeyDown}
+                placeholder="สแกน Barcode/Serial"
+                disabled={!confirmedLocation || viewMode === "done"}
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="dt-tf-mv-tabs-section">
+          <div className="dt-tf-mv-tabs">
+            <button
+              type="button"
+              className={`dt-tf-mv-tab ${viewMode === "pick" ? "active" : ""}`}
+              onClick={() => setViewMode("pick")}
+            >
+              รายการ Pick <span className="dt-tf-mv-badge">{pickCount}</span>
+            </button>
+
+            <button
+              type="button"
+              className={`dt-tf-mv-tab ${viewMode === "put" ? "active" : ""}`}
+              onClick={() => setViewMode("put")}
+            >
+              รายการ Put <span className="dt-tf-mv-badge">{putCount}</span>
+            </button>
+
+            <button
+              type="button"
+              className={`dt-tf-mv-tab ${viewMode === "done" ? "active" : ""}`}
+              onClick={() => setViewMode("done")}
+            >
+              ดำเนินการเสร็จสิ้น{" "}
+              <span className="dt-tf-mv-badge">{doneCount}</span>
+            </button>
+
+            <div className="dt-tf-mv-tab-right">
+              <div className="dt-tf-mv-search">
+                <i className="fa-solid fa-magnifying-glass dt-tf-mv-search-icon" />
+                <input
+                  className="dt-tf-mv-search-input"
+                  value={searchFilter}
+                  onChange={(e) => setSearchFilter(e.target.value)}
+                  placeholder="Search"
+                />
+              </div>
+
+              {confirmedLocation ? (
+                <div className="dt-tf-mv-hint">
+                  Location ปัจจุบัน: <b>{confirmedLocation.full_name}</b>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
-  </div>
-</div>
 
       <br />
 

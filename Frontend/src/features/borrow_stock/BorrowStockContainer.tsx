@@ -11,7 +11,7 @@ import Loading from "../../components/Loading/Loading";
 import Pegination from "../../components/Pegination/Pegination";
 import BorrowStockTable from "./components/BorrowStockTable";
 
-const StockContainer = () => {
+const BorrowStockContainer = () => {
   const [borrow_stocks, setBorrowStocks] = useState<BorrowStockType[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -30,6 +30,15 @@ const StockContainer = () => {
     department: true,
     status: true,
     user_ref: true,
+  });
+
+  const [statusTab, setStatusTab] = useState<"pending" | "completed">(
+    "pending",
+  );
+
+  const [statusCounts, setStatusCounts] = useState({
+    pending: 0,
+    completed: 0,
   });
 
   const fetchStocks = useCallback(
@@ -59,16 +68,24 @@ const StockContainer = () => {
           return;
         }
 
-        const response = await borrowStockApi.getAllPaginated({
+        const resp = await borrowStockApi.getAllPaginated({
           page,
           limit,
           search: search.trim() || undefined,
           columns: enabledColumns || undefined,
+          status: statusTab,
         });
-        const { data = [], meta } = response.data;
+
+        const { data = [], meta } = resp.data;
+
         setBorrowStocks(data);
-        setTotalPages(meta.totalPages);
-        setTotalItems(meta.total);
+        setTotalItems(Number(meta?.total ?? 0));
+        setTotalPages(Number(meta?.totalPages ?? 1));
+
+        setStatusCounts({
+          pending: Number(meta?.statusCounts?.pending ?? 0),
+          completed: Number(meta?.statusCounts?.completed ?? 0),
+        });
       } catch (error) {
         console.error("Error fetching stocks:", error);
       } finally {
@@ -81,7 +98,7 @@ const StockContainer = () => {
         }
       }
     },
-    [],
+    [statusTab],
   );
 
   useEffect(() => {
@@ -92,6 +109,7 @@ const StockContainer = () => {
     debouncedSearch,
     itemsPerPage,
     searchableColumns,
+    statusTab,
   ]);
 
   // Debounce search query
@@ -120,7 +138,7 @@ const StockContainer = () => {
           showFilterDropdown={showFilterDropdown}
           onToggleFilter={() => setShowFilterDropdown((prev) => !prev)}
           searchableColumns={searchableColumns}
-          onClearAllColumns={() => 
+          onClearAllColumns={() =>
             setSearchableColumns({
               date: false,
               location_name: false,
@@ -143,6 +161,14 @@ const StockContainer = () => {
               searchableColumns,
             )
           } // ✅ เพิ่ม
+          statusTab={statusTab}
+          onChangeStatusTab={(tab) => {
+            setStatusTab(tab);
+            setCurrentPage(1);
+          }}
+          statusCounts={statusCounts}
+          currentPage={currentPage}
+          itemsPerPage={itemsPerPage}
         />
 
         <Pegination
@@ -164,4 +190,4 @@ const StockContainer = () => {
   );
 };
 
-export default StockContainer;
+export default BorrowStockContainer;

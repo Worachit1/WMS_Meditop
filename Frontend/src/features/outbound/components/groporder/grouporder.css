@@ -205,9 +205,11 @@
 }
 
 /* panel ขวาให้หด/ขยายได้จริง */
-.batch-panel {
+.groupOrder-batch-panel {
   min-width: 0;
   width: 100%;
+  padding: 1px;
+
 }
 
 /* panel ซ้าย */
@@ -240,6 +242,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 20px
 }
 
 .panel-title {
@@ -878,7 +881,7 @@
 }
 
 /* ให้ batch panel ขยายเต็มพื้นที่ตอนพับ */
-.content-container.inv-collapsed .batch-panel {
+.content-container.inv-collapsed .groupOrder-batch-panel {
   width: 100%;
 }
 
@@ -982,13 +985,13 @@
 .scan-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 20px;
   margin-bottom: 8px;
 }
 
 .scan-label {
-  width: 140px;
-  font-size: 16px;
+  width: 150px;
+  font-size: 13px;
   font-weight: 700;
   color: #444;
   white-space: nowrap;
@@ -1370,4 +1373,10 @@
 .groupOrder-btn-cancel-return:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+.invoice-remark {
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #555;
 }

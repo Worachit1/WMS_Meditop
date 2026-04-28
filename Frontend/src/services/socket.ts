@@ -1,10 +1,10 @@
 import { io } from "socket.io-client";
 
-export const socket = io("http:<ip>:<port>}", {
+export const socket = io("http://192.168.1.138:8080", {
   path: "/socket.io",
   transports: ["websocket"],
   withCredentials: true,
-  autoConnect: true, 
+  autoConnect: true, // ✅ ให้ต่อทันที
   reconnection: true,
   reconnectionAttempts: 10,
   reconnectionDelay: 500,

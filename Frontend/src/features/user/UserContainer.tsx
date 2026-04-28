@@ -221,9 +221,6 @@ const UserContainer = () => {
           }
           onAddNew={handleAddNew}
           onEdit={handleEdit}
-          onProfile={(user: UserType) => {
-            setSelectedUserId(user.id);
-          }}
           currentPage={currentPage}
           itemsPerPage={itemsPerPage}
         />
