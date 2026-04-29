@@ -7,6 +7,7 @@ type ProfileUser = {
   id?: number;
   first_name?: string;
   last_name?: string;
+  username? : string;
   email?: string;
   tel?: string;
   user_level?: string;
@@ -99,6 +100,13 @@ const ProfileModal = ({ isOpen, onClose, userId }: ProfileModalProps) => {
                 <div className="user-prf-field">
                   <label>นามสกุล</label>
                   <input value={user?.last_name || "-"} readOnly />
+                </div>
+              </div>
+
+              <div className="user-prf-row">
+                <div className="user-prf-field">
+                  <label>Username</label>
+                  <input value={user?.username || "-"} readOnly />
                 </div>
               </div>
 

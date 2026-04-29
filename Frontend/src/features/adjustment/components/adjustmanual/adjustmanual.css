@@ -33,20 +33,19 @@
    - col3: scan ชิดขวาสุดเท่าขอบตาราง */
 .adj-mn-meta-row {
   display: grid;
-  grid-template-columns: 1fr 1fr auto;
-  gap: 30px;
-  align-items: start;
-  max-width: 100%;
+  grid-template-columns: 1fr 1fr minmax(420px, 600px);
+  gap: 20px;
 }
 
 .adj-mn-meta-col {
   display: grid;
   gap: 8px;
+  margin-top: 5px;
 }
 
 /* ✅ ขยับ Ref Doc / Date time ไปขวาอีกนิด */
 .adj-mn-meta-col-right {
-  padding-left: 40px; /* ปรับได้ 24-60 ตามใจ */
+  padding-left: 1px; /* ปรับได้ 24-60 ตามใจ */
 }
 
 .adj-mn-meta-line {
@@ -82,11 +81,23 @@
 }
 
 .adj-mn-scan-input {
+  width: 100%;
   height: 34px;
+  box-sizing: border-box;
   border: 1px solid #d8d8d8;
   border-radius: 4px;
   padding: 0 12px;
   outline: none;
+}
+
+.adj-mn-scan-input:focus {
+  border-color: #1a73e8;
+  box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.1);
+}
+
+.adj-mn-scan-input::placeholder {
+  color: #999;
+  font-style: italic;
 }
 
 .adj-mn-divider {
@@ -212,7 +223,6 @@
   z-index: 999;
 }
 
-
 /* ===== QTY column: center everything ===== */
 .adj-mn-table td.adj-mn-col-qty,
 .adj-mn-table th.adj-mn-col-qty {
@@ -226,16 +236,16 @@
 
 /* ===== QTY input style ===== */
 .adj-mn-qtypick-input {
-  width: 72px;              /* ปรับได้ 60-90 ตามใจ */
+  width: 72px; /* ปรับได้ 60-90 ตามใจ */
   height: 30px;
   line-height: 30px;
-  text-align: center;        /* ✅ ตัวเลขอยู่กลาง */
+  text-align: center; /* ✅ ตัวเลขอยู่กลาง */
   padding: 0 8px;
   border: 1px solid #cfcfcf;
   border-radius: 4px;
   outline: none;
   background: #fff;
-  display: inline-block;     /* ✅ อยู่กลางตาม text-align ของ td */
+  display: inline-block; /* ✅ อยู่กลางตาม text-align ของ td */
   box-sizing: border-box;
 }
 
@@ -248,4 +258,70 @@
 /* ถ้าอยากให้ตอน "แก้ไขได้ (active row)" เด่นขึ้น */
 .adj-mn-row-ok .adj-mn-qtypick-input {
   background: #ffffff;
+}
+
+/* ===== Sticky Scan Panel ===== */
+.adj-mn-scan-panel {
+  position: sticky;
+  margin-top: -10px;
+  z-index: 50;
+  background: #fff;
+  padding: 10px 10px;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* row layout */
+.adj-mn-scan-row {
+  display: grid;
+  grid-template-columns: 170px minmax(0, 1fr) 52px;
+  align-items: center;
+  column-gap: 12px;
+  margin-bottom: 8px;
+}
+
+.adj-mn-scan-row:last-child {
+  margin-bottom: 0;
+}
+
+.adj-mn-scan-row label {
+  width: 130px;
+  font-weight: 700;
+  width: auto;
+  min-width: 0;
+  margin: 0;
+}
+
+/* input + button */
+.adj-mn-scan-wrap {
+  display: flex;
+  gap: 8px;
+}
+
+.adj-mn-btn-toggle {
+  color: #58e81a;
+  background-color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 25px;
+  transition: all 0.2s ease;
+  width: 52px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.adj-mn-btn-toggle:hover {
+  transform: translateY(-1px);
+}
+
+.adj-mn-btn-toggle.active {
+  background-color: #ff9800;
+}
+
+.adj-mn-scan-button-spacer {
+  width: 44px;
+  height: 30px;
 }

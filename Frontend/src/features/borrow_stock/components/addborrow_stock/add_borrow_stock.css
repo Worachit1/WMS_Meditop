@@ -394,3 +394,31 @@
 .add_borrow_stock-row-scanned {
   background: #fff8e6;
 }
+
+.add_borrow_stock-table__wrapper {
+  width: 100%;
+  max-height: 60vh;
+  overflow: auto;
+  position: relative;
+  background: #fff;
+}
+
+.add_borrow_stock-table {
+ width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;   /* ✅ เพิ่ม */
+  position: relative;
+   max-height: calc(100vh - 260px);
+}
+
+.add_borrow_stock-table__wrapper table thead {
+  position: sticky;
+  top: 0;
+}
+
+.add_borrow_stock-table__wrapper  table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 31;
+  background: #c1d6ed;
+}

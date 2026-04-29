@@ -1,0 +1,90 @@
+{
+    "params": {
+        "adjusts": [
+            {
+                "is_system_generated": false,
+                "inventory_id": 555,
+                "no": "ADJ/2025/00223",
+                "reference": false,
+                "description": "Adj",
+                "department": [
+                    {
+                        "department_id": 6,
+                        "department": "DIA - Diagnostic Division"
+                    }
+                ],
+                "items": [
+                    {
+                        "sequence": 2196285,
+                        "product_id": 5664,
+                        "code": "DIR-231010601001",
+                        "name": "DIRUI H11-500 strip (100 pcs/Bott)  ",
+                        "unit": "BOTT",
+                        "location_id": 14,
+                        "location": "Inventory adjustment",
+                        "location_owner": [],
+                        "location_owner_display": [],
+                        "location_dest_id": 8,
+                        "location_dest": "MDT",
+                        "location_dest_owner": [],
+                        "location_dest_owner_display": [],
+                        "tracking": "lot",
+                        "lot_id": 130134,
+                        "lot_serial": "TC321",
+                        "expire_date": false,
+                        "qty": 8,
+                        "barcodes": []
+                    },
+                    {
+                        "sequence": 2196286,
+                        "product_id": 5778,
+                        "code": "SMN-DM-10445022",
+                        "name": "DM MALB Calibrator 1ML Fill 2 Sets/CA (2x5x1 ml)  ",
+                        "unit": "PACK",
+                        "location_id": 14,
+                        "location": "Inventory adjustment",
+                        "location_owner": [],
+                        "location_owner_display": [],
+                        "location_dest_id": 8,
+                        "location_dest": "MDT",
+                        "location_dest_owner": [],
+                        "location_dest_owner_display": [],
+                        "tracking": "lot",
+                        "lot_id": 119112,
+                        "lot_serial": "5BD049",
+                        "expire_date": "2026-02-01",
+                        "qty": 3,
+                        "barcodes": [
+                            {
+                                "barcode_id": 411,
+                                "barcode": "00842768004896"
+                            }
+                        ]
+                    },
+                    {
+                        "sequence": 2196287,
+                        "product_id": 22818,
+                        "code": "SYM-1BV661822",
+                        "name": "XN Check L1 (3 ml)  ",
+                        "unit": "PCS",
+                        "location_id": 8,
+                        "location": "MDT",
+                        "location_owner": [],
+                        "location_owner_display": [],
+                        "location_dest_id": 14,
+                        "location_dest": "Inventory adjustment",
+                        "location_dest_owner": [],
+                        "location_dest_owner_display": [],
+                        "tracking": "lot",
+                        "lot_id": 130110,
+                        "lot_serial": "X5454",
+                        "expire_date": "2026-09-30",
+                        "qty": 1,
+                        "barcodes": []
+                    }
+                ]
+            }
+        ]
+    },
+    "jsonrpc": "2.0"
+}

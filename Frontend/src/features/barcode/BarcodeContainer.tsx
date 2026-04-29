@@ -207,6 +207,8 @@ const BarcodeContainer = () => {
           onEdit={handleEdit}
           onDelete={handleDelete}
           onPrint={handlePrint}
+          currentPage={currentPage}
+          itemsPerPage={itemsPerPage}
         />
 
         <Pegination

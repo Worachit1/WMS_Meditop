@@ -276,7 +276,7 @@
   text-decoration:none;
   transition:all 0.2s ease;
 }
-.outbound-picking-btn:hover{ filter:brightness(0.95); transform:translateY(-2px); }
+.outbound-picking-draft:hover{ filter:brightness(0.95); transform:translateY(-1px); }
 
 .outbound-picking-completed {
   background: #4caf50;
@@ -290,5 +290,6 @@
   opacity: 0.85;
 }
 .outbound-picking-completed:hover {
-  background-color: #43a047;
+  filter:brightness(0.95);
+  transform:translateY(-2px)
 }

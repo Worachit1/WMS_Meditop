@@ -1513,53 +1513,43 @@ export default function DetailTransferMovement() {
         >
           <div className="dt-tf-mv-scan-panel">
             <div className="dt-tf-mv-scan-row">
-              <label>Scan Location</label>
+  <label>Scan Location</label>
 
-              <div className="dt-tf-mv-scan-wrap">
-                <input
-                  ref={scanLocationInputRef}
-                  type="text"
-                  className="dt-tf-mv-scan-input"
-                  value={scanLocation}
-                  onChange={(e) => setScanLocation(e.target.value)}
-                  onKeyDown={handleScanLocationKeyDown}
-                  placeholder={
-                    viewMode === "put"
-                      ? "สแกน Location ปลายทาง"
-                      : "สแกน Location ต้นทาง"
-                  }
-                  disabled={!isLocationScanOpen || viewMode === "done"}
-                  style={{
-                    borderColor: confirmedLocation ? "#4CAF50" : undefined,
-                    opacity:
-                      isLocationScanOpen && viewMode !== "done" ? 1 : 0.6,
-                  }}
-                />
+  <input
+    ref={scanLocationInputRef}
+    type="text"
+    className="dt-tf-mv-scan-input"
+    value={scanLocation}
+    onChange={(e) => setScanLocation(e.target.value)}
+    onKeyDown={handleScanLocationKeyDown}
+    placeholder={
+      viewMode === "put"
+        ? "สแกน Location ปลายทาง"
+        : "สแกน Location ต้นทาง"
+    }
+    disabled={!isLocationScanOpen || viewMode === "done"}
+    style={{
+      borderColor: confirmedLocation ? "#4CAF50" : undefined,
+      opacity:
+        isLocationScanOpen && viewMode !== "done" ? 1 : 0.6,
+    }}
+  />
 
-                <button
-                  type="button"
-                  className={`dt-tf-mv-btn-toggle ${
-                    isLocationScanOpen ? "active" : ""
-                  }`}
-                  onClick={toggleLocationScan}
-                  disabled={viewMode === "done"}
-                  title={
-                    viewMode === "done"
-                      ? "Done แล้ว"
-                      : isLocationScanOpen
-                        ? "ปิด Location"
-                        : "เปิด Location"
-                  }
-                >
-                  {isLocationScanOpen ? (
-                    <i className="fa-solid fa-xmark" />
-                  ) : (
-                    <i className="fa-solid fa-qrcode" />
-                  )}
-                </button>
-              </div>
-            </div>
-
+  <button
+    type="button"
+    className={`dt-tf-mv-btn-toggle ${
+      isLocationScanOpen ? "active" : ""
+    }`}
+    onClick={toggleLocationScan}
+    disabled={viewMode === "done"}
+  >
+    {isLocationScanOpen ? (
+      <i className="fa-solid fa-xmark" />
+    ) : (
+      <i className="fa-solid fa-qrcode" />
+    )}
+  </button>
+</div>
             <div className="dt-tf-mv-scan-row">
               <label>Scan Barcode/Serial</label>
 
@@ -1571,6 +1561,7 @@ export default function DetailTransferMovement() {
                 placeholder="สแกน Barcode/Serial"
                 disabled={!confirmedLocation || viewMode === "done"}
               />
+              <div className="dt-tf-mv-scan-spacer" />
             </div>
           </div>
         </div>

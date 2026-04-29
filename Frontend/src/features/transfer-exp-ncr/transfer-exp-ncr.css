@@ -538,3 +538,13 @@ tr.transfer-exp-ncr-row-done td {
     min-width: 0;
   }
 }
+
+.transfer-exp-ncr-scan-spacer {
+  width: 52px;
+  height: 34px;
+}
+
+.transfer-exp-ncr-scan-spacer-view {
+  width: 59px;
+  height: 34px;
+}

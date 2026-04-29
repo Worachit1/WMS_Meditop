@@ -453,6 +453,7 @@ const ViewDetailPut = () => {
               placeholder="View Only"
               disabled
             />
+            <div className="transfer-exp-ncr-scan-spacer-view" />
           </div>
         </div>
 

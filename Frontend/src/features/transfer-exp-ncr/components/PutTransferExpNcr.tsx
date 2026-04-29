@@ -1031,6 +1031,8 @@ const PutTransferExpNcr = () => {
                   placeholder="Scan Barcode/Serial"
                   disabled={!confirmedLocation || isAllDoneBackend}
                 />
+
+                <div className="transfer-exp-ncr-scan-spacer" />
               </div>
             </div>
           </div>

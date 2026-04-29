@@ -98,6 +98,7 @@ type ReportMovementListRow = {
   user_ref?: string | null;
   source: string;
   qty?: number | null;
+  system_qty?: number | null;
 };
 
 function getRowQty(mv: any, item: any): number | null {
@@ -107,6 +108,7 @@ function getRowQty(mv: any, item: any): number | null {
       : (item?.qty ??
         item?.quantity ??
         item?.quantity_receive ??
+        item?.system_qty ??
         mv?.qty ??
         mv?.quantity);
 
@@ -117,7 +119,7 @@ function getRowQty(mv: any, item: any): number | null {
 function getInQty(row: ReportMovementListRow): number | null {
   if (row.source === "inbound") return row.qty ?? null;
 
-  if (row.source === "adjustment" && row.location === "Inventory adjustment") {
+  if (row.source === "adjustment" && row.location_dest === "MDT") {
     return row.qty ?? null;
   }
 
@@ -128,7 +130,8 @@ function getOutQty(row: ReportMovementListRow): number | null {
   if (
     row.source === "outbound" ||
     row.source === "transfer_movement" ||
-    row.source === "transfer_doc"
+    row.source === "transfer_doc" ||
+    row.source === "swap"
   ) {
     return row.qty ?? null;
   }
@@ -201,6 +204,7 @@ function buildMovementRows(
         user_ref: mv.user_ref ?? null,
         source: mv.source,
         qty: getRowQty(mv, item),
+        system_qty: getRowQty(mv, item),
       };
     });
   });
@@ -326,8 +330,34 @@ const ReportMovementTable = ({
     });
   }, [flattenedMovements, selectedDepartments]);
 
+  const formatFileDate = (d: Date = new Date()) => {
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const yyyy = d.getFullYear();
+
+    const HH = String(d.getHours()).padStart(2, "0");
+    const MM = String(d.getMinutes()).padStart(2, "0");
+    const SS = String(d.getSeconds()).padStart(2, "0");
+
+    return `${dd}${mm}${yyyy}${HH}${MM}${SS}`;
+  };
+
+  const formatNow = () => {
+    const d = new Date();
+
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const yyyy = d.getFullYear();
+
+    const HH = String(d.getHours()).padStart(2, "0");
+    const MM = String(d.getMinutes()).padStart(2, "0");
+    const SS = String(d.getSeconds()).padStart(2, "0");
+
+    return `${dd}/${mm}/${yyyy} ${HH}:${MM}:${SS}`;
+  };
+
   const handleExport = async () => {
-    const result = await confirmAlert("Export Excel?");
+    const result = await confirmAlert(`Export Excel?\n(${formatNow()})`);
     if (!result.isConfirmed) return;
 
     try {
@@ -357,7 +387,9 @@ const ReportMovementTable = ({
       const wb = XLSX.utils.book_new();
 
       XLSX.utils.book_append_sheet(wb, ws, "ReportMovement");
-      XLSX.writeFile(wb, "report_movement.xlsx");
+      const fileName = `report_movement_${formatFileDate()}.xlsx`;
+
+      XLSX.writeFile(wb, fileName);
     } catch (error) {
       console.error("Export report movement error:", error);
     }
@@ -507,10 +539,10 @@ const ReportMovementTable = ({
               <tr key={row.row_id}>
                 <td>{(currentPage - 1) * itemsPerPage + index + 1}</td>
                 <td>{formatDateTime(row.created_at)}</td>
-                <td style={{ width: '220px' }}>{row.no ?? "-"}</td>
+                <td style={{ width: "220px" }}>{row.no ?? "-"}</td>
                 <td>{row.type ?? "-"}</td>
                 <td>{row.department ?? "-"}</td>
-                <td style={{ width: '220px' }}>{row.product ?? "-"}</td>
+                <td style={{ width: "220px" }}>{row.product ?? "-"}</td>
                 <td>{row.name ?? "-"}</td>
                 <td>{row.unit ?? "-"}</td>
                 <td>{row.lot_serial ?? "-"}</td>

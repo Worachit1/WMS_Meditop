@@ -780,206 +780,207 @@ const DetailTransferExpNcr = () => {
         </div>
       </div>
 
-<div className="transfer-exp-ncr-main-layout">
+      <div className="transfer-exp-ncr-main-layout">
         {/* row 1 */}
-       <div className="transfer-exp-ncr-meta-panel">
-    <div className="transfer-exp-ncr-info-row">
-      <div className="transfer-exp-ncr-info-item">
-        <label>Department :</label>
-        <span>{(transfer as any)?.department || "data"}</span>
-      </div>
+        <div className="transfer-exp-ncr-meta-panel">
+          <div className="transfer-exp-ncr-info-row">
+            <div className="transfer-exp-ncr-info-item">
+              <label>Department :</label>
+              <span>{(transfer as any)?.department || "data"}</span>
+            </div>
 
-      <div className="transfer-exp-ncr-info-item">
-        <label>PO No. :</label>
-        <span>{(transfer as any)?.origin || "data"}</span>
-      </div>
-    </div>
-
-    <div className="transfer-exp-ncr-info-row">
-      <div className="transfer-exp-ncr-info-item">
-        <label>INV. Sup:</label>
-        <span>{(transfer as any)?.reference || "data"}</span>
-      </div>
-
-      <div className="transfer-exp-ncr-info-item">
-        <label>เวลารับเข้าเอกสาร:</label>
-        <span>{formatDateTime((transfer as any)?.date) || "data"}</span>
-      </div>
-    </div>
-  </div>
-
-  {!isAllDoneBackend && (
-    <div
-      className={`transfer-exp-ncr-scan-sticky-wrap ${
-        viewMode === "done" ? "no-sticky" : ""
-      }`}
-    >
-      <div className="transfer-exp-ncr-scan-panel">
-        <div className="transfer-exp-ncr-scan-row">
-          <label>Scan Location :</label>
-
-          <input
-            ref={scanLocationInputRef}
-            type="text"
-            className="transfer-exp-ncr-scan-input"
-            value={scanLocation}
-            onChange={(e) => setScanLocation(e.target.value)}
-            onKeyDown={handleScanLocationKeyDown}
-            placeholder="Scan Location"
-            disabled={!isLocationScanOpen || isAllDoneBackend}
-            style={{
-              borderColor: confirmedLocation ? "#4CAF50" : undefined,
-              opacity: isLocationScanOpen && !isAllDoneBackend ? 1 : 0.6,
-            }}
-          />
-
-          <button
-            type="button"
-            className={`transfer-exp-ncr-btn-scan-toggle ${
-              isLocationScanOpen ? "active" : ""
-            }`}
-            onClick={toggleLocationScan}
-            disabled={isAllDoneBackend}
-          >
-            {isLocationScanOpen ? (
-              <i className="fa-solid fa-xmark"></i>
-            ) : (
-              <i className="fa-solid fa-qrcode"></i>
-            )}
-          </button>
-        </div>
-
-        <div className="transfer-exp-ncr-scan-row">
-          <label>Scan Barcode/Serial :</label>
-
-          <input
-            ref={scanBarcodeInputRef}
-            type="text"
-            className="transfer-exp-ncr-scan-input"
-            onKeyDown={handleScanBarcodeKeyDown}
-            placeholder="Scan Barcode/Serial"
-            disabled={!confirmedLocation || isAllDoneBackend}
-          />
-        </div>
-      </div>
-    </div>
-  )}
-
-  <div className="transfer-exp-ncr-search-section">
-    <hr className="transfer-exp-ncr-detail-divider" />
-
-    <div className="transfer-exp-ncr-search-bar">
-      <div className="transfer-exp-ncr-search-left">
-        <div className="transfer-exp-ncr-view-tabs">
-          <button
-            type="button"
-            className={`transfer-exp-ncr-tab ${
-              viewMode === "pending" ? "active" : ""
-            }`}
-            onClick={() => setViewMode("pending")}
-          >
-            รอการดำเนินการ <span className="badge">{pendingCount}</span>
-          </button>
-
-          <button
-            type="button"
-            className={`transfer-exp-ncr-tab ${
-              viewMode === "done" ? "active" : ""
-            }`}
-            onClick={() => setViewMode("done")}
-          >
-            ดำเนินการเสร็จสิ้น <span className="badge">{doneCount}</span>
-          </button>
-        </div>
-
-        {confirmedLocation ? (
-          <div className="transfer-exp-ncr-hint-loc">
-            Location ปัจจุบัน: <b>{confirmedLocation.full_name}</b>
+            <div className="transfer-exp-ncr-info-item">
+              <label>PO No. :</label>
+              <span>{(transfer as any)?.origin || "data"}</span>
+            </div>
           </div>
-        ) : null}
-      </div>
 
-      <div className="transfer-exp-ncr-search-right">
-        <label className="transfer-exp-ncr-search-label">Search</label>
-        <div className="transfer-exp-ncr-search-input-container">
-          <i className="fa-solid fa-magnifying-glass transfer-exp-ncr-search-icon"></i>
-          <input
-            type="text"
-            className="transfer-exp-ncr-search-input"
-            value={searchFilter}
-            onChange={(e) => setSearchFilter(e.target.value)}
-            placeholder="Filter Search"
-          />
+          <div className="transfer-exp-ncr-info-row">
+            <div className="transfer-exp-ncr-info-item">
+              <label>INV. Sup:</label>
+              <span>{(transfer as any)?.reference || "data"}</span>
+            </div>
+
+            <div className="transfer-exp-ncr-info-item">
+              <label>เวลารับเข้าเอกสาร:</label>
+              <span>{formatDateTime((transfer as any)?.date) || "data"}</span>
+            </div>
+          </div>
+        </div>
+
+        {!isAllDoneBackend && (
+          <div
+            className={`transfer-exp-ncr-scan-sticky-wrap ${
+              viewMode === "done" ? "no-sticky" : ""
+            }`}
+          >
+            <div className="transfer-exp-ncr-scan-panel">
+              <div className="transfer-exp-ncr-scan-row">
+                <label>Scan Location :</label>
+
+                <input
+                  ref={scanLocationInputRef}
+                  type="text"
+                  className="transfer-exp-ncr-scan-input"
+                  value={scanLocation}
+                  onChange={(e) => setScanLocation(e.target.value)}
+                  onKeyDown={handleScanLocationKeyDown}
+                  placeholder="Scan Location"
+                  disabled={!isLocationScanOpen || isAllDoneBackend}
+                  style={{
+                    borderColor: confirmedLocation ? "#4CAF50" : undefined,
+                    opacity: isLocationScanOpen && !isAllDoneBackend ? 1 : 0.6,
+                  }}
+                />
+
+                <button
+                  type="button"
+                  className={`transfer-exp-ncr-btn-scan-toggle ${
+                    isLocationScanOpen ? "active" : ""
+                  }`}
+                  onClick={toggleLocationScan}
+                  disabled={isAllDoneBackend}
+                >
+                  {isLocationScanOpen ? (
+                    <i className="fa-solid fa-xmark"></i>
+                  ) : (
+                    <i className="fa-solid fa-qrcode"></i>
+                  )}
+                </button>
+              </div>
+
+              <div className="transfer-exp-ncr-scan-row">
+                <label>Scan Barcode/Serial :</label>
+
+                <input
+                  ref={scanBarcodeInputRef}
+                  type="text"
+                  className="transfer-exp-ncr-scan-input"
+                  onKeyDown={handleScanBarcodeKeyDown}
+                  placeholder="Scan Barcode/Serial"
+                  disabled={!confirmedLocation || isAllDoneBackend}
+                />
+                <div className="transfer-exp-ncr-scan-spacer" />
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="transfer-exp-ncr-search-section">
+          <hr className="transfer-exp-ncr-detail-divider" />
+
+          <div className="transfer-exp-ncr-search-bar">
+            <div className="transfer-exp-ncr-search-left">
+              <div className="transfer-exp-ncr-view-tabs">
+                <button
+                  type="button"
+                  className={`transfer-exp-ncr-tab ${
+                    viewMode === "pending" ? "active" : ""
+                  }`}
+                  onClick={() => setViewMode("pending")}
+                >
+                  รอการดำเนินการ <span className="badge">{pendingCount}</span>
+                </button>
+
+                <button
+                  type="button"
+                  className={`transfer-exp-ncr-tab ${
+                    viewMode === "done" ? "active" : ""
+                  }`}
+                  onClick={() => setViewMode("done")}
+                >
+                  ดำเนินการเสร็จสิ้น <span className="badge">{doneCount}</span>
+                </button>
+              </div>
+
+              {confirmedLocation ? (
+                <div className="transfer-exp-ncr-hint-loc">
+                  Location ปัจจุบัน: <b>{confirmedLocation.full_name}</b>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="transfer-exp-ncr-search-right">
+              <label className="transfer-exp-ncr-search-label">Search</label>
+              <div className="transfer-exp-ncr-search-input-container">
+                <i className="fa-solid fa-magnifying-glass transfer-exp-ncr-search-icon"></i>
+                <input
+                  type="text"
+                  className="transfer-exp-ncr-search-input"
+                  value={searchFilter}
+                  onChange={(e) => setSearchFilter(e.target.value)}
+                  placeholder="Filter Search"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Table */}
+        <div className="table__wrapper transfer-exp-ncr-table-section">
+          <Table headers={tableHeaders as any}>
+            {rowsToRender.length === 0 ? (
+              <tr>
+                <td colSpan={tableHeaders.length} className="no-data">
+                  No items found.
+                </td>
+              </tr>
+            ) : (
+              rowsToRender.map((it: any, index) => {
+                const qty = getQtyLimit(it);
+                const pick = getEffectiveCount(it);
+
+                const isDone = qty > 0 && pick === qty;
+                const isProgress = pick > 0 && qty > 0 && pick < qty;
+
+                const lockMismatch =
+                  !!activeLocKey &&
+                  !isLockAllowedForItemAtLoc(it, activeLocKey);
+
+                const rowClass = [
+                  isDone ? "row-done" : isProgress ? "row-progress" : "",
+                  lockMismatch ? "row-lock-mismatch" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ");
+
+                return (
+                  <tr key={`${it.id}-${index}`} className={rowClass}>
+                    <td>{index + 1}</td>
+                    <td style={{ minWidth: "200px" }}>{it.code || "-"}</td>
+                    <td style={{ minWidth: "200px" }}>{it.name || "-"}</td>
+                    <td>{it.lot_serial ?? it.lot ?? "-"}</td>
+                    <td>{it.exp ? formatDateTime(it.exp) : "-"}</td>
+                    <td>{it.unit || "-"}</td>
+                    <td style={{ minWidth: 220 }}>
+                      {Array.isArray(it?.lock_no_list) &&
+                      it.lock_no_list.length > 0 ? (
+                        <div
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 2,
+                          }}
+                        >
+                          {it.lock_no_list
+                            .filter(Boolean)
+                            .map((loc: string, i: number) => (
+                              <div key={`${loc}-${i}`}>{loc}</div>
+                            ))}
+                        </div>
+                      ) : (
+                        "-"
+                      )}
+                    </td>
+                    <td>{qty}</td>
+                    <td>{pick}</td>
+                  </tr>
+                );
+              })
+            )}
+          </Table>
         </div>
       </div>
-    </div>
-  </div>
-
-      {/* Table */}
-      <div className="table__wrapper transfer-exp-ncr-table-section">
-        <Table headers={tableHeaders as any}>
-          {rowsToRender.length === 0 ? (
-            <tr>
-              <td colSpan={tableHeaders.length} className="no-data">
-                No items found.
-              </td>
-            </tr>
-          ) : (
-            rowsToRender.map((it: any, index) => {
-              const qty = getQtyLimit(it);
-              const pick = getEffectiveCount(it);
-
-              const isDone = qty > 0 && pick === qty;
-              const isProgress = pick > 0 && qty > 0 && pick < qty;
-
-              const lockMismatch =
-                !!activeLocKey && !isLockAllowedForItemAtLoc(it, activeLocKey);
-
-              const rowClass = [
-                isDone ? "row-done" : isProgress ? "row-progress" : "",
-                lockMismatch ? "row-lock-mismatch" : "",
-              ]
-                .filter(Boolean)
-                .join(" ");
-
-              return (
-                <tr key={`${it.id}-${index}`} className={rowClass}>
-                  <td>{index + 1}</td>
-                  <td style={{ minWidth: "200px" }}>{it.code || "-"}</td>
-                  <td style={{ minWidth: "200px" }}>{it.name || "-"}</td>
-                  <td>{it.lot_serial ?? it.lot ?? "-"}</td>
-                  <td>{it.exp ? formatDateTime(it.exp) : "-"}</td>
-                  <td>{it.unit || "-"}</td>
-                  <td style={{ minWidth: 220 }}>
-                    {Array.isArray(it?.lock_no_list) &&
-                    it.lock_no_list.length > 0 ? (
-                      <div
-                        style={{
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: 2,
-                        }}
-                      >
-                        {it.lock_no_list
-                          .filter(Boolean)
-                          .map((loc: string, i: number) => (
-                            <div key={`${loc}-${i}`}>{loc}</div>
-                          ))}
-                      </div>
-                    ) : (
-                      "-"
-                    )}
-                  </td>
-                  <td>{qty}</td>
-                  <td>{pick}</td>
-                </tr>
-              );
-            })
-          )}
-        </Table>
-      </div>
-</div>
-
 
       {/* Footer */}
       <div className="transfer-exp-ncr-detail-footer">

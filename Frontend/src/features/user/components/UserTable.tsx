@@ -251,14 +251,14 @@ const UserTable = ({
                 <td>{user.remark}</td>
                 <td>
                   <div className="user-actions-buttons">
+                    <IconButton
+                      variant="profile"
+                      onClick={() => openProfile(user.id)}
+                    />
                     <IconButton variant="edit" onClick={() => onEdit(user)} />
                     <IconButton
                       variant="delete"
                       onClick={() => onDelete(user)}
-                    />
-                    <IconButton
-                      variant="profile"
-                      onClick={() => openProfile(user.id)}
                     />
                   </div>
                 </td>

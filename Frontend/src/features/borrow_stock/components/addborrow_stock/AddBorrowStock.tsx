@@ -896,97 +896,105 @@ const AddBorrowStock: React.FC = () => {
               </div>
             </div>
 
-            <table className="add_borrow_stock-table">
-              <thead>
-                <tr>
-                  <th style={{ width: 70 }}>No</th>
-                  <th>สินค้า</th>
-                  <th>ชื่อ</th>
-                  <th>Lot / Serial</th>
-                  <th>Expire Date</th>
-                  <th style={{ width: 160 }}>System QTY</th>
-                  <th style={{ width: 180 }}>QTY Executed</th>
-                  <th style={{ width: 90 }}>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredItems.length === 0 ? (
+            <div className="add_borrow_stock-table__wrapper">
+              <table className="add_borrow_stock-table">
+                <thead>
                   <tr>
-                    <td colSpan={8} className="add_borrow_stock-nodata">
-                      {lockedLocation
-                        ? "ไม่พบรายการในเงื่อนไขที่เลือก"
-                        : "เริ่มจากเลือก Location ก่อน"}
-                    </td>
+                    <th style={{ width: 70 }}>No</th>
+                    <th>สินค้า</th>
+                    <th>ชื่อ</th>
+                    <th>Lot / Serial</th>
+                    <th>Expire Date</th>
+                    <th style={{ width: 160 }}>System QTY</th>
+                    <th style={{ width: 180 }}>QTY Executed</th>
+                    <th style={{ width: 90 }}>Action</th>
                   </tr>
-                ) : (
-                  filteredItems.map((it, idx) => {
-                    const key = itemKey(it);
+                </thead>
+                <tbody>
+                  {filteredItems.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="add_borrow_stock-nodata">
+                        {lockedLocation
+                          ? "ไม่พบรายการในเงื่อนไขที่เลือก"
+                          : "เริ่มจากเลือก Location ก่อน"}
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredItems.map((it, idx) => {
+                      const key = itemKey(it);
 
-                    return (
-                      <tr
-                        key={key}
-                        className={[
-                          it.scanned ? "add_borrow_stock-row-scanned" : "",
-                          it.is_outside_location
-                            ? "add_borrow_stock-row-outside"
-                            : "",
-                        ]
-                          .filter(Boolean)
-                          .join(" ")}
-                        style={it.system_qty === 0 ? { backgroundColor: "#fffbea", color: "#e6ac00" } : undefined}
-                      >
-                        <td>{idx + 1}</td>
-                        <td>
-                          <div>{it.code}</div>
-                          {it.barcode_text ? (
-                            <div style={{ fontSize: 12, opacity: 0.7 }}>
-                              Barcode: {it.barcode_text}
-                              {it.is_outside_location ? (
-                                <div className="add_borrow_stock-outside-text">
-                                  สินค้านอก Location ปัจจุบัน
-                                  {it.outside_source_location_name
-                                    ? ` • พบที่ ${it.outside_source_location_name}`
-                                    : ""}
-                                  {typeof it.outside_source_qty === "number"
-                                    ? ` • stock ${it.outside_source_qty}`
-                                    : ""}
-                                </div>
-                              ) : null}
-                            </div>
-                          ) : null}
-                        </td>
-                        <td>{it.name}</td>
-                        <td>{it.lot_serial}</td>
-                        <td>{it.expiration_date ? formatDateTime(it.expiration_date) : "-"}</td>
-                        <td>
-                          {it.system_qty}
-                        </td>
-                        <td>
-                          <input
-                            className="add_borrow_stock-qtyinput"
-                            value={String(it.executed_qty)}
-                            disabled={!it.scanned}
-                            onChange={(e) =>
-                              updateExecutedQtyByKey(key, e.target.value)
-                            }
-                          />
-                        </td>
-                        <td>
-                          <button
-                            className="add_borrow_stock-btn-danger"
-                            type="button"
-                            onClick={() => deleteDraftItemByKey(key)}
-                            disabled={!it.scanned}
-                          >
-                            <i className="fa fa-trash" />
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
+                      return (
+                        <tr
+                          key={key}
+                          className={[
+                            it.scanned ? "add_borrow_stock-row-scanned" : "",
+                            it.is_outside_location
+                              ? "add_borrow_stock-row-outside"
+                              : "",
+                          ]
+                            .filter(Boolean)
+                            .join(" ")}
+                          style={
+                            it.system_qty === 0
+                              ? { backgroundColor: "#fffbea", color: "#e6ac00" }
+                              : undefined
+                          }
+                        >
+                          <td>{idx + 1}</td>
+                          <td>
+                            <div>{it.code}</div>
+                            {it.barcode_text ? (
+                              <div style={{ fontSize: 12, opacity: 0.7 }}>
+                                Barcode: {it.barcode_text}
+                                {it.is_outside_location ? (
+                                  <div className="add_borrow_stock-outside-text">
+                                    สินค้านอก Location ปัจจุบัน
+                                    {it.outside_source_location_name
+                                      ? ` • พบที่ ${it.outside_source_location_name}`
+                                      : ""}
+                                    {typeof it.outside_source_qty === "number"
+                                      ? ` • stock ${it.outside_source_qty}`
+                                      : ""}
+                                  </div>
+                                ) : null}
+                              </div>
+                            ) : null}
+                          </td>
+                          <td>{it.name}</td>
+                          <td>{it.lot_serial}</td>
+                          <td>
+                            {it.expiration_date
+                              ? formatDateTime(it.expiration_date)
+                              : "-"}
+                          </td>
+                          <td>{it.system_qty}</td>
+                          <td>
+                            <input
+                              className="add_borrow_stock-qtyinput"
+                              value={String(it.executed_qty)}
+                              disabled={!it.scanned}
+                              onChange={(e) =>
+                                updateExecutedQtyByKey(key, e.target.value)
+                              }
+                            />
+                          </td>
+                          <td>
+                            <button
+                              className="add_borrow_stock-btn-danger"
+                              type="button"
+                              onClick={() => deleteDraftItemByKey(key)}
+                              disabled={!it.scanned}
+                            >
+                              <i className="fa fa-trash" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           <div className="add_borrow_stock-footer">
@@ -995,7 +1003,7 @@ const AddBorrowStock: React.FC = () => {
               onClick={() => navigate("/borrow_stock")}
               disabled={loading}
             >
-              Cancel
+              ย้อนกลับ
             </button>
 
             <button
@@ -1003,7 +1011,7 @@ const AddBorrowStock: React.FC = () => {
               onClick={handleConfirm}
               disabled={!canConfirm}
             >
-              Confirm
+              ยืนยัน
             </button>
           </div>
         </div>

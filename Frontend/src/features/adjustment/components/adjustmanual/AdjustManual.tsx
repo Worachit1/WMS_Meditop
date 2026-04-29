@@ -15,195 +15,46 @@ import DetailNavigator from "../../../../components/DetailNavigator/DetailNaviga
 import { toast } from "react-toastify";
 
 import type { AdjustmentType } from "../../types/adjustment.type";
-import {
-  adjustmentApi,
-  type ConfirmAdjustmentCompleteBody,
-} from "../../services/adjustment.api";
+import { adjustmentApi } from "../../services/adjustment.api";
 import Loading from "../../../../components/Loading/Loading";
-
 import { confirmAlert } from "../../../../utils/alert";
-
 import { formatDateTime } from "../../../../components/Datetime/FormatDateTime";
+import { socket } from "../../../../services/socket";
 
 import "./adjustmanual.css";
 
 type AnyItem = any;
+
+type ConfirmedLocation = {
+  id: number | null;
+  full_name: string;
+};
 
 function safeText(v: any) {
   const s = String(v ?? "").trim();
   return s ? s : "-";
 }
 
-const normalize = (v: unknown) =>
-  (v ?? "")
-    .toString()
+function normalize(v: unknown) {
+  return String(v ?? "")
     .replace(/\s|\r|\n|\t/g, "")
     .trim();
-
-const digitsOnly = (v: unknown) => normalize(v).replace(/\D/g, "");
-const tokenOnly = (v: unknown) =>
-  (v ?? "")
-    .toString()
-    .toUpperCase()
-    .replace(/\s|\r|\n|\t/g, "")
-    .trim();
-
-const LOT_NULL_TOKEN = "XXXXXX";
-const EXP_NULL_TOKEN = "999999";
-
-// ✅ lot rule: null/empty => XXXXXX, มีค่า => tokenOnly
-const getItemLotRule = (it: AnyItem) => {
-  const v = it?.lot_serial ?? it?.lot ?? it?.serial;
-  const s = v == null ? LOT_NULL_TOKEN : tokenOnly(v);
-  return s || LOT_NULL_TOKEN;
-};
-
-// ✅ exp rule: null/empty => 999999, มีค่า => YYMMDD (6 digits)
-const expToYYMMDDStrict = (d: unknown) => {
-  if (!d) return "";
-  const dt = new Date(String(d));
-  if (Number.isNaN(dt.getTime())) return "";
-  const yy = String(dt.getFullYear()).slice(-2);
-  const mm = String(dt.getMonth() + 1).padStart(2, "0");
-  const dd = String(dt.getDate()).padStart(2, "0");
-  return `${yy}${mm}${dd}`;
-};
-
-const getItemExpRule = (it: AnyItem) => {
-  const v =
-    it?.expire_date ?? it?.exp_date ?? it?.expiration ?? it?.exp ?? it?.expire;
-  if (v == null || String(v).trim() === "") return EXP_NULL_TOKEN;
-
-  const s = String(v).trim();
-  if (/^\d{6}$/.test(s)) return s;
-
-  const yymmdd = expToYYMMDDStrict(v);
-  return yymmdd || EXP_NULL_TOKEN;
-};
-
-// ✅ barcode หลัก: ใช้ barcode_text ก่อน แล้วค่อย fallback (digits)
-const getItemBarcodeDigits = (it: AnyItem) =>
-  digitsOnly(
-    it?.barcode_text ?? it?.barcode ?? it?.barcode_code ?? it?.code ?? "",
-  );
-
-type ScanPickResult =
-  | { ok: true; item: AnyItem; reason: "OK_STRICT" }
-  | {
-      ok: false;
-      reason: "EMPTY" | "NO_MATCH" | "LOT_EXP_MISMATCH" | "AMBIGUOUS";
-      candidates?: Array<{
-        code: string;
-        barcode_digits: string;
-        lot_rule: string;
-        exp_rule: string;
-      }>;
-    };
-
-function pickAdjustItemByScan(
-  items: AnyItem[],
-  scanRaw: string,
-): ScanPickResult {
-  const scanDigits = digitsOnly(scanRaw);
-  const scanToken = tokenOnly(scanRaw);
-
-  if (!scanDigits && !scanToken) return { ok: false, reason: "EMPTY" };
-
-  // 1) candidate by barcode digits
-  const candidates = items.filter((it) => {
-    const b = getItemBarcodeDigits(it);
-    return b && scanDigits.includes(b);
-  });
-
-  if (candidates.length === 0) return { ok: false, reason: "NO_MATCH" };
-
-  // 2) STRICT: lot_rule อยู่ใน scanToken + exp_rule อยู่ใน scanDigits
-  const strictMatched = candidates.filter((it) => {
-    const lotRule = getItemLotRule(it); // token
-    const expRule = getItemExpRule(it); // 6 digits
-
-    const lotOk = scanToken.includes(lotRule);
-
-    // ถ้า exp เป็น null => ไม่ต้องบังคับ exp match (เหมือน GroupOrder)
-    const itemExpRaw =
-      it?.expire_date ??
-      it?.exp_date ??
-      it?.expiration ??
-      it?.exp ??
-      it?.expire;
-    const expOk = itemExpRaw == null ? true : scanDigits.includes(expRule);
-
-    return lotOk && expOk;
-  });
-
-  if (strictMatched.length === 1) {
-    return { ok: true, item: strictMatched[0], reason: "OK_STRICT" };
-  }
-
-  const info = candidates.map((x) => ({
-    code: String(x?.code ?? ""),
-    barcode_digits: getItemBarcodeDigits(x),
-    lot_rule: getItemLotRule(x),
-    exp_rule: getItemExpRule(x),
-  }));
-
-  return {
-    ok: false,
-    reason: strictMatched.length === 0 ? "LOT_EXP_MISMATCH" : "AMBIGUOUS",
-    candidates: info,
-  };
-}
-/** =========================
- * Scan-only normalizers
- * - exp null => "999999" (ใช้แค่ตอน match scan)
- * - lot null => "XXXXXX" (ใช้แค่ตอน match scan)
- * ========================= */
-
-function expToYYMMDDForScan(exp: any): string {
-  if (exp == null || String(exp).trim() === "") return "999999";
-
-  const raw = String(exp).trim();
-  if (/^\d{6}$/.test(raw)) return raw;
-
-  const d = new Date(raw);
-  if (Number.isNaN(d.getTime())) return "999999";
-
-  const yy = String(d.getFullYear()).slice(-2);
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yy}${mm}${dd}`;
 }
 
-function lotForScan(v: any): string {
-  const s = String(v ?? "").trim();
-  return s ? s : "XXXXXX";
-}
+function normalizeLocationState(raw: any): ConfirmedLocation | null {
+  const fullName = String(
+    raw?.full_name ?? raw?.location_full_name ?? raw?.location_name ?? "",
+  ).trim();
 
-function normBarcodeText(v: any): string {
-  return String(v ?? "").trim();
-}
+  if (!fullName) return null;
 
-function pickItems(adj: any): AnyItem[] {
-  const v = adj?.items ?? adj?.lines ?? adj?.details ?? [];
-  return Array.isArray(v) ? v : [];
-}
+  const rawId = raw?.id ?? raw?.location_id ?? null;
+  const id =
+    rawId == null || rawId === "" || Number.isNaN(Number(rawId))
+      ? null
+      : Number(rawId);
 
-type ScanKey = {
-  barcode_text: string;
-  lot_serial: string; // สำหรับ scan เท่านั้น (null => XXXXXX)
-  exp: string; // สำหรับ scan เท่านั้น (null => 999999)
-};
-
-function buildScanKeyFromItem(it: AnyItem): ScanKey {
-  return {
-    barcode_text: normBarcodeText(
-      it?.barcode_text ?? it?.barcode ?? it?.barcode_code,
-    ),
-    lot_serial: lotForScan(it?.lot_serial ?? it?.lot ?? it?.serial),
-    exp: expToYYMMDDForScan(
-      it?.expire_date ?? it?.exp_date ?? it?.expiration ?? it?.exp,
-    ),
-  };
+  return { id, full_name: fullName };
 }
 
 function lotForDisplay(v: any): string {
@@ -214,16 +65,19 @@ function lotForDisplay(v: any): string {
 function expForDisplay(it: AnyItem): string {
   const raw =
     it?.expire_date ?? it?.exp_date ?? it?.expiration ?? it?.exp ?? null;
+
   if (raw == null || String(raw).trim() === "") return "-";
 
-  // ถ้าเป็น 6 หลัก (YYMMDD) ให้แปลงเป็นวันที่ไทยแบบไม่มีเวลา
   const s = String(raw).trim();
+
   if (/^\d{6}$/.test(s)) {
     const yy = 2000 + Number(s.slice(0, 2));
     const mm = Number(s.slice(2, 4)) - 1;
     const dd = Number(s.slice(4, 6));
     const d = new Date(yy, mm, dd);
+
     if (Number.isNaN(d.getTime())) return "-";
+
     return d.toLocaleDateString("th-TH", {
       day: "2-digit",
       month: "2-digit",
@@ -231,7 +85,6 @@ function expForDisplay(it: AnyItem): string {
     });
   }
 
-  // ISO/Date string -> เวลาไทย
   return formatDateTime(raw);
 }
 
@@ -269,14 +122,21 @@ const detectSrc = (adj: any): "outbound" | "adjust" => {
   return "adjust";
 };
 
+function getUserRef() {
+  const first = (localStorage.getItem("first_name") || "").trim();
+  const last = (localStorage.getItem("last_name") || "").trim();
+  const username = (localStorage.getItem("username") || "").trim();
+
+  return `${first} ${last}`.trim() || username || "system";
+}
+
 const AdjustManual: React.FC = () => {
   const navigate = useNavigate();
   const params = useParams();
   const [sp] = useSearchParams();
-
   const location = useLocation();
-  const navState = (location.state as any) || {};
 
+  const navState = (location.state as any) || {};
   const navGroup = navState.navGroup;
   const navLevel = navState.level as "manual" | "auto" | undefined;
   const navStatus = navState.status as "pending" | "completed" | undefined;
@@ -284,32 +144,45 @@ const AdjustManual: React.FC = () => {
   const stateDetailList = Array.isArray(navState.detailList)
     ? navState.detailList
     : [];
-
   const stateDetailTotal = Number(navState.detailTotal ?? 0);
+
+  const id = Number(params.id);
+  const src = (sp.get("src") || "adjust").toLowerCase();
+
+  const locationInputRef = useRef<HTMLInputElement>(null);
+  const itemInputRef = useRef<HTMLInputElement>(null);
 
   const [detailList, setDetailList] = useState<
     Array<{ id: number; src: string }>
   >([]);
 
-  const id = Number(params.id);
-  const src = (sp.get("src") || "adjust").toLowerCase(); // adjust | outbound
-
-  const scanRef = useRef<HTMLInputElement>(null);
-
   const [loading, setLoading] = useState(false);
   const [doc, setDoc] = useState<AdjustmentType | null>(null);
+  const [items, setItems] = useState<any[]>([]);
   const [errorMsg, setErrorMsg] = useState("");
 
-  const [scanText, setScanText] = useState("");
+  const [scanLocation, setScanLocation] = useState("");
+  const [confirmedLocation, setConfirmedLocation] =
+    useState<ConfirmedLocation | null>(null);
 
-  const [activeKey, setActiveKey] = useState<string>("");
-  const [qtyPickDraftByKey, setQtyPickDraftByKey] = useState<
-    Record<string, number>
-  >({});
+  const [isLocationScanActive, setIsLocationScanActive] = useState(false);
+  const [itemBarcodeInput, setItemBarcodeInput] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [scannedKeys, setScannedKeys] = useState<Record<string, true>>({});
+  const applyAdjustmentPayload = useCallback((payload: any) => {
+    const data = payload?.data ?? payload;
+    if (!data) return;
 
-  const items = useMemo(() => pickItems(doc), [doc]);
+    setDoc(data);
+
+    const nextItems = Array.isArray(data?.items)
+      ? data.items
+      : Array.isArray(data?.lines)
+        ? data.lines
+        : [];
+
+    setItems(nextItems);
+  }, []);
 
   const loadDetail = useCallback(async () => {
     if (!id || Number.isNaN(id)) {
@@ -341,8 +214,17 @@ const AdjustManual: React.FC = () => {
       const data: AdjustmentType | null = raw?.data ?? raw ?? null;
 
       setDoc(data);
+
+      const nextItems = Array.isArray((data as any)?.items)
+        ? (data as any).items
+        : Array.isArray((data as any)?.lines)
+          ? (data as any).lines
+          : [];
+
+      setItems(nextItems);
     } catch (e: any) {
       setDoc(null);
+      setItems([]);
       setErrorMsg(e?.response?.data?.message || e?.message || "Load failed");
     } finally {
       setLoading(false);
@@ -351,9 +233,52 @@ const AdjustManual: React.FC = () => {
 
   useEffect(() => {
     loadDetail();
-    const t = setTimeout(() => scanRef.current?.focus(), 150);
-    return () => clearTimeout(t);
   }, [loadDetail]);
+
+  useEffect(() => {
+    const no = String((doc as any)?.no ?? "").trim();
+    const adjId = Number((doc as any)?.id ?? 0);
+
+    if (!no) return;
+
+    socket.emit("join_room", `adjustment:${no}`);
+    if (adjId > 0) socket.emit("join_room", `adjustment-id:${adjId}`);
+
+    const onScanLocation = (payload: any) => {
+      applyAdjustmentPayload(payload);
+
+      const loc = normalizeLocationState(payload?.location);
+      if (loc?.full_name) {
+        setConfirmedLocation(loc);
+        setScanLocation(loc.full_name);
+        setIsLocationScanActive(false);
+        setTimeout(() => itemInputRef.current?.focus(), 100);
+      }
+    };
+
+    const onScanBarcode = (payload: any) => {
+      applyAdjustmentPayload(payload);
+      setItemBarcodeInput("");
+      setTimeout(() => itemInputRef.current?.focus(), 80);
+    };
+
+    const onConfirm = (payload: any) => {
+      applyAdjustmentPayload(payload);
+    };
+
+    socket.on("adjustment:scan_location", onScanLocation);
+    socket.on("adjustment:scan_barcode", onScanBarcode);
+    socket.on("adjustment:confirm", onConfirm);
+
+    return () => {
+      socket.off("adjustment:scan_location", onScanLocation);
+      socket.off("adjustment:scan_barcode", onScanBarcode);
+      socket.off("adjustment:confirm", onConfirm);
+
+      socket.emit("leave_room", `adjustment:${no}`);
+      if (adjId > 0) socket.emit("leave_room", `adjustment-id:${adjId}`);
+    };
+  }, [(doc as any)?.no, (doc as any)?.id, applyAdjustmentPayload]);
 
   useEffect(() => {
     const rows = stateDetailList
@@ -408,206 +333,195 @@ const AdjustManual: React.FC = () => {
     fetchAll();
   }, [navGroup, navLevel, navStatus, stateDetailTotal]);
 
-  const onScanSubmit = useCallback(
-    (e: React.FormEvent) => {
-      e.preventDefault();
-      const raw = normalize(scanText);
-      if (!raw) return;
+  useEffect(() => {
+    if (isLocationScanActive && locationInputRef.current) {
+      locationInputRef.current.focus();
+    }
+  }, [isLocationScanActive]);
 
-      if (!doc) {
-        toast.error("ไม่พบเอกสาร");
-        return;
+  const toggleLocationFocus = useCallback(() => {
+    setIsLocationScanActive((prev) => {
+      if (!prev) {
+        setScanLocation("");
+        setConfirmedLocation(null);
+        setItemBarcodeInput("");
+
+        setTimeout(() => locationInputRef.current?.focus(), 0);
+        return true;
       }
 
-      const picked = pickAdjustItemByScan(items, raw);
+      return false;
+    });
+  }, []);
 
-      if (!picked.ok) {
-        if (picked.reason === "NO_MATCH") {
-          toast.error("ไม่พบ Barcode ตรงกับสินค้าในเอกสาร");
-        } else if (picked.reason === "LOT_EXP_MISMATCH") {
-          toast.error("Lot/Exp ไม่ตรงกับรายการในเอกสาร");
-          console.log("scanToken=", tokenOnly(raw));
-          console.log("scanDigits=", digitsOnly(raw));
-          console.log("candidates=", picked.candidates);
-        } else if (picked.reason === "AMBIGUOUS") {
-          toast.error("ยังแยกรายการไม่ได้ (Lot/Exp อาจไม่พอหรือข้อมูลซ้ำ)");
-          console.log("scanToken=", tokenOnly(raw));
-          console.log("scanDigits=", digitsOnly(raw));
-          console.log("candidates=", picked.candidates);
-        }
-        setScanText("");
-        scanRef.current?.focus();
+  const handleScanLocationKeyDown = async (
+    e: React.KeyboardEvent<HTMLInputElement>,
+  ) => {
+    if (e.key !== "Enter" && e.key !== "Tab") return;
+    e.preventDefault();
+
+    const no = String((doc as any)?.no ?? "").trim();
+    const fullName = scanLocation.trim();
+
+    if (!no) {
+      toast.error("ไม่พบเลขเอกสาร");
+      return;
+    }
+
+    if (!fullName) return;
+
+    if (confirmedLocation && confirmedLocation.full_name !== fullName) {
+      const c = await confirmAlert(
+        `ต้องการเปลี่ยน Location จาก "${confirmedLocation.full_name}" เป็น "${fullName}" ใช่ไหม?`,
+      );
+      if (!c.isConfirmed) {
+        setScanLocation(confirmedLocation.full_name);
         return;
       }
+    }
 
-      const found = picked.item;
-
-      // ✅ ทำ key สำหรับ row (ใช้ rule เหมือนกัน จะไม่ขึ้นกับ length)
-      const barcodeDigits = getItemBarcodeDigits(found);
-      const lotRule = getItemLotRule(found);
-      const expRule = getItemExpRule(found);
-      const mapKey = `${barcodeDigits}|${lotRule}|${expRule}`;
-
-      setScannedKeys((prev) => ({ ...prev, [mapKey]: true }));
-      toast.success("Scan ผ่าน ✅");
-      setActiveKey(mapKey);
-
-      setQtyPickDraftByKey((prev) => {
-        if (prev[mapKey] != null) return prev;
-        const cur = Number(found?.qty_pick ?? 0);
-        return { ...prev, [mapKey]: Number.isFinite(cur) ? cur : 0 };
+    try {
+      const resp = await adjustmentApi.scanLocation(no, {
+        location_full_name: fullName,
       });
 
+      const payload = resp.data;
+      applyAdjustmentPayload(payload);
+
+      const nextLoc =
+        normalizeLocationState(payload?.location) ??
+        normalizeLocationState({ full_name: fullName });
+
+      if (nextLoc?.full_name) {
+        setConfirmedLocation(nextLoc);
+        setScanLocation(nextLoc.full_name);
+      }
+
+      setIsLocationScanActive(false);
+
+      toast.success(`ยืนยัน Location: ${nextLoc?.full_name ?? fullName}`);
+      setTimeout(() => itemInputRef.current?.focus(), 120);
+    } catch (err: any) {
+      toast.error(
+        err?.response?.data?.message ||
+          err?.message ||
+          "ยืนยัน Location ไม่สำเร็จ",
+      );
+      setConfirmedLocation(null);
+    }
+  };
+
+  const handleItemBarcodeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const no = String((doc as any)?.no ?? "").trim();
+    const raw = normalize(itemBarcodeInput);
+
+    if (!raw) return;
+
+    // ✅ FIX: รองรับ scan จริง (case-insensitive + trim แล้ว)
+    if (raw.toLowerCase().includes("changelocation")) {
+      // reset state ทั้งหมด
+      setItemBarcodeInput("");
+      setScanLocation("");
+      setConfirmedLocation(null);
+
+      // เปิด mode scan location
+      setIsLocationScanActive(true);
+
+      // focus ไป location input
       setTimeout(() => {
-        const el = document.getElementById(
-          `qty-pick-${mapKey}`,
-        ) as HTMLInputElement | null;
-        el?.focus();
-        el?.select?.();
-      }, 50);
+        locationInputRef.current?.focus();
+        locationInputRef.current?.select?.();
+      }, 0);
 
-      setScanText("");
-      scanRef.current?.focus();
-    },
-    [doc, items, scanText],
-  );
+      toast.info("เปลี่ยน Location → กรุณา Scan Location ใหม่");
+      return;
+    }
 
-  // const onSaveDraft = () => toast.info("Save Draft (coming soon)");
+    if (!no) {
+      toast.error("ไม่พบเลขเอกสาร");
+      setItemBarcodeInput("");
+      return;
+    }
+
+    if (!confirmedLocation) {
+      toast.warning("กรุณา Scan Location ก่อน");
+      setItemBarcodeInput("");
+      setTimeout(() => locationInputRef.current?.focus(), 120);
+      return;
+    }
+
+    try {
+      const resp = await adjustmentApi.scanBarcode(no, {
+        barcode: raw,
+        location_full_name: confirmedLocation.full_name,
+        user_ref: getUserRef(),
+      });
+
+      const payload = resp.data;
+      applyAdjustmentPayload(payload);
+
+      const matched =
+        payload?.matchedLine ?? payload?.data?.matchedLine ?? null;
+
+      const code = matched?.code ?? "-";
+      const name = matched?.name ?? "-";
+      const qtyPick = Number(matched?.qty_pick ?? 0);
+      const maxQty = Number(matched?.qty ?? 0);
+
+      toast.success(
+        `สแกนสินค้า ${code} ${name} จำนวน ${qtyPick}/${maxQty} สำเร็จ`,
+      );
+
+      setItemBarcodeInput("");
+      setTimeout(() => itemInputRef.current?.focus(), 100);
+    } catch (err: any) {
+      toast.error(
+        err?.response?.data?.message || err?.message || "สแกนสินค้าไม่สำเร็จ",
+      );
+      setItemBarcodeInput("");
+      setTimeout(() => itemInputRef.current?.focus(), 100);
+    }
+  };
 
   const onConfirm = useCallback(async () => {
-    if (loading) return;
-    if (!doc) {
+    const no = String((doc as any)?.no ?? "").trim();
+
+    if (!no) {
       toast.error("ไม่พบเอกสาร");
       return;
     }
 
-    const no = String((doc as any)?.no ?? "").trim();
-    if (!no) {
-      toast.error("ไม่พบเลขเอกสาร (no)");
+    const hasAnyPick = items.some((it) => Number(it?.qty_pick ?? 0) > 0);
+
+    if (!hasAnyPick) {
+      toast.warning("กรุณาสแกนสินค้าอย่างน้อย 1 รายการก่อนยืนยัน");
       return;
     }
 
-    // ============================
-    // build items ตาม ConfirmAdjustmentCompleteBody
-    // ============================
-    const transferItems = items
-      .map((it: AnyItem, index: number) => {
-        const sk = buildScanKeyFromItem(it);
-        const mapKey = `${sk.barcode_text}|${sk.lot_serial}|${sk.exp}`;
-
-        const qtyPick =
-          qtyPickDraftByKey[mapKey] != null
-            ? Number(qtyPickDraftByKey[mapKey])
-            : Number(it?.qty_pick ?? 0);
-
-        const qty_pick = Math.max(0, Math.floor(qtyPick));
-        if (qty_pick <= 0) return null;
-
-        // expire_date => YYYY-MM-DD
-        const rawExp =
-          it?.expire_date ?? it?.exp_date ?? it?.expiration ?? it?.exp ?? null;
-
-        let expire_date: string | null = null;
-        if (rawExp) {
-          const d = new Date(String(rawExp));
-          if (!Number.isNaN(d.getTime())) {
-            const yyyy = d.getFullYear();
-            const mm = String(d.getMonth() + 1).padStart(2, "0");
-            const dd = String(d.getDate()).padStart(2, "0");
-            expire_date = `${yyyy}-${mm}-${dd}`;
-          }
-        }
-
-        // barcodes
-        const barcodes = (() => {
-          const br = it?.barcode_ref;
-          if (br?.barcode_id || br?.barcode) {
-            return [
-              {
-                barcode_id:
-                  br?.barcode_id != null ? Number(br.barcode_id) : null,
-                barcode: br?.barcode != null ? String(br.barcode).trim() : null,
-              },
-            ].filter((b) => b.barcode_id || b.barcode);
-          }
-
-          if (Array.isArray(it?.barcodes) && it.barcodes.length) {
-            return it.barcodes
-              .map((b: any) => ({
-                barcode_id: b?.barcode_id != null ? Number(b.barcode_id) : null,
-                barcode: b?.barcode != null ? String(b.barcode).trim() : null,
-              }))
-              .filter((b: any) => b.barcode_id || b.barcode);
-          }
-
-          return [];
-        })();
-
-        return {
-          sequence: it?.sequence ?? index + 1,
-          product_id: it?.product_id ?? null,
-          code: it?.code ?? null,
-          name: String(it?.name ?? ""),
-          location_id: it?.location_id ?? null,
-          location: it?.location ?? null,
-          location_dest_id:
-            (doc as any)?.location_dest_id ?? it?.location_dest_id ?? null,
-          location_dest:
-            (doc as any)?.location_dest ?? it?.location_dest ?? null,
-          unit: String(it?.unit ?? ""),
-          tracking: it?.tracking ?? null,
-          lot_id: it?.lot_id ?? null,
-          lot_serial: it?.lot_serial ?? null,
-          expire_date,
-          qty_pick, // ✅ ตรงกับ type
-          barcodes: barcodes.length ? barcodes : [],
-        };
-      })
-      .filter(
-        Boolean,
-      ) as ConfirmAdjustmentCompleteBody["transfers"][0]["items"];
-
-    if (transferItems.length === 0) {
-      toast.error("ยังไม่มีการสแกน/กรอก QTY (qty_pick = 0)");
-      return;
-    }
-
-    // ============================
-    // build payload ตาม ConfirmAdjustmentCompleteBody
-    // ============================
-    const payload: ConfirmAdjustmentCompleteBody = {
-      transfers: [
-        {
-          no,
-          department_id: (doc as any)?.department_id ?? null,
-          department: (doc as any)?.department ?? null,
-          reference: (doc as any)?.reference ?? null,
-          origin: (doc as any)?.origin ?? null,
-          items: transferItems,
-        },
-      ],
-    };
-
-    const totalPick = transferItems.reduce((sum, x) => sum + x.qty_pick, 0);
-
-    const result = await confirmAlert(
-      `ยืนยันการปรับสินค้าทั้งหมด ${totalPick} ชิ้นหรือไม่?`,
-    );
-
-    if (!result || !result.isConfirmed) return;
+    const result = await confirmAlert("ยืนยัน Adjustment ?");
+    if (!result?.isConfirmed) return;
 
     try {
+      setIsSubmitting(true);
       setLoading(true);
-      await adjustmentApi.confirmCompleteByNo(no, payload);
+
+      const resp = await adjustmentApi.confirm(no, {
+        user_ref: getUserRef(),
+      });
+
+      applyAdjustmentPayload(resp.data);
+
       toast.success("ยืนยันสำเร็จ ✅");
-      await loadDetail();
       navigate("/adjustment");
     } catch (e: any) {
       toast.error(e?.response?.data?.message || e?.message || "Confirm failed");
     } finally {
       setLoading(false);
+      setIsSubmitting(false);
     }
-  }, [loading, doc, items, qtyPickDraftByKey, loadDetail]);
+  }, [doc, items, navigate, applyAdjustmentPayload]);
 
   const onCancel = () => navigate("/adjustment");
 
@@ -629,7 +543,6 @@ const AdjustManual: React.FC = () => {
     detailList.findIndex((x) => Number(x.id) === Number(id)) + 1;
 
   const total = detailList.length;
-
   const hasNavigator = detailList.length > 0 && currentIndex > 0;
 
   const handlePrev = () => {
@@ -703,13 +616,6 @@ const AdjustManual: React.FC = () => {
                   {safeText(header?.description)}
                 </span>
               </div>
-
-              <div className="adj-mn-meta-line">
-                <span className="adj-mn-meta-label">User :</span>
-                <span className="adj-mn-meta-value">
-                  {safeText(header?.user)}
-                </span>
-              </div>
             </div>
 
             <div className="adj-mn-meta-col adj-mn-meta-col-right">
@@ -721,24 +627,78 @@ const AdjustManual: React.FC = () => {
               </div>
 
               <div className="adj-mn-meta-line">
-                <span className="adj-mn-meta-label">Date/Time :</span>
+                <span className="adj-mn-meta-label">เวลารับเข้าเอกสาร :</span>
                 <span className="adj-mn-meta-value">
                   {formatDateTime(header?.date)}
                 </span>
               </div>
             </div>
 
-            <form className="adj-mn-scan" onSubmit={onScanSubmit}>
-              <div className="adj-mn-scan-label">Scan Barcode/Serial</div>
-              <input
-                ref={scanRef}
-                className="adj-mn-scan-input"
-                value={scanText}
-                onChange={(e) => setScanText(e.target.value)}
-                placeholder="สแกน Barcode/Serial"
-                disabled={loading}
-              />
-            </form>
+            <div className="adj-mn-scan-panel">
+              <div className="adj-mn-scan-row">
+                <label>Scan Location :</label>
+
+                <input
+                  ref={locationInputRef}
+                  className="adj-mn-scan-input"
+                  value={scanLocation}
+                  onChange={(e) => setScanLocation(e.target.value)}
+                  onKeyDown={handleScanLocationKeyDown}
+                  placeholder="Scan Location"
+                  disabled={!isLocationScanActive}
+                  style={{
+                    borderColor: confirmedLocation ? "#4CAF50" : undefined,
+                    opacity: isLocationScanActive ? 1 : 0.6,
+                  }}
+                />
+
+                <button
+                  type="button"
+                  className={`adj-mn-btn-toggle ${
+                    isLocationScanActive ? "active" : ""
+                  }`}
+                  onClick={toggleLocationFocus}
+                  title={
+                    isLocationScanActive
+                      ? "รีเซ็ต Location"
+                      : "เปิดสแกน Location"
+                  }
+                >
+                  {isLocationScanActive ? (
+                    <i className="fa-solid fa-xmark"></i>
+                  ) : (
+                    <i className="fa-solid fa-qrcode"></i>
+                  )}
+                </button>
+              </div>
+
+              <form
+                onSubmit={handleItemBarcodeSubmit}
+                className="adj-mn-scan-row"
+              >
+                <label>Scan Barcode/Serial :</label>
+
+                <input
+                  ref={itemInputRef}
+                  className="adj-mn-scan-input"
+                  value={itemBarcodeInput}
+                  onChange={(e) => setItemBarcodeInput(e.target.value)}
+                  placeholder="สแกน Barcode/Serial"
+                  disabled={!confirmedLocation}
+                />
+
+                <div className="adj-mn-scan-spacer" />
+              </form>
+
+              <div
+                className={`scan-hint ${confirmedLocation ? "ok" : ""}`}
+                style={{ marginTop: 6 }}
+              >
+                {confirmedLocation
+                  ? `✅ ADJUST MODE : ${confirmedLocation.full_name}`
+                  : ""}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -781,98 +741,39 @@ const AdjustManual: React.FC = () => {
                 </tr>
               ) : (
                 items.map((it: AnyItem, idx: number) => {
-                  // ✅ ใช้ key สำหรับ scan เท่านั้น (null => XXXXXX / 999999)
-                  const sk = buildScanKeyFromItem(it);
-                  const mapKey = `${sk.barcode_text}|${sk.lot_serial}|${sk.exp}`;
-                  const isOk = Boolean(scannedKeys[mapKey]);
-
                   const locDest =
                     (doc as any)?.location_dest ?? it?.location_dest;
                   const impactText = formatImpactQty(locDest, it?.qty);
 
-                  const draft =
-                    qtyPickDraftByKey[mapKey] ?? Number(it?.qty_pick ?? 0) ?? 0;
-                  const canEdit = activeKey === mapKey;
+                  const qty = Number(it?.qty ?? 0);
+                  const pick = Number(it?.qty_pick ?? 0);
+
+                  const rowClass =
+                    qty > 0 && pick >= qty
+                      ? "adj-mn-row-ok"
+                      : pick > 0
+                        ? "adj-mn-row-progress"
+                        : "";
 
                   return (
                     <tr
                       key={it?.id ? String(it.id) : `row-${idx}`}
-                      className={isOk ? "adj-mn-row-ok" : ""}
+                      className={rowClass}
                     >
                       <td className="adj-mn-center">{idx + 1}</td>
                       <td>{safeText(it?.code)}</td>
                       <td>{safeText(it?.name)}</td>
                       <td className="adj-mn-center">{impactText}</td>
-
                       <td className="adj-mn-center">
-                        {canEdit ? (
-                          <input
-                            id={`qty-pick-${mapKey}`}
-                            className="adj-mn-qtypick-input"
-                            type="number"
-                            inputMode="numeric"
-                            min={0}
-                            value={String(draft)}
-                            onChange={(e) => {
-                              let v = Number(e.target.value);
-
-                              if (Number.isNaN(v)) v = 0;
-                              if (v < 0) v = 0;
-
-                              const maxQty = Number(it?.qty ?? 0);
-
-                              if (v > maxQty) {
-                                v = maxQty; // ✅ บังคับไม่ให้เกิน
-                              }
-
-                              setQtyPickDraftByKey((prev) => ({
-                                ...prev,
-                                [mapKey]: v,
-                              }));
-                            }}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter")
-                                (e.target as HTMLInputElement).blur();
-                            }}
-                            onBlur={() => {
-                              setDoc((prev: any) => {
-                                if (!prev) return prev;
-                                const arr = Array.isArray(prev.items)
-                                  ? prev.items
-                                  : Array.isArray(prev.lines)
-                                    ? prev.lines
-                                    : [];
-                                const nextArr = arr.map((x: any) => {
-                                  const xk = buildScanKeyFromItem(x);
-                                  const xKey = `${xk.barcode_text}|${xk.lot_serial}|${xk.exp}`;
-                                  return xKey === mapKey
-                                    ? { ...x, qty_pick: draft }
-                                    : x;
-                                });
-                                if (Array.isArray(prev.items))
-                                  return { ...prev, items: nextArr };
-                                if (Array.isArray(prev.lines))
-                                  return { ...prev, lines: nextArr };
-                                return { ...prev, items: nextArr };
-                              });
-                            }}
-                          />
-                        ) : (
-                          safeText(it?.qty_pick)
-                        )}
+                        {safeText(it?.qty_pick)}
                       </td>
-
                       <td className="adj-mn-center">{safeText(it?.unit)}</td>
                       <td>
                         {safeText(
                           (doc as any)?.location_dest ?? it?.location_dest,
                         )}
                       </td>
-
-                      {/* ✅ lot: null แสดง "-" (ไม่โชว์ XXXXXX) */}
                       <td>{lotForDisplay(it?.lot_serial)}</td>
-
-                      {/* ✅ exp: null แสดง "-" และถ้ามีให้แสดงเวลาไทย */}
                       <td className="adj-mn-center">{expForDisplay(it)}</td>
                     </tr>
                   );
@@ -883,20 +784,11 @@ const AdjustManual: React.FC = () => {
                 <tr>
                   <td colSpan={9} className="adj-mn-action-row">
                     <div className="adj-mn-footer">
-                      {/* <button
-                        type="button"
-                        className="adj-mn-btn adj-mn-btn-draft"
-                        onClick={onSaveDraft}
-                        disabled={loading}
-                      >
-                        save draft
-                      </button> */}
-
                       <button
                         type="button"
                         className="adj-mn-btn adj-mn-btn-cancel"
                         onClick={onCancel}
-                        disabled={loading}
+                        disabled={loading || isSubmitting}
                       >
                         ย้อนกลับ
                       </button>
@@ -905,7 +797,7 @@ const AdjustManual: React.FC = () => {
                         type="button"
                         className="adj-mn-btn adj-mn-btn-confirm"
                         onClick={onConfirm}
-                        disabled={loading}
+                        disabled={loading || isSubmitting}
                       >
                         ยืนยัน
                       </button>
@@ -918,7 +810,7 @@ const AdjustManual: React.FC = () => {
         </div>
       </div>
 
-      {loading && (
+      {(loading || isSubmitting) && (
         <div className="adj-mn-loading-overlay">
           <Loading />
         </div>

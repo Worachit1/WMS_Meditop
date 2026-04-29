@@ -68,7 +68,7 @@ export const adjustmentApi = {
     http.patch(`/Adjust/${encodeURIComponent(no)}`, data),
 
   confirm: (no: string, data: any) =>
-    http.post(`/Adjust/${encodeURIComponent(no)}/confirm`, data),
+    http.post(`/Adjust/${encodeURIComponent(no)}/scan/confirm`, data),
 
   confirmCompleteByNo: (no: string, body: ConfirmAdjustmentCompleteBody) =>
     http.post(`/Adjust/${encodeURIComponent(no)}/complete`, body),
@@ -77,4 +77,15 @@ export const adjustmentApi = {
   http.delete(`/Adjust/${adjustmentId}/items/${itemId}`, {
     data: { pin },
   }),
+
+  scanBarcode: (
+  no: string,
+  data: {
+    barcode: string;
+    location_full_name: string;
+    user_ref?: string | null;
+  },
+) => http.post(`/Adjust/${encodeURIComponent(no)}/scan/barcode`, data),
+
+
 };

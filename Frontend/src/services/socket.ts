@@ -1,6 +1,6 @@
 import { io } from "socket.io-client";
 
-export const socket = io("http://192.168.1.138:8080", {
+export const socket = io("http://192.168.1.108:8080", {
   path: "/socket.io",
   transports: ["websocket"],
   withCredentials: true,

@@ -84,34 +84,26 @@
 
 /* ปุ่มเล็กแบบภาพ */
 .groupOrder-scan-button {
-  height: 30px;
-  padding: 0 12px;
-  font-size: 20px;
-  font-weight: 700;
-  border-radius: 6px;
-
-  /* ให้ดูเป็นปุ่มขอบ (เหมือนภาพ) */
-  background: #36a130;
-  color: #f5eded;
-  border: 1px solid rgba(0, 0, 0, 0.25);
-
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  white-space: nowrap;
+  color: #58e81a;
+  background-color: #fff;
+  border: none;
+  border-radius: 4px;
   cursor: pointer;
+  font-size: 25px;
+  width: 60px;
   transition: all 0.2s ease;
+  grid-column: 3 / 4;
+  width: 44px;
+  height: 30px;
+  padding: 0;
 }
 
 /* active เป็นสีส้มแบบเดิมได้ */
 .groupOrder-scan-button.active {
-  background: #ff9800;
-  border-color: #ff9800;
-  color: #f5eded;
+  background-color: #ff9800;
 }
 .groupOrder-scan-button:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 /* input ให้เตี้ย + ไม่กินที่มาก */
@@ -209,7 +201,6 @@
   min-width: 0;
   width: 100%;
   padding: 1px;
-
 }
 
 /* panel ซ้าย */
@@ -242,7 +233,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 20px
+  gap: 20px;
 }
 
 .panel-title {
@@ -972,34 +963,36 @@
   margin-top: 20px;
 }
 
-.scan-label {
-  width: 150px;
-  font-size: 16px;
-}
-
 .scan-input {
   height: 30px;
   font-size: 16px;
 }
 
 .scan-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr) 44px;
   align-items: center;
-  gap: 20px;
+  column-gap: 12px;
   margin-bottom: 8px;
 }
 
 .scan-label {
-  width: 150px;
-  font-size: 13px;
+ width: 170px;
+  min-width: 170px;
+  font-size: 16px;
   font-weight: 700;
-  color: #444;
+  color: #333;
   white-space: nowrap;
-  margin-right: 10px;
+  width: auto;
+  min-width: 0;
+  margin: 0;
 }
 
 .scan-form {
-  flex: 1;
+  grid-column: 2 / 3;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
 }
 
 .scan-input {
@@ -1011,12 +1004,20 @@
   outline: none;
   font-size: 16px;
   background: #fff;
+  box-sizing: border-box;
 }
 
-.scan-input:disabled {
-  background: #f6f6f6;
-  color: #999;
+.scan-input:focus {
+  outline: none;
+  border-color: #1a73e8;
+  box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.1);
 }
+
+.scan-input::placeholder {
+  color: #999;
+  font-style: italic;
+}
+
 
 .scan-input.ok {
   border-color: #39b54a; /* เขียวแบบ inboundById */
@@ -1031,6 +1032,11 @@
 .scan-hint.ok {
   color: #2e7d32;
   font-weight: 700;
+}
+
+.scan-button-spacer {
+  width: 44px;
+  height: 30px;
 }
 
 /* responsive */

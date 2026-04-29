@@ -260,7 +260,6 @@ const GroupOrder = () => {
   const [isInvoicePanelCollapsed, setIsInvoicePanelCollapsed] = useState(() => {
     return localStorage.getItem("grouporder_invoice_panel_collapsed") === "1";
   });
-  
 
   useEffect(() => {
     localStorage.setItem(
@@ -2977,7 +2976,6 @@ const GroupOrder = () => {
                   <form
                     onSubmit={handleItemBarcodeSubmit}
                     className="scan-form"
-                    style={{ flex: 1 }}
                   >
                     <input
                       ref={itemInputRef}
@@ -2993,6 +2991,8 @@ const GroupOrder = () => {
                       disabled={!confirmedLocation}
                     />
                   </form>
+
+                  <div className="scan-button-spacer" />
                 </div>
 
                 <div

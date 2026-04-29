@@ -30,7 +30,6 @@ const tableHeaders = [
   "QTY",
   "Lot serial.",
   "Expire Date",
-  "เวลาที่ดำเนินการ",
 ];
 
 const DetailBor = () => {
@@ -220,7 +219,6 @@ const DetailBor = () => {
                     ? formatDateTime(item.expiration_date)
                     : "null"}
                 </td>
-                <td>{formatDateTime(item?.updated_at ?? item?.created_at)}</td>
               </tr>
             ))
           )}

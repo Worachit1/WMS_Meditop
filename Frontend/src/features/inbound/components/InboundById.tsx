@@ -226,117 +226,117 @@ const InboundById = () => {
 
     printWindow.document.open();
     printWindow.document.write(`
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <title>Print ChangeLocation</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8" />
+        <title>Print ChangeLocation</title>
+        <style>
+          * { box-sizing: border-box; margin: 0; padding: 0; }
 
-    @page {
-      size: ${pageWidth} ${pageHeight};
-      margin: 0;
-    }
+          @page {
+            size: ${pageWidth} ${pageHeight};
+            margin: 0;
+          }
 
-    html, body {
-      width: ${pageWidth};
-      height: ${pageHeight};
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-      background: #fff;
-      font-family: Arial, sans-serif;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
-    }
+          html, body {
+            width: ${pageWidth};
+            height: ${pageHeight};
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: #fff;
+            font-family: Arial, sans-serif;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
 
-    .root {
-      width: 100%;
-      height: 100%;
-      padding: ${paddingMm}mm;
-      position: relative;
-      display: flex;
-      flex-direction: column;
-      background: #fff;
-    }
+          .root {
+            width: 100%;
+            height: 100%;
+            padding: ${paddingMm}mm;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            background: #fff;
+          }
 
-    .root::before {
-      content: "";
-      position: absolute;
-      left: ${dashInsetMm}mm;
-      top: ${dashInsetMm}mm;
-      right: ${dashInsetMm}mm;
-      bottom: ${dashInsetMm}mm;
-      border: 0.2mm dashed #000;
-      opacity: 0.35;
-      pointer-events: none;
-    }
+          .root::before {
+            content: "";
+            position: absolute;
+            left: ${dashInsetMm}mm;
+            top: ${dashInsetMm}mm;
+            right: ${dashInsetMm}mm;
+            bottom: ${dashInsetMm}mm;
+            border: 0.2mm dashed #000;
+            opacity: 0.35;
+            pointer-events: none;
+          }
 
-    .qr-wrap {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding-top: 4mm;
-      padding-bottom: 2mm;
-      position: relative;
-      z-index: 1;
-    }
+          .qr-wrap {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding-top: 4mm;
+            padding-bottom: 2mm;
+            position: relative;
+            z-index: 1;
+          }
 
-    .qr {
-      width: ${qrMm}mm;
-      height: ${qrMm}mm;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
+          .qr {
+            width: ${qrMm}mm;
+            height: ${qrMm}mm;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
 
-    .qr canvas, .qr img {
-      width: 100% !important;
-      height: 100% !important;
-      display: block;
-    }
+          .qr canvas, .qr img {
+            width: 100% !important;
+            height: 100% !important;
+            display: block;
+          }
 
-    .fullname {
-      width: 100%;
-      min-height: 10mm;
-      padding: 0 4mm 3mm;
-      text-align: center;
-      font-weight: 700;
-      font-size: 12pt;
-      line-height: 1.2;
-      word-break: break-word;
-      position: relative;
-      z-index: 1;
-    }
-  </style>
+          .fullname {
+            width: 100%;
+            min-height: 10mm;
+            padding: 0 4mm 3mm;
+            text-align: center;
+            font-weight: 700;
+            font-size: 12pt;
+            line-height: 1.2;
+            word-break: break-word;
+            position: relative;
+            z-index: 1;
+          }
+        </style>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-</head>
-<body>
-  <div class="root">
-    <div class="qr-wrap">
-      <div class="qr" id="qrcode"></div>
-    </div>
-    <div class="fullname">${locationText}</div>
-  </div>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+      </head>
+      <body>
+        <div class="root">
+          <div class="qr-wrap">
+            <div class="qr" id="qrcode"></div>
+          </div>
+          <div class="fullname">${locationText}</div>
+        </div>
 
-  <script>
-    new QRCode(document.getElementById("qrcode"), {
-      text: ${JSON.stringify(qrPayload)},
-      width: 1200,
-      height: 1200,
-      correctLevel: QRCode.CorrectLevel.M
-    });
+        <script>
+          new QRCode(document.getElementById("qrcode"), {
+            text: ${JSON.stringify(qrPayload)},
+            width: 1200,
+            height: 1200,
+            correctLevel: QRCode.CorrectLevel.M
+          });
 
-    setTimeout(() => {
-      window.focus();
-      window.print();
-    }, 800);
-  </script>
-</body>
-</html>
+          setTimeout(() => {
+            window.focus();
+            window.print();
+          }, 800);
+        </script>
+      </body>
+      </html>
   `);
     printWindow.document.close();
   }, []);
@@ -2880,6 +2880,7 @@ const InboundById = () => {
                   onKeyDown={handleScanBarcodeKeyDown}
                   placeholder="Scan Barcode/Serial"
                 />
+                <div className="inbound-scan-spacer" />
               </div>
             </div>
           </div>
