@@ -3047,14 +3047,15 @@ const GroupOrder = () => {
                     className={`groupOrder-tab ${viewTab === "pending" ? "active" : ""}`}
                     onClick={() => setViewTab("pending")}
                   >
-                    ยังไม่ได้ดำเนินการ{" "}
-                    <span className="badge">{pendingCount}</span>
+                    กำลังดำเนินการ <span className="badge">{pendingCount}</span>
                   </button>
                 )}
 
                 <button
                   type="button"
-                  className={`groupOrder-tab ${viewTab === "done" ? "active" : ""}`}
+                  className={`groupOrder-tab groupOrder-tab-success ${
+                    viewTab === "done" ? "active" : ""
+                  }`}
                   onClick={() => setViewTab("done")}
                 >
                   ดำเนินการเสร็จสิ้นแล้ว{" "}
@@ -3278,9 +3279,15 @@ const GroupOrder = () => {
                     {sortedBatchItems.map((item, index) => {
                       const rowId = getRowId(item);
                       let rowClass = "row-white";
-                      if (isLockMismatchRow(item)) rowClass = "row-red";
-                      else if (isDoneRow(item)) rowClass = "row-green";
-                      else if (isProgressRow(item)) rowClass = "row-yellow";
+
+                      // ✅ แดงเฉพาะ tab pending เท่านั้น
+                      if (viewTab === "pending" && isLockMismatchRow(item)) {
+                        rowClass = "row-red";
+                      } else if (isDoneRow(item)) {
+                        rowClass = "row-green";
+                      } else if (isProgressRow(item)) {
+                        rowClass = "row-yellow";
+                      }
 
                       return (
                         <tr key={rowId} className={rowClass}>

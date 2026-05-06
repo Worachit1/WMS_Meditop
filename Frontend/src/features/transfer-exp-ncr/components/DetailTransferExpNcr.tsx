@@ -642,6 +642,54 @@ const DetailTransferExpNcr = () => {
   // =========================
   // Confirm
   // =========================
+  const buildPickLocationsPayload = () => {
+    const locMap = new Map<
+      string,
+      {
+        location_full_name: string;
+        lines: Array<{
+          transfer_item_id: string;
+          quantity_count: number;
+        }>;
+      }
+    >();
+
+    for (const it of allItems as any[]) {
+      const transferItemId = String(it?.id ?? "").trim();
+      if (!transferItemId) continue;
+
+      const pickLocations = Array.isArray(it?.pick_locations)
+        ? it.pick_locations
+        : [];
+
+      for (const loc of pickLocations) {
+        const locationName = String(
+          loc?.location_name ?? loc?.location_full_name ?? "",
+        ).trim();
+
+        const confirmedQty = Number(
+          loc?.confirmed_qty ?? loc?.quantity_count ?? loc?.qty_pick ?? 0,
+        );
+
+        if (!locationName || confirmedQty <= 0) continue;
+
+        if (!locMap.has(locationName)) {
+          locMap.set(locationName, {
+            location_full_name: locationName,
+            lines: [],
+          });
+        }
+
+        locMap.get(locationName)!.lines.push({
+          transfer_item_id: transferItemId,
+          quantity_count: confirmedQty,
+        });
+      }
+    }
+
+    return Array.from(locMap.values()).filter((x) => x.lines.length > 0);
+  };
+
   const handleConfirm = async () => {
     if (!no) return;
 
@@ -654,26 +702,17 @@ const DetailTransferExpNcr = () => {
     }
 
     // ✅ ใช้ quantity_count จาก backend items แทน countByLoc
-    const linesFromItems = allItems
-      .filter((it: any) => Number(it.quantity_count ?? 0) > 0)
-      .map((it: any) => ({
-        transfer_item_id: String(it.id),
-        quantity_count: Number(it.quantity_count ?? 0),
-      }));
+    const payloadLocations = buildPickLocationsPayload();
 
-    if (linesFromItems.length === 0) {
+    if (payloadLocations.length === 0) {
       warningAlert("ยังไม่มีรายการที่นับ (Pick = 0 ทั้งหมด)");
       return;
     }
 
-    const payloadLocations = [
-      {
-        location_full_name: confirmedLocation?.full_name ?? "",
-        lines: linesFromItems,
-      },
-    ];
-
-    const totalLines = linesFromItems.length;
+    const totalLines = payloadLocations.reduce(
+      (sum, loc) => sum + loc.lines.length,
+      0,
+    );
 
     const c = await confirmAlert(
       `ยืนยันทำรายการ Pick ${totalLines} รายการ ใช่ไหม?`,

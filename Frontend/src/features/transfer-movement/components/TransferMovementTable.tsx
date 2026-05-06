@@ -45,16 +45,40 @@ type TabKey = "pick" | "put" | "completed";
 
 const asText = (v: any) => {
   if (v === null || v === undefined) return "-";
-  if (typeof v === "string" || typeof v === "number" || typeof v === "boolean")
-    return String(v);
+
+  // ✅ map status
+  const statusMap: Record<string, string> = {
+    pick: "PICK",
+    put: "PUT",
+    completed: "COMPLETED",
+  };
+
+  if (
+    typeof v === "string" ||
+    typeof v === "number" ||
+    typeof v === "boolean"
+  ) {
+    const text = String(v).trim();
+
+    return statusMap[text.toLowerCase()] ?? text;
+  }
 
   if (typeof v === "object") {
-    if (typeof v.short_name === "string" && v.short_name.trim())
+    if (typeof v.short_name === "string" && v.short_name.trim()) {
       return v.short_name;
-    if (typeof v.full_name === "string" && v.full_name.trim())
+    }
+
+    if (typeof v.full_name === "string" && v.full_name.trim()) {
       return v.full_name;
-    if (typeof v.name === "string" && v.name.trim()) return v.name;
-    if (typeof v.no === "string" && v.no.trim()) return v.no;
+    }
+
+    if (typeof v.name === "string" && v.name.trim()) {
+      return v.name;
+    }
+
+    if (typeof v.no === "string" && v.no.trim()) {
+      return v.no;
+    }
   }
 
   return "-";
@@ -295,24 +319,24 @@ const TransferMovementTable = ({
 
   const getDetailTotal = () => Number(statusCounts?.[statusTab] ?? 0);
 
-const getDetailList = () =>
-  filteredTabRows.map((x: any) => ({
-    no: String(x?.no ?? "").trim(),
-  }));
+  const getDetailList = () =>
+    filteredTabRows.map((x: any) => ({
+      no: String(x?.no ?? "").trim(),
+    }));
 
   const openDetail = (t: TransferType) => {
-  const no = String((t as any)?.no ?? "").trim();
-  if (!no) return;
+    const no = String((t as any)?.no ?? "").trim();
+    if (!no) return;
 
-  navigate(`/detail-transfer-movement/${encodeURIComponent(no)}`, {
-    state: {
-      view: "transfer-movement",
-      status: statusTab, // pick | put | completed
-      detailList: getDetailList(),
-      detailTotal: getDetailTotal(),
-    },
-  });
-};
+    navigate(`/detail-transfer-movement/${encodeURIComponent(no)}`, {
+      state: {
+        view: "transfer-movement",
+        status: statusTab, // pick | put | completed
+        detailList: getDetailList(),
+        detailTotal: getDetailTotal(),
+      },
+    });
+  };
 
   const openEdit = (t: TransferType) => {
     const no = String((t as any)?.no ?? "").trim();

@@ -46,16 +46,60 @@ const EditZoneModal = ({
 
   const [loading, setLoading] = useState(false);
   const [buildingOptions, setBuildingOptions] = useState<buildingOption[]>([]);
-  const [_zoneTypeOptions, setZoneTypeOptions] = useState<zoneTypeOption[]>([]);
-  const [filteredZoneTypeOptions, setFilteredZoneTypeOptions] = useState<
-    zoneTypeOption[]
-  >([]);
+  const [zoneTypeOptions, setZoneTypeOptions] = useState<zoneTypeOption[]>([]);
+  const [allZones, setAllZones] = useState<any[]>([]);
+  const [originalZoneTypeId, setOriginalZoneTypeId] = useState("");
 
-  const [allZoneTypes, setAllZoneTypes] = useState<ZoneType_Type[]>([]);
-  const [_allZones, setAllZones] = useState<any[]>([]);
-  const [_originalZoneTypeId, setOriginalZoneTypeId] = useState("");
+  const [_allZoneTypes, setAllZoneTypes] = useState<ZoneType_Type[]>([]);
   const [originalShortName, setOriginalShortName] = useState("");
   const [allLocations, setAllLocations] = useState<any[]>([]);
+
+  const pickArray = (respData: any): any[] => {
+    if (Array.isArray(respData)) return respData;
+    if (Array.isArray(respData?.data)) return respData.data;
+    if (Array.isArray(respData?.data?.data)) return respData.data.data;
+    return [];
+  };
+
+  const getZoneBuildingId = (zone: any) =>
+    String(zone?.building_id ?? zone?.building?.id ?? zone?.buildingId ?? "");
+
+  const getZoneTypeId = (zone: any) =>
+    String(
+      zone?.zone_type_id ??
+        zone?.zone_type?.id ??
+        zone?.zoneTypeId ??
+        zone?.zone_typeId ??
+        "",
+    );
+
+  const getZoneId = (zone: any) => String(zone?.id ?? zone?.zone_id ?? "");
+
+  const getAvailableZoneTypeOptions = (buildingId: string) => {
+    if (!buildingId) return [];
+
+    const usedZoneTypeIds = new Set(
+      allZones
+        .filter((zone: any) => {
+          const sameBuilding = getZoneBuildingId(zone) === String(buildingId);
+          const isCurrentZone = getZoneId(zone) === String(zoneId);
+
+          // ✅ edit ต้องยกเว้น record ตัวเอง
+          return sameBuilding && !isCurrentZone;
+        })
+        .map((zone: any) => getZoneTypeId(zone))
+        .filter(Boolean),
+    );
+
+    return zoneTypeOptions.filter((option) => {
+      const optionId = String(option.value);
+
+      // ✅ ค่าเดิมของตัวเองต้องยังเห็นเสมอ
+      if (optionId === String(originalZoneTypeId)) return true;
+
+      return !usedZoneTypeIds.has(optionId);
+    });
+  };
 
   // Fetch buildings, zone types และ generate ID
   useEffect(() => {
@@ -75,18 +119,18 @@ const EditZoneModal = ({
 
         // Fetch zone types
         const zoneTypesResponse = await zoneTypeApi.getAll();
-        const zoneTypes = zoneTypesResponse.data as ZoneType_Type[];
+        const zoneTypes = pickArray(zoneTypesResponse.data) as ZoneType_Type[];
+
         setAllZoneTypes(zoneTypes);
         setZoneTypeOptions(
           zoneTypes.map((type) => ({
-            value: type.id.toString(),
-            label: `${type.short_name}`,
+            value: String(type.id),
+            label: String(type.short_name ?? type.id),
           })),
         );
 
-        // Fetch all zones for filtering
         const zonesResponse = await zoneApi.getAll();
-        const zones = zonesResponse.data as any[];
+        const zones = pickArray(zonesResponse.data);
         setAllZones(zones);
 
         // Fetch all locations for validation
@@ -137,20 +181,6 @@ const EditZoneModal = ({
       fetchZoneDetails(zoneId);
     }
   }, [isOpen, zoneId]);
-
-  // Filter zone types when building_id or zones change
-  useEffect(() => {
-    if (!isOpen) return;
-    if (!formData.building_id || allZoneTypes.length === 0) return;
-
-    // ✅ ไม่ต้อง filter แล้ว แสดงทั้งหมด
-    setFilteredZoneTypeOptions(
-      allZoneTypes.map((type) => ({
-        value: type.id.toString(),
-        label: `${type.short_name}`,
-      })),
-    );
-  }, [isOpen, formData.building_id, allZoneTypes]);
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -296,27 +326,18 @@ const EditZoneModal = ({
               onChange={(selectedOption) => {
                 const buildingId =
                   (selectedOption as buildingOption)?.value || "";
+                const availableOptions =
+                  getAvailableZoneTypeOptions(buildingId);
 
-                if (buildingId) {
-                  if (allZoneTypes.length === 0) {
-                    toast.error("ไม่มี Zone Temp ให้เลือก");
-                    setFilteredZoneTypeOptions([]);
-                  } else {
-                    setFilteredZoneTypeOptions(
-                      allZoneTypes.map((type) => ({
-                        value: type.id.toString(),
-                        label: `${type.short_name}`,
-                      })),
-                    );
-                  }
-                } else {
-                  setFilteredZoneTypeOptions([]);
+                if (buildingId && availableOptions.length === 0) {
+                  toast.warning("Building นี้เลือก Zone Temp ครบแล้ว");
                 }
 
                 setFormData((prev) => ({
                   ...prev,
                   building_id: buildingId,
-                  zone_type_id: "", // หรือจะไม่ล้างก็ได้ ถ้าต้องการคงค่าเดิมตอนอาคารเดิม
+                  zone_type_id:
+                    buildingId === prev.building_id ? prev.zone_type_id : "",
                 }));
               }}
               value={buildingOptions.find(
@@ -365,14 +386,14 @@ const EditZoneModal = ({
             <Select
               className="select"
               classNamePrefix="select"
-              options={filteredZoneTypeOptions}
+              options={getAvailableZoneTypeOptions(formData.building_id)}
               onChange={(selectedOption) =>
                 setFormData((prev) => ({
                   ...prev,
                   zone_type_id: (selectedOption as zoneTypeOption)?.value || "",
                 }))
               }
-              value={filteredZoneTypeOptions.find(
+              value={getAvailableZoneTypeOptions(formData.building_id).find(
                 (option) => option.value === formData.zone_type_id,
               )}
               placeholder={

@@ -95,15 +95,13 @@ const isItemTargetCurrentPutLocation = (it: any, locFullName: string) => {
 };
 
 const isCompleteAtPutLocation = (it: any, locFullName: string) => {
-  const qty = n0(it?.qty);
   const putAtLoc = getPutQtyAtLocation(it, locFullName);
-  return qty > 0 && putAtLoc >= qty;
+  return putAtLoc > 0;
 };
 
 const isInProgressAtPutLocation = (it: any, locFullName: string) => {
-  const qty = n0(it?.qty);
   const putAtLoc = getPutQtyAtLocation(it, locFullName);
-  return putAtLoc > 0 && (qty === 0 || putAtLoc < qty);
+  return putAtLoc > 0;
 };
 
 /**
@@ -201,6 +199,29 @@ const isTempCompatibleForPut = (it: any, locFullName: string) => {
   if (rule === null) return true;
   const locTemp = getLocationTemp(locFullName);
   return rule === locTemp;
+};
+
+const sumPutFromDestList = (rows: any[]) =>
+  Array.isArray(rows)
+    ? rows.reduce((sum, x) => sum + n0(x?.confirmed_put), 0)
+    : 0;
+
+const mergeDestList = (oldRows: any[], newRows: any[]) => {
+  const map = new Map<string, any>();
+
+  [...(oldRows || []), ...(newRows || [])].forEach((x: any) => {
+    const key = tokenOnly(x?.location_name ?? x?.location?.full_name ?? "");
+    if (!key) return;
+
+    map.set(key, {
+      ...(map.get(key) || {}),
+      ...x,
+      location_name: x?.location_name ?? x?.location?.full_name ?? "",
+      confirmed_put: n0(x?.confirmed_put),
+    });
+  });
+
+  return Array.from(map.values());
 };
 
 // =========================
@@ -332,10 +353,71 @@ const getUserLabel = (user: any) => {
   return `${fn} ${ln}`.trim() || "-";
 };
 
-const getUserWorkLabel = (user_work: any) => {
-  const fn = String(user_work?.first_name ?? "").trim();
-  const ln = String(user_work?.last_name ?? "").trim();
-  return `${fn} ${ln}`.trim() || "-";
+const getUserWorkLabel = (user_works: any[]) => {
+  if (!Array.isArray(user_works) || user_works.length === 0) {
+    return {
+      shortText: "-",
+      fullText: "-",
+    };
+  }
+
+  const names = user_works
+    .map((u) => {
+      const fn = String(u?.first_name ?? "").trim();
+      const ln = String(u?.last_name ?? "").trim();
+
+      return `${fn} ${ln}`.trim();
+    })
+    .filter(Boolean);
+
+  if (names.length === 0) {
+    return {
+      shortText: "-",
+      fullText: "-",
+    };
+  }
+
+  return {
+    shortText:
+      names.length > 3
+        ? `${names.slice(0, 3).join(", ")}, ...`
+        : names.join(", "),
+
+    fullText: names.join(", "),
+  };
+};
+
+const getDepartmentLabel = (department: any[]) => {
+  if (!Array.isArray(department) || department.length === 0) {
+    return {
+      shortText: "-",
+      fullText: "-",
+    };
+  }
+
+  const departments = department
+    .map((d) => {
+      const dept = String(d?.short_name ?? "").trim();
+
+      return `${dept}`.trim();
+    })
+    .filter(Boolean);
+
+  if (departments.length === 0) {
+    return {
+      shortText: "-",
+      fullText: "-",
+    };
+  }
+
+  return {
+    shortText:
+      departments.length > 5
+        ? `${departments.slice(0, 5).join(", ")}, ...`
+        : departments.join(", "),
+
+    fullText: departments.join(", "),
+  };
 };
 
 const getProgressQty = (it: any, mode: ViewMode) => {
@@ -581,6 +663,7 @@ export default function DetailTransferMovement() {
       if (!updated?.id) return;
 
       const updatedId = String(updated.id);
+      let nextQtyForEdit = 0;
 
       setTransfer((prev) => {
         if (!prev) return prev as any;
@@ -589,41 +672,55 @@ export default function DetailTransferMovement() {
           ? (prev as any).items
           : [];
 
-        const nextItems = items.map((x: any) =>
-          String(x?.id) === updatedId
-            ? {
-                ...x,
-                qty_pick: updated.qty_pick ?? x.qty_pick ?? 0,
-                qty_put: updated.qty_put ?? x.qty_put ?? 0,
-                qty: updated.qty ?? x.qty,
-                status:
-                  viewMode === "put" && updated.status === "completed"
-                    ? "put"
-                    : (updated.status ?? x.status),
-                lock_no: updated.lock_no ?? x.lock_no,
-                lock_no_dest: updated.lock_no_dest ?? x.lock_no_dest,
-                lock_no_dest_list:
-                  updated.lock_no_dest_list ?? x.lock_no_dest_list ?? [],
-                updated_at: updated.updated_at ?? new Date().toISOString(),
-                input_number:
-                  updated.input_number !== undefined
-                    ? updated.input_number
-                    : x.input_number,
-              }
-            : x,
-        );
+        const nextItems = items.map((x: any) => {
+          if (String(x?.id) !== updatedId) return x;
+
+          const mergedDestList = mergeDestList(
+            x.lock_no_dest_list ?? [],
+            updated.lock_no_dest_list ?? [],
+          );
+
+          const putTotalFromDest = sumPutFromDestList(mergedDestList);
+
+          const nextQtyPut =
+            putTotalFromDest > 0
+              ? putTotalFromDest
+              : (updated.qty_put ?? x.qty_put ?? 0);
+
+          nextQtyForEdit =
+            viewMode === "pick"
+              ? n0(updated.qty_pick ?? x.qty_pick)
+              : n0(nextQtyPut);
+
+          return {
+            ...x,
+            qty_pick: updated.qty_pick ?? x.qty_pick ?? 0,
+            qty_put: nextQtyPut,
+            qty: updated.qty ?? x.qty,
+            status:
+              viewMode === "put" && updated.status === "completed"
+                ? "put"
+                : (updated.status ?? x.status),
+            lock_no: updated.lock_no ?? x.lock_no,
+            lock_no_dest: updated.lock_no_dest ?? x.lock_no_dest,
+            lock_no_dest_list: mergedDestList,
+            updated_at: updated.updated_at ?? new Date().toISOString(),
+            input_number:
+              updated.input_number !== undefined
+                ? updated.input_number
+                : x.input_number,
+          };
+        });
 
         return { ...(prev as any), items: nextItems } as any;
       });
 
-      // ให้ถือว่า row นี้เคยถูก scan แล้ว
       setScannedIds((prev) => {
         const nx = new Set(prev);
         nx.add(updatedId);
         return nx;
       });
 
-      // เก็บ key ล่าสุดไว้ใช้กับ mode=set
       setScannedKeyById((prev) => ({
         ...prev,
         [updatedId]: String(
@@ -631,20 +728,10 @@ export default function DetailTransferMovement() {
         ).trim(),
       }));
 
-      // ✅ sync textbox draft ตาม view ปัจจุบัน
-      setEditQtyById((prev) => {
-        const nextValue =
-          viewMode === "pick"
-            ? String(n0(updated.qty_pick))
-            : viewMode === "put"
-              ? String(n0(updated.qty_put))
-              : String(n0(updated.qty_put));
-
-        return {
-          ...prev,
-          [updatedId]: nextValue,
-        };
-      });
+      setEditQtyById((prev) => ({
+        ...prev,
+        [updatedId]: String(nextQtyForEdit),
+      }));
     },
     [viewMode],
   );
@@ -1055,6 +1142,7 @@ export default function DetailTransferMovement() {
         }
 
         // ✅ ถ้า location นี้ครบแล้ว ก็ไม่ต้องยิงต่อ
+
         if (qty > 0 && qputAtLoc >= qty) {
           toast.info("Location นี้สแกนครบแล้ว");
           if (scanBarcodeInputRef.current) {
@@ -1165,9 +1253,7 @@ export default function DetailTransferMovement() {
         const currentAtLoc = getPutQtyAtLocation(it, loc);
         const otherLocPut = Math.max(0, totalPut - currentAtLoc);
 
-        if (maxQty > 0 && pick > maxQty) safe = Math.min(safe, maxQty);
-
-        // ✅ ยอดที่ set สำหรับ location นี้ + location อื่น ต้องไม่เกิน pick
+        // ✅ จำกัดไม่ให้ยอดรวมทุก location เกิน qty_pick
         const maxAllowedAtThisLoc = Math.max(0, pick - otherLocPut);
         if (safe > maxAllowedAtThisLoc) safe = maxAllowedAtThisLoc;
       }
@@ -1366,6 +1452,8 @@ export default function DetailTransferMovement() {
       closePinModal();
       setPinValue("");
       setPinErr("");
+      // ✅ ปิด loading ก่อนขึ้น alert
+      setLoading(false);
 
       await successAlert("Put สำเร็จแล้ว");
       await fetchDetail(false);
@@ -1430,9 +1518,13 @@ export default function DetailTransferMovement() {
   const user = (transfer as any)?.user;
   const userLabel = getUserLabel(user);
 
-  const user_work = (transfer as any)?.user_work;
-  const userWorkLabel = getUserWorkLabel(user_work)
-  
+  const user_works = (transfer as any)?.user_works;
+  const { shortText: userWorkShort, fullText: userWorkFull } =
+    getUserWorkLabel(user_works);
+
+  const departments = (transfer as any)?.departments;
+  const { shortText: departmentsShort, fullText: departmentsFull } =
+    getDepartmentLabel(departments);
 
   const currentIndex =
     detailList.findIndex((x) => String(x.no) === String(no)) + 1;
@@ -1497,7 +1589,7 @@ export default function DetailTransferMovement() {
           <div className="dt-tf-mv-info-row">
             <div className="dt-tf-mv-info-item">
               <label>Department :</label>
-              <span>{asText((transfer as any)?.department)}</span>
+              <span title={departmentsFull}>{departmentsShort}</span>
             </div>
 
             <div className="dt-tf-mv-info-item">
@@ -1516,7 +1608,8 @@ export default function DetailTransferMovement() {
 
             <div className="dt-tf-mv-info-item">
               <label>เจ้าหน้าที่ปฏิบัติงาน :</label>
-              <span>{userWorkLabel}</span>
+
+              <span title={userWorkFull}>{userWorkShort}</span>
             </div>
           </div>
         </div>
@@ -1657,17 +1750,22 @@ export default function DetailTransferMovement() {
                   ? !isTempCompatibleForPut(it, loc)
                   : false;
 
+              const overallComplete = isComplete(it, viewMode);
+
               const complete =
-                viewMode === "put" && loc
+                overallComplete ||
+                (viewMode === "put" && loc
                   ? isCompleteAtPutLocation(it, loc)
-                  : isComplete(it, viewMode);
+                  : false);
 
               const progress =
                 viewMode === "put" && loc
                   ? isInProgressAtPutLocation(it, loc)
                   : isInProgress(it, viewMode);
 
-              const isBadRow = badPick || badPickLockNo || badPutTemp;
+              // ✅ ถ้าครบแล้ว ไม่แดง
+              const isBadRow =
+                !overallComplete && (badPick || badPickLockNo || badPutTemp);
 
               const rowClass = [
                 isBadRow ? "dt-tf-mv-row-bad" : "",
@@ -1701,13 +1799,7 @@ export default function DetailTransferMovement() {
 
               const editVal =
                 editQtyById[id] ??
-                String(
-                  viewMode === "pick"
-                    ? qtyPick
-                    : viewMode === "put"
-                      ? qtyPutAtCurrentLocation
-                      : qtyPut,
-                );
+                String(viewMode === "pick" ? qtyPick : qtyPut);
 
               const saving = savingQtyById[id] === true;
 
@@ -1781,8 +1873,7 @@ export default function DetailTransferMovement() {
                       }
 
                       const next = n0(editVal);
-                      const base =
-                        mode === "pick" ? qtyPick : qtyPutAtCurrentLocation;
+                      const base = mode === "pick" ? qtyPick : qtyPut;
                       if (next === base) return;
 
                       commitSetQty(it, next);
@@ -1806,13 +1897,37 @@ export default function DetailTransferMovement() {
                   ) : viewMode === "put" ? (
                     <>
                       <td>{qtyPick}</td>
-                      <td>{QtyCellInput(qtyPutAtCurrentLocation, "put")}</td>
+                      <td>{QtyCellInput(qtyPut, "put")}</td>
                     </>
                   ) : (
                     <>
                       <td>{qty}</td>
                       <td>{qtyPick}</td>
-                      <td>{qtyPut}</td>
+                      <td>
+                        <div style={{ lineHeight: 1.15 }}>
+                          <div style={{ fontWeight: 700 }}>{qtyPut}</div>
+
+                          {Array.isArray(it?.lock_no_dest_list) &&
+                            it.lock_no_dest_list.length > 0 && (
+                              <div
+                                style={{
+                                  marginTop: 4,
+                                  fontSize: 12,
+                                  opacity: 0.75,
+                                }}
+                              >
+                                {it.lock_no_dest_list
+                                  .filter((x: any) => n0(x?.confirmed_put) > 0)
+                                  .map((x: any) => (
+                                    <div key={`${it.id}-${x.location_id}`}>
+                                      ที่ {x?.location_name ?? "-"}:{" "}
+                                      {n0(x?.confirmed_put)}
+                                    </div>
+                                  ))}
+                              </div>
+                            )}
+                        </div>
+                      </td>
                     </>
                   )}
 

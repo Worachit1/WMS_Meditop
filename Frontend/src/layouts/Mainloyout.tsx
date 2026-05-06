@@ -69,7 +69,7 @@ const MainLayout = () => {
 
   const handleLogout = () => {
     localStorage.removeItem("token");
-    toast.success("ออกจากระบบสำเร็จ");
+    toast.success("ออกจากระบบสำเร็จ!");
     setTimeout(() => navigate("/auth/login"), 1000);
   };
 

@@ -497,7 +497,7 @@ tr.transfer-exp-ncr-row-done td {
   }
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 1425px) {
   .transfer-exp-ncr-main-layout {
     grid-template-columns: 1fr;
     grid-template-areas:

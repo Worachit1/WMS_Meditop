@@ -25,7 +25,7 @@ type User = {
   id: number;
   first_name: string;
   last_name: string;
-  departments?: Department[]; // ✅ เพิ่ม
+  departments?: Department[];
 };
 
 const selectPortalTarget =
@@ -82,8 +82,8 @@ function EditTransferMovement() {
   const [busy, setBusy] = useState(false);
 
   const [moveNo, setMoveNo] = useState<string>("M---- ---");
-  const [departmentId, setDepartmentId] = useState<number | "">("");
-  const [userId, setUserId] = useState<number | "">("");
+  const [departmentIds, setDepartmentIds] = useState<number[]>([]);
+  const [userIds, setUserIds] = useState<number[]>([]);
   const [movementId, setMovementId] = useState<number | null>(null);
 
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -186,24 +186,40 @@ function EditTransferMovement() {
   }, [stocks]);
 
   const filteredUsers = useMemo(() => {
-    if (!departmentId) return [];
-    const depId = Number(departmentId);
+    if (departmentIds.length === 0) return [];
 
     return users.filter(
       (u) =>
         Array.isArray(u.departments) &&
-        u.departments.some((d) => d.id === depId),
+        u.departments.some((d) => departmentIds.includes(Number(d.id))),
     );
-  }, [users, departmentId]);
+  }, [users, departmentIds]);
 
   const userOptions = useMemo(
     () =>
       filteredUsers.map((u) => ({
         value: u.id,
-        label: `${u.first_name} ${u.last_name}`,
+        label: `${u.first_name} ${u.last_name}`.trim(),
       })),
     [filteredUsers],
   );
+
+  const selectedUserOptions = useMemo(() => {
+    return userOptions.filter((opt) => userIds.includes(opt.value));
+  }, [userOptions, userIds]);
+
+  const departmentOptions = useMemo(
+    () =>
+      departments.map((d) => ({
+        value: d.id,
+        label: d.short_name,
+      })),
+    [departments],
+  );
+
+  const selectedDepartmentOptions = useMemo(() => {
+    return departmentOptions.filter((opt) => departmentIds.includes(opt.value));
+  }, [departmentOptions, departmentIds]);
 
   useEffect(() => {
     const run = async () => {
@@ -223,19 +239,23 @@ function EditTransferMovement() {
         const stockData: StockItem[] =
           (stockRes as any)?.data?.data ?? (stockRes as any)?.data ?? [];
 
-        setDepartments(Array.isArray(depData) ? depData : []);
-        setUsers(Array.isArray(userData) ? userData : []);
-        setStocks(Array.isArray(stockData) ? stockData : []);
+        const safeDepData = Array.isArray(depData) ? depData : [];
+        const safeUserData = Array.isArray(userData) ? userData : [];
+        const safeStockData = Array.isArray(stockData) ? stockData : [];
 
-        // ✅ EDIT MODE: โหลดข้อมูลเดิม
+        setDepartments(safeDepData);
+        setUsers(safeUserData);
+        setStocks(safeStockData);
+
         if (isEdit && no) {
           const mvRes = await transferApi.getDetailExpNcr(no);
           const mv = (mvRes as any)?.data?.data ?? (mvRes as any)?.data;
 
           setMovementId(Number(mv?.id ?? 0) || null);
           setMoveNo(String(mv?.no ?? "M---- ---"));
+          setStatus(String(mv?.status ?? "pick"));
 
-          const ownerId = Number(mv?.user?.id ?? 0) || 0;
+          const ownerId = Number(mv?.user?.id ?? mv?.user_id ?? 0) || 0;
 
           if (isOperator) {
             warningAlert("Operator ไม่สามารถแก้ไขเอกสารได้");
@@ -249,21 +269,40 @@ function EditTransferMovement() {
             return;
           }
 
-          // ✅ Department: response มี department { short_name, full_name } แต่ไม่มี id
-          const depShort = String(mv?.department?.short_name ?? "").trim();
-          const depFull = String(mv?.department?.full_name ?? "").trim();
+          // ✅ Department รองรับหลาย structure
+          const mvDepartments = Array.isArray(mv?.departments)
+            ? mv.departments
+            : [];
 
-          const dep = depData.find(
-            (d) =>
-              (depShort && d.short_name === depShort) ||
-              (depFull && d.full_name === depFull),
-          );
+          const loadedDepartmentIds = mvDepartments
+            .map((d: any) => Number(d?.id ?? d?.department_id ?? 0))
+            .filter((id: number) => Number.isFinite(id) && id > 0);
 
-          setDepartmentId(dep ? dep.id : "");
+          if (loadedDepartmentIds.length > 0) {
+            setDepartmentIds(loadedDepartmentIds);
+          } else {
+            const depShort = String(mv?.department?.short_name ?? "").trim();
+            const depFull = String(mv?.department?.full_name ?? "").trim();
 
-          // ✅ User: ต้องใช้ user_work (ตามที่คุณต้องการ)
-          setUserId(mv?.user_work?.id ? Number(mv.user_work.id) : "");
-          setStatus(String(mv?.status ?? "pick"));
+            const foundDep = safeDepData.find(
+              (d) =>
+                (depShort && d.short_name === depShort) ||
+                (depFull && d.full_name === depFull),
+            );
+
+            setDepartmentIds(foundDep ? [foundDep.id] : []);
+          }
+
+          // ✅ User works multi select
+          const oldUserWorks = Array.isArray(mv?.user_works)
+            ? mv.user_works
+            : [];
+
+          const oldUserIds = oldUserWorks
+            .map((u: any) => Number(u?.id ?? u?.user_id ?? u?.user?.id ?? 0))
+            .filter((id: number) => Number.isFinite(id) && id > 0);
+
+          setUserIds(oldUserIds);
 
           // ✅ map items -> rows
           const items = Array.isArray(mv?.items) ? mv.items : [];
@@ -271,18 +310,25 @@ function EditTransferMovement() {
           const mappedRows: Row[] = items.map((it: any) => {
             const code =
               String(it?.code ?? it?.product_code ?? "").trim() || null;
+
             const lock =
-              String(it?.lock_no ?? it?.location_name ?? "").trim() || null;
+              String(
+                it?.lock_no ?? it?.location_name ?? it?.location ?? "",
+              ).trim() || null;
 
-            const lot = it?.lot_serial ?? it?.lot_name ?? null;
-            const lotSerial = lot === null ? NO_LOT : String(lot);
+            const rawLot = it?.lot_serial ?? it?.lot_name ?? null;
+            const lotSerial =
+              rawLot === null || rawLot === undefined || rawLot === ""
+                ? NO_LOT
+                : String(rawLot);
 
-            // หา stockId ให้ match (code+lock+lot)
-            const matched = stockData.find(
+            const selectedLot = lotSerial === NO_LOT ? null : lotSerial;
+
+            const matched = safeStockData.find(
               (s) =>
                 s.product_code === code &&
                 s.location_name === lock &&
-                (s.lot_name ?? null) === (lot === NO_LOT ? null : lot),
+                (s.lot_name ?? null) === selectedLot,
             );
 
             return {
@@ -313,8 +359,6 @@ function EditTransferMovement() {
                   },
                 ],
           );
-
-          return;
         }
       } catch (e: any) {
         console.error(e);
@@ -441,8 +485,10 @@ function EditTransferMovement() {
   const handleCancel = () => navigate("/tf-movement");
 
   const handleConfirm = async () => {
-    if (!departmentId) return warningAlert("กรุณาเลือก Department");
-    if (!userId) return warningAlert("กรุณาเลือก User");
+    if (departmentIds.length === 0)
+      return warningAlert("กรุณาเลือก Department");
+    if (userIds.length === 0)
+      return warningAlert("กรุณาเลือก เจ้าหนี้ปฎิบัติงาน");
 
     const validRows = rows.filter(
       (r) => r.stockId && r.qty !== "" && Number(r.qty) > 0,
@@ -464,6 +510,9 @@ function EditTransferMovement() {
         lot_serial: lotSerial,
         lock_no: s.location_name,
         unit: s.unit,
+        exp: s.expiration_date || null,
+
+        // ✅ ใส่เผื่อ backend เก่ายังใช้ expire_date
         expire_date: s.expiration_date || null,
         qty: Number(r.qty),
       };
@@ -482,8 +531,8 @@ function EditTransferMovement() {
 
         await transferApi.updateMovement(movementId, {
           number: moveNo,
-          department_id: Number(departmentId),
-          user_work_id: Number(userId),
+          department_ids: departmentIds,
+          user_work_ids: userIds,
           items,
         });
 
@@ -512,66 +561,57 @@ function EditTransferMovement() {
           <div className="Edit-tf-M-form-row">
             <label className="Edit-tf-M-label">Department :</label>
             <Select
+              isMulti
               className="Edit-tf-M-react-select"
               classNamePrefix="Edit-tf-M-rs"
               menuPortalTarget={selectPortalTarget ?? undefined}
               menuPosition="fixed"
               styles={selectStyles}
-              options={departments.map((d) => ({
-                value: d.id,
-                label: d.short_name,
-              }))}
-              value={
-                departmentId
-                  ? (() => {
-                      const depId = Number(departmentId);
-                      const d = departments.find((x) => x.id === depId);
-                      return d ? { value: d.id, label: d.short_name } : null;
-                    })()
-                  : null
-              }
-              onChange={(option: any) => {
-                const nextDepId = option ? Number(option.value) : "";
-                setDepartmentId(nextDepId);
-                setUserId(""); // ✅ reset ทุกครั้ง
+              options={departmentOptions}
+              value={selectedDepartmentOptions}
+              onChange={(options) => {
+                const nextDepartmentIds = (options || []).map((opt) =>
+                  Number(opt.value),
+                );
+
+                setDepartmentIds(nextDepartmentIds);
+
+                // reset user ที่ไม่ได้อยู่ใน department ใหม่
+                setUserIds((prevUserIds) => {
+                  const allowedUserIds = users
+                    .filter(
+                      (u) =>
+                        Array.isArray(u.departments) &&
+                        u.departments.some((d) =>
+                          nextDepartmentIds.includes(Number(d.id)),
+                        ),
+                    )
+                    .map((u) => Number(u.id));
+
+                  return prevUserIds.filter((id) =>
+                    allowedUserIds.includes(id),
+                  );
+                });
               }}
               isClearable
-              isDisabled={loading}
+              isDisabled={loading || isCompleted}
               placeholder="Select Department..."
             />
           </div>
 
           <div className="Edit-tf-M-form-row">
-            <label className="Edit-tf-M-label">User :</label>
+            <label className="Edit-tf-M-label">เจ้าหน้าที่ปฎิบัติงาน :</label>
             <Select
-              className="Edit-tf-M-react-select"
-              classNamePrefix="Edit-tf-M-rs"
-              menuPortalTarget={selectPortalTarget ?? undefined}
-              menuPosition="fixed"
-              styles={selectStyles}
+              isMulti
               options={userOptions}
-              value={
-                userId
-                  ? (() => {
-                      const uId = Number(userId);
-                      const u = users.find((x) => x.id === uId);
-                      return u
-                        ? {
-                            value: u.id,
-                            label: `${u.first_name} ${u.last_name}`,
-                          }
-                        : null;
-                    })()
-                  : null
-              }
-              onChange={(option: any) =>
-                setUserId(option ? Number(option.value) : "")
-              }
-              isClearable
-              isDisabled={loading || !departmentId}
-              placeholder={
-                departmentId ? "Select User..." : "Select Department first"
-              }
+              value={selectedUserOptions}
+              onChange={(options) => {
+                setUserIds((options || []).map((opt) => Number(opt.value)));
+              }}
+              placeholder="เลือกเจ้าหน้าที่ปฏิบัติงาน"
+              menuPortalTarget={selectPortalTarget}
+              styles={selectStyles}
+              isDisabled={isCompleted}
             />
           </div>
         </div>

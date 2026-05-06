@@ -289,10 +289,6 @@ const PinModal: React.FC<PinModalProps> = ({
                 ))}
               </div>
 
-              <div className="pinotp-hint">
-                * พิมพ์ทีละช่อง หรือวาง/สแกน 6 หลักได้เลย
-              </div>
-
               <div className="pinmodal-actions">
                 {pin && isEditing && (
                   <button

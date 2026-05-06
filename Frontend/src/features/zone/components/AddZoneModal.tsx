@@ -37,13 +37,48 @@ const AddZoneModal = ({ isOpen, onClose, onSuccess }: AddZoneModalProps) => {
 
   const [loading, setLoading] = useState(false);
   const [buildingOptions, setBuildingOptions] = useState<buildingOption[]>([]);
-  const [_zoneTypeOptions, setZoneTypeOptions] = useState<zoneTypeOption[]>([]);
-  const [filteredZoneTypeOptions, setFilteredZoneTypeOptions] = useState<
-    zoneTypeOption[]
-  >([]);
+  const [zoneTypeOptions, setZoneTypeOptions] = useState<zoneTypeOption[]>([]);
+  const [allZones, setAllZones] = useState<any[]>([]);
 
-  const [allZoneTypes, setAllZoneTypes] = useState<ZoneType_Type[]>([]);
-  const [_allZones, setAllZones] = useState<any[]>([]);
+  const [_allZoneTypes, setAllZoneTypes] = useState<ZoneType_Type[]>([]);
+
+  const pickArray = (respData: any): any[] => {
+    if (Array.isArray(respData)) return respData;
+    if (Array.isArray(respData?.data)) return respData.data;
+    if (Array.isArray(respData?.data?.data)) return respData.data.data;
+    return [];
+  };
+
+  const getZoneBuildingId = (zone: any) =>
+    String(zone?.building_id ?? zone?.building?.id ?? zone?.buildingId ?? "");
+
+  const getZoneTypeId = (zone: any) =>
+    String(
+      zone?.zone_type_id ??
+        zone?.zone_type?.id ??
+        zone?.zoneTypeId ??
+        zone?.zone_typeId ??
+        "",
+    );
+
+  const getAvailableZoneTypeOptions = (buildingId: string) => {
+    if (!buildingId) return [];
+
+    const usedZoneTypeIds = new Set(
+      allZones
+        .filter((zone: any) => getZoneBuildingId(zone) === String(buildingId))
+        .map((zone: any) => getZoneTypeId(zone))
+        .filter(Boolean),
+    );
+
+    console.log("buildingId:", buildingId);
+    console.log("allZones:", allZones);
+    console.log("usedZoneTypeIds:", Array.from(usedZoneTypeIds));
+
+    return zoneTypeOptions.filter(
+      (option) => !usedZoneTypeIds.has(String(option.value)),
+    );
+  };
 
   // Fetch buildings, zone types and auto-generate zone_code
   useEffect(() => {
@@ -63,21 +98,20 @@ const AddZoneModal = ({ isOpen, onClose, onSuccess }: AddZoneModalProps) => {
 
         // Fetch zone types
         const zoneTypesResponse = await zoneTypeApi.getAll();
-        const zoneTypes = zoneTypesResponse.data as ZoneType_Type[];
-        setAllZoneTypes(zoneTypes);
-        setZoneTypeOptions(
-          zoneTypes.map((type) => ({
-            value: type.id.toString(),
-            label: `${type.short_name}`,
-          })),
-        );
+        const zoneTypes = pickArray(zoneTypesResponse.data) as ZoneType_Type[];
 
-        // เริ่มต้นไม่แสดง Zone Type ใดๆ จนกว่าจะเลือก Building
-        setFilteredZoneTypeOptions([]);
+        setAllZoneTypes(zoneTypes);
+
+        const mappedZoneTypes = zoneTypes.map((type) => ({
+          value: String(type.id),
+          label: String(type.short_name ?? type.id),
+        }));
+
+        setZoneTypeOptions(mappedZoneTypes);
 
         // Auto-generate zone_code
         const zonesResponse = await zoneApi.getAll();
-        const zones = zonesResponse.data as any[];
+        const zones = pickArray(zonesResponse.data);
         setAllZones(zones);
 
         let newCode = "001";
@@ -234,28 +268,16 @@ const AddZoneModal = ({ isOpen, onClose, onSuccess }: AddZoneModalProps) => {
                 const buildingId =
                   (selectedOption as buildingOption)?.value || "";
 
-                // ✅ แค่เช็คว่ามี zone type ไหม
-                if (buildingId) {
-                  if (allZoneTypes.length === 0) {
-                    toast.error("ไม่มี Zone Temp ให้เลือก");
-                    setFilteredZoneTypeOptions([]);
-                  } else {
-                    // ✅ ไม่ต้อง filter แล้ว (แสดงทั้งหมด)
-                    setFilteredZoneTypeOptions(
-                      allZoneTypes.map((type) => ({
-                        value: type.id.toString(),
-                        label: `${type.short_name}`,
-                      })),
-                    );
-                  }
-                } else {
-                  setFilteredZoneTypeOptions([]);
+                const availableOptions =
+                  getAvailableZoneTypeOptions(buildingId);
+
+                if (buildingId && availableOptions.length === 0) {
+                  toast.warning("Building นี้เลือก Zone Temp ครบแล้ว");
                 }
 
                 setFormData((prev) => ({
                   ...prev,
                   building_id: buildingId,
-                  // ✅ ไม่จำเป็นต้องล้างก็ได้ แต่ถ้าอยากให้เลือกใหม่ทุกครั้งค่อยใส่ ""
                   zone_type_id: "",
                 }));
               }}
@@ -305,14 +327,14 @@ const AddZoneModal = ({ isOpen, onClose, onSuccess }: AddZoneModalProps) => {
             <Select
               className="select"
               classNamePrefix="select"
-              options={filteredZoneTypeOptions}
+              options={getAvailableZoneTypeOptions(formData.building_id)}
               onChange={(selectedOption) =>
                 setFormData((prev) => ({
                   ...prev,
                   zone_type_id: (selectedOption as zoneTypeOption)?.value || "",
                 }))
               }
-              value={filteredZoneTypeOptions.find(
+              value={getAvailableZoneTypeOptions(formData.building_id).find(
                 (option) => option.value === formData.zone_type_id,
               )}
               placeholder={

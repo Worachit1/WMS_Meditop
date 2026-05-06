@@ -88,8 +88,8 @@ const ReportStockAllTable = ({
 
   const defaultHeaders = [
     "No",
-    <SortHeader label="SKU" sk="product_code" />,
-    "Name",
+    <SortHeader label="สินค้า" sk="product_code" />,
+    "ชื่อ",
     <SortHeader label="Lot. Serial" sk="lot_name" />,
     "Exp. Date",
     <SortHeader label="Lock No." sk="location_name" />,
@@ -180,8 +180,8 @@ const ReportStockAllTable = ({
                 </div>
 
                 {Object.entries({
-                  product_code: "SKU",
-                  product_name: "Name",
+                  product_code: "สินค้า",
+                  product_name: "ชื่อ",
                   lot_name: "Lot. Serial",
                   expiration_date: "Exp. Date",
                   location_name: "Lock No.",

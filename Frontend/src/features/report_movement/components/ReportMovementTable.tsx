@@ -101,6 +101,9 @@ type ReportMovementListRow = {
   qty?: number | null;
   return: number | null;
   system_qty?: number | null;
+  department_full?: string | null;
+  location_dest_raw?: string | null;
+  department_values?: string[];
 };
 
 function getRowQty(mv: any, item: any): number | null {
@@ -130,7 +133,6 @@ function getInQty(row: ReportMovementListRow): number | null {
 
     return Number.isFinite(val) && val !== 0 ? val : null;
   }
-  console.log("ROW:", row);
   return null;
 }
 
@@ -154,6 +156,49 @@ function getOutQty(row: ReportMovementListRow): number | null {
   return null;
 }
 
+function getDepartmentLabel(value: any): {
+  shortText: string;
+  fullText: string;
+} {
+  const departments = Array.isArray(value)
+    ? value
+    : Array.isArray(value?.departments)
+      ? value.departments
+      : [];
+
+  if (departments.length > 0) {
+    const names = departments
+      .map((d: any) =>
+        String(d?.short_name ?? d?.full_name ?? d?.name ?? "").trim(),
+      )
+      .filter(Boolean);
+
+    if (names.length === 0) {
+      return { shortText: "-", fullText: "-" };
+    }
+
+    return {
+      shortText:
+        names.length > 3
+          ? `${names.slice(0, 3).join(", ")}, ...`
+          : names.join(", "),
+      fullText: names.join(", "),
+    };
+  }
+
+  const text = firstNonEmpty(
+    value?.short_name,
+    value?.full_name,
+    value?.name,
+    value,
+  );
+
+  return {
+    shortText: text ?? "-",
+    fullText: text ?? "-",
+  };
+}
+
 function buildMovementRows(
   movements: ReportMovementType[],
 ): ReportMovementListRow[] {
@@ -174,17 +219,28 @@ function buildMovementRows(
         item?.id ?? item?.sequence ?? itemIndex,
       ].join("-");
 
+      const deptLabel = getDepartmentLabel(
+        doc?.departments ??
+          doc?.department ??
+          doc?.department_raw ??
+          item?.departments ??
+          item?.department,
+      );
+
+      const departmentValues = deptLabel.fullText
+        .split(",")
+        .map((x) => x.trim())
+        .filter(Boolean);
+
       return {
         row_id: rowId,
         id: mv.id,
         created_at: mv.created_at,
         no: String(mv.no ?? doc?.no ?? "-"),
         type: String(mv.type ?? doc?.out_type ?? doc?.in_type ?? "-"),
-        department: firstNonEmpty(
-          doc?.department,
-          doc?.department_raw,
-          item?.department,
-        ),
+        department: deptLabel.shortText,
+        department_full: deptLabel.fullText,
+        department_values: departmentValues,
         product: firstNonEmpty(
           item?.code,
           item?.product_code,
@@ -196,19 +252,38 @@ function buildMovementRows(
         lot_serial: firstNonEmpty(item?.lot_serial, item?.lot_name),
         exp: getItemExp(item),
         zone_type: getItemZoneType(item),
-        location: firstNonEmpty(
-          mv.location,
-          doc?.location,
-          item?.location,
-          Array.isArray(item?.location_picks)
-            ? item.location_picks[0]?.location_name
-            : null,
-        ),
-        location_dest: firstNonEmpty(
-          mv.location_dest,
-          doc?.location_dest,
-          item?.location_dest,
-        ),
+        location:
+          mv.source === "transfer_movement"
+            ? firstNonEmpty(item?.lock_no, mv?.lock_no)
+            : firstNonEmpty(
+                mv.location,
+                doc?.location,
+                item?.location,
+                Array.isArray(item?.location_picks)
+                  ? item.location_picks[0]?.location_name
+                  : null,
+              ),
+
+        location_dest:
+          mv.source === "transfer_movement"
+            ? String(item?.lock_no_dest ?? mv?.lock_no_dest ?? "")
+                .split(",")
+                .map((x) => x.trim())
+                .filter(Boolean)
+                .join("\n")
+            : firstNonEmpty(
+                mv.location_dest,
+                doc?.location_dest,
+                item?.location_dest,
+              ),
+        location_dest_raw:
+          mv.source === "transfer_movement"
+            ? String(item?.lock_no_dest ?? mv?.lock_no_dest ?? "").trim()
+            : firstNonEmpty(
+                mv.location_dest,
+                doc?.location_dest,
+                item?.location_dest,
+              ),
         user_ref: mv.user_ref ?? null,
         source: mv.source,
         qty: getRowQty(mv, item),
@@ -298,7 +373,7 @@ const ReportMovementTable = ({
     <SortHeader label="Document No." sortKey="no" />,
     <SortHeader label="Transaction Type" sortKey="type" />,
     "Department",
-    <SortHeader label="Product" sortKey="code" />,
+    <SortHeader label="สินค้า" sortKey="code" />,
     "ชื่อ",
     "Unit",
     "Lot Serial",
@@ -318,8 +393,14 @@ const ReportMovementTable = ({
     const depts = new Set<string>();
 
     flattenedMovements.forEach((row) => {
-      const dept = String(row.department ?? "").trim();
-      if (dept) depts.add(dept);
+      const values = row.department_values?.length
+        ? row.department_values
+        : [row.department];
+
+      values
+        .map((x) => String(x ?? "").trim())
+        .filter(Boolean)
+        .forEach((dept) => depts.add(dept));
     });
 
     return Array.from(depts).sort((a, b) => a.localeCompare(b, "th"));
@@ -334,8 +415,13 @@ const ReportMovementTable = ({
     }
 
     return flattenedMovements.filter((row) => {
-      const dept = String(row.department ?? "").trim();
-      return dept ? selectedDepartments.includes(dept) : false;
+      const values = row.department_values?.length
+        ? row.department_values
+        : [row.department];
+
+      return values.some((dept) =>
+        selectedDepartments.includes(String(dept ?? "").trim()),
+      );
     });
   }, [flattenedMovements, selectedDepartments]);
 
@@ -483,8 +569,8 @@ const ReportMovementTable = ({
         "Date/Time": s.created_at ? formatDateTime(s.created_at) : "-",
         "Document No.": s.no,
         "Transaction Type": s.type,
-        Department: s.department ?? "-",
-        Product: s.product ?? "-",
+        Department: s.department_full ?? s.department ?? "-",
+        สินค้า: s.product ?? "-",
         ชื่อ: s.name ?? "-",
         Unit: s.unit ?? "-",
         "Lot Serial": s.lot_serial ?? "-",
@@ -535,7 +621,7 @@ const ReportMovementTable = ({
                     ? "ทั้งหมด"
                     : selectedDepartments.join(", ")}
 
-                  <i className="fa fa-chevron-down" style={{ marginLeft: 6 }} />
+                  <i className="fa fa-chevron-down" style={{ marginLeft: 40 }} />
                 </button>
 
                 {showDeptDropdown && (
@@ -612,7 +698,7 @@ const ReportMovementTable = ({
                   created_at: "Date/Time",
                   type: "Transaction Type",
                   department: "Department",
-                  product: "Product",
+                  product: "สินค้า",
                   name: "ชื่อ",
                   unit: "Unit",
                   lot_serial: "Lot Serial",
@@ -659,15 +745,19 @@ const ReportMovementTable = ({
                 <td>{formatDateTime(row.created_at)}</td>
                 <td style={{ width: "220px" }}>{row.no ?? "-"}</td>
                 <td>{row.type ?? "-"}</td>
-                <td>{row.department ?? "-"}</td>
+                <td title={row.department_full ?? row.department ?? "-"}>
+                  {row.department ?? "-"}
+                </td>
                 <td style={{ width: "220px" }}>{row.product ?? "-"}</td>
                 <td>{row.name ?? "-"}</td>
                 <td>{row.unit ?? "-"}</td>
                 <td>{row.lot_serial ?? "-"}</td>
                 <td>{row.exp ? formatDateTime(row.exp) : "-"}</td>
                 <td>{row.zone_type ?? "-"}</td>
-                <td>{row.location ?? "-"}</td>
-                <td>{row.location_dest ?? "-"}</td>
+                <td style={{ whiteSpace: "pre-line", width: "30px" }}>{row.location ?? "-"}</td>
+                <td style={{ whiteSpace: "pre-line", width: "400px" }}>
+                  {row.location_dest  || "-"}
+                </td>
                 <td>{getInQty(row) ?? "-"}</td>
                 <td>{getOutQty(row) ?? "-"}</td>
               </tr>

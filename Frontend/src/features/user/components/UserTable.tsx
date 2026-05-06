@@ -115,6 +115,14 @@ const UserTable = ({
           "Full Name": `${user.first_name} ${user.last_name}`,
           Email: user.email,
           "Tel.": user.tel,
+
+          Department: Array.isArray((user as any).departments)
+            ? (user as any).departments
+                .map((d: any) => d?.short_name)
+                .filter(Boolean)
+                .join(", ")
+            : "-",
+
           Level: user.user_level,
           Status: user.status,
           Remark: user.remark,
@@ -259,7 +267,7 @@ const UserTable = ({
                       onClick={() => openProfile(user.id)}
                     />
                     {isCurrentUserAdmin && (
-                       <IconButton variant="edit" onClick={() => onEdit(user)} />
+                      <IconButton variant="edit" onClick={() => onEdit(user)} />
                     )}
                     {isCurrentUserAdmin && (
                       <IconButton
