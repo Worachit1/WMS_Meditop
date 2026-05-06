@@ -228,23 +228,26 @@ export const goodsoutApi = {
       { timeout: 60000 },
     ),
 
-    scanReturnProduct: (no: string, body: {
-  barcode: string;
-  location_full_name: string;
-  qty_input?: number;
-}) => {
-  return http.post(
-    `/outbounds/${encodeURIComponent(no)}/return/scan`,
-    body,
-  );
-},
+  scanReturnProduct: (
+    no: string,
+    body: {
+      barcode: string;
+      location_full_name: string;
+      qty_input?: number;
+    },
+  ) => {
+    return http.post(
+      `/outbounds/${encodeURIComponent(no)}/scan/barcode/return`,
+      body,
+    );
+  },
 
-confirmReturn: (no: string) => {
-  return http.post(
-    `/outbounds/${encodeURIComponent(no)}/return/confirm`,
-    {},
-  );
-},
+  confirmReturn: (no: string) => {
+    return http.post(
+      `/outbounds/${encodeURIComponent(no)}/scan/confirm/return`,
+      {},
+    );
+  },
 };
 
 export const doc_invoiceApi = {

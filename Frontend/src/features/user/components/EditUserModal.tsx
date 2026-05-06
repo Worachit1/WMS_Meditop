@@ -66,7 +66,7 @@ const EditUserModal = ({
           (dept: { id: number; short_name: string }) => ({
             value: dept.id,
             label: dept.short_name,
-          })
+          }),
         );
 
         setDepartmentOptions(options);
@@ -131,7 +131,7 @@ const EditUserModal = ({
   const handleChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
-    >
+    >,
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -209,6 +209,10 @@ const EditUserModal = ({
       setLoading(false);
     }
   };
+
+  const currentUserLevel = localStorage.getItem("user_level");
+  const isCurrentUserAdmin = currentUserLevel === "Admin";
+
   return (
     <Modal
       isOpen={isOpen}
@@ -219,18 +223,35 @@ const EditUserModal = ({
           <button type="button" className="btn-cancel" onClick={onClose}>
             Cancel
           </button>
-          <button
-            type="submit"
-            form="edit-user-form"
-            className="btn-submit"
-            disabled={loading}
-          >
-            {loading ? "Saving..." : "Save"}
-          </button>
+          {isCurrentUserAdmin && (
+            <button
+              type="submit"
+              form="edit-user-form"
+              className="btn-submit"
+              disabled={loading}
+            >
+              {loading ? "Saving..." : "Save"}
+            </button>
+          )}
         </>
       }
     >
-      <form id="edit-user-form" onSubmit={handleSubmit}>
+      <form
+        id="edit-user-form"
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !isCurrentUserAdmin) {
+            e.preventDefault();
+          }
+        }}
+        onSubmit={(e) => {
+          if (!isCurrentUserAdmin) {
+            e.preventDefault();
+            return;
+          }
+
+          handleSubmit(e);
+        }}
+      >
         <div className="form-row form-row-2col">
           <div className="form-group">
             <label>
@@ -274,7 +295,9 @@ const EditUserModal = ({
         </div>
         <div className="form-row">
           <div className="form-group form-group-full">
-            <label>Tel. <span className="required">*</span></label>
+            <label>
+              Tel. <span className="required">*</span>
+            </label>
             <input
               type="text"
               name="tel"
@@ -302,11 +325,9 @@ const EditUserModal = ({
             />
           </div>
         </div>
-           <div className="form-row">
+        <div className="form-row">
           <div className="form-group form-group-full">
-            <label>
-              Password{" "}
-            </label>
+            <label>Password </label>
             <input
               type="password"
               name="password"
@@ -369,9 +390,7 @@ const EditUserModal = ({
 
         <div className="form-row">
           <div className="form-group form-group-full">
-            <label>
-              Profile Image
-            </label>
+            <label>Profile Image</label>
             <div className="image-upload-container">
               {imagePreview ? (
                 <div className="image-preview-wrapper">
@@ -435,7 +454,6 @@ const EditUserModal = ({
           </div>
         </div>
         <div className="form-row">
-
           <div className="form-group form-group-full">
             <label>Remark</label>
             <textarea

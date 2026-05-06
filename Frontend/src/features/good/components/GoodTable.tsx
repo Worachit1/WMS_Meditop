@@ -57,7 +57,6 @@ const GoodTable = ({
   const [isSyncing, setIsSyncing] = useState(false);
   const [updatingId, setUpdatingId] = useState<number | null>(null);
 
-
   const handleToggleInputNumber = async (good: GoodType, newValue: boolean) => {
     const result = await confirmAlert(
       `คุณต้องการเปลี่ยน Input Number เป็น "${newValue ? "Yes" : "No"}" ใช่หรือไม่?`,
@@ -206,36 +205,43 @@ const GoodTable = ({
     if (!result.isConfirmed) return;
 
     setIsSyncing(true);
-    
-    // แสดง loading alert
+
     Swal.fire({
       title: "กำลังซิงค์ข้อมูล...",
-      text: "การ Sync ใช้เวลานานกรุณารอประมาณ 10-15 นาที",
+      text: "การ Sync ใช้เวลานาน กรุณารอประมาณ 10-15 นาที",
       allowOutsideClick: false,
+      allowEscapeKey: false,
+      showConfirmButton: false,
       didOpen: () => {
         Swal.showLoading();
       },
     });
-    
+
     try {
-      await http.post("/goods/sync");
-      Swal.fire({
+      await http.post(
+        "/goods/sync",
+        {},
+        {
+          timeout: 20 * 60 * 1000, // 20 นาที
+        },
+      );
+
+      await Swal.fire({
         icon: "success",
         title: "Sync สำเร็จ",
         text: "ซิงค์ข้อมูล Product เรียบร้อยแล้ว",
-        timer: 15 * 60 * 1000,
-        showConfirmButton: false,
+        confirmButtonText: "ตกลง",
       });
 
-      // รอ 15 นาทีก่อน reload
-      setTimeout(() => {
-        window.location.reload();
-      }, 15 * 60 * 1000);
+      window.location.reload();
     } catch (error: any) {
       Swal.fire({
         icon: "error",
         title: "Sync ไม่สำเร็จ",
-        text: error?.response?.data?.message || "เกิดข้อผิดพลาด",
+        text:
+          error?.code === "ECONNABORTED"
+            ? "การเชื่อมต่อหมดเวลา เนื่องจาก Sync ใช้เวลานานเกินไป"
+            : error?.response?.data?.message || "เกิดข้อผิดพลาด",
       });
     } finally {
       setIsSyncing(false);
@@ -274,13 +280,14 @@ const GoodTable = ({
 
             {showFilterDropdown && (
               <div className="filter-dropdown">
-                <div className="filter-title">Search In Columns
+                <div className="filter-title">
+                  Search In Columns
                   <button
                     type="button"
                     className="filter-clear-btn"
                     onClick={onClearAllColumns}
                   >
-                    <i className="fa fa-xmark"></i>
+                    clear
                   </button>
                 </div>
 

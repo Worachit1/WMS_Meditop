@@ -23,7 +23,7 @@ const Login = () => {
 
     // ตรวจฝั่ง frontend ก่อนเลย กันยิง API ฟรี ๆ
     if (!form.usernameOrEmail || !form.password) {
-      toast.error("usernameOrEmail and password are required");
+      toast.error("ต้องระบุชื่อผู้ใช้หรืออีเมลและระบุรหัสผ่าน");
       setLoading(false);
       return;
     }
@@ -54,7 +54,7 @@ const Login = () => {
 
         if (normalizedStatus && normalizedStatus !== "activate") {
           toast.error(
-            "This account is deactivated. Please contact the administrator.",
+            "บัญชีนี้ถูกระงับการใช้งาน โปรดติดต่อเจ้าหน้าที่ (Admin)",
           );
           return;
         }
@@ -92,14 +92,14 @@ const Login = () => {
         axios.defaults.headers.common["Authorization"] =
           `Bearer ${res.data.token}`;
 
-        toast.success("Login successful!");
+        toast.success("เข้าสู่ระบบสำเร็จ!");
         setTimeout(() => navigate("/"), 1500);
         return;
       }
       // ❌ กรณีไม่สำเร็จ (เช่น 401, 400) → แสดงข้อความจาก backend
       const backendMessage: string | undefined = res.data?.message;
 
-      toast.error(backendMessage || "Login failed, please try again");
+      toast.error(backendMessage || "เข้าสู่ระบบไม่สำเร็จ โปรดลองอีกครั้ง");
     } catch (error: any) {
       // จะเข้ามาเฉพาะเคส network ล่ม, CORS, axios crash จริง ๆ
       console.error("Login error (network / unexpected):", error);

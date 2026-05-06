@@ -385,7 +385,7 @@ const OutboundTable = ({
                             : onClearAllColumns
                       }
                     >
-                      <i className="fa fa-xmark"></i>
+                      clear
                     </button>
                   </div>
 

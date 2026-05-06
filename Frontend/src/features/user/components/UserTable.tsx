@@ -153,6 +153,9 @@ const UserTable = ({
     }
   };
 
+  const currentUserLevel = localStorage.getItem("user_level");
+  const isCurrentUserAdmin = currentUserLevel === "Admin";
+
   return (
     <>
       <div className="page-header">
@@ -194,7 +197,7 @@ const UserTable = ({
                     className="filter-clear-btn"
                     onClick={onClearAllColumns}
                   >
-                    <i className="fa fa-xmark"></i>
+                    clear
                   </button>
                 </div>
 
@@ -255,11 +258,15 @@ const UserTable = ({
                       variant="profile"
                       onClick={() => openProfile(user.id)}
                     />
-                    <IconButton variant="edit" onClick={() => onEdit(user)} />
-                    <IconButton
-                      variant="delete"
-                      onClick={() => onDelete(user)}
-                    />
+                    {isCurrentUserAdmin && (
+                       <IconButton variant="edit" onClick={() => onEdit(user)} />
+                    )}
+                    {isCurrentUserAdmin && (
+                      <IconButton
+                        variant="delete"
+                        onClick={() => onDelete(user)}
+                      />
+                    )}
                   </div>
                 </td>
               </tr>

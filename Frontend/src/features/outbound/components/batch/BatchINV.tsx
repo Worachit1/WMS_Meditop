@@ -231,10 +231,13 @@ const BatchINV: React.FC = () => {
     });
   };
 
-  const loadLast5DaysTransfers = React.useCallback(async () => {
+  const loadTransfers = React.useCallback(async () => {
     setLoading(true);
     try {
-      const resp = await outboundApi.getOutboundBatch({ page: 1, limit: 500 });
+      const resp = await outboundApi.getOutboundBatch({
+        page: 1,
+        limit: 10000,
+      });
 
       const payload = (resp as any)?.data ?? resp;
 
@@ -249,27 +252,17 @@ const BatchINV: React.FC = () => {
 
       const docs = normalizeTransfersToDocList(rowsRaw);
 
-      const cutoff = new Date();
-      cutoff.setDate(cutoff.getDate() - 5);
-
-      const filtered = docs.filter((x) => {
-        if (!x.date) return true;
-        return x.date.getTime() >= cutoff.getTime();
-      });
-
-      filtered.sort(
-        (a, b) => (b.date?.getTime() ?? 0) - (a.date?.getTime() ?? 0),
-      );
+      docs.sort((a, b) => (b.date?.getTime() ?? 0) - (a.date?.getTime() ?? 0));
 
       const batchIds = new Set(batchList.map((x) => x.outbound_id));
 
-      const filtered2 = filtered.filter(
+      const filtered = docs.filter(
         (x) =>
           !excludedOutboundIds.has(x.outbound_id) &&
           !batchIds.has(x.outbound_id),
       );
 
-      setInvoiceList(filtered2);
+      setInvoiceList(filtered);
     } catch (e: any) {
       console.error(e);
       toast.error("โหลดรายการ INV จาก Odoo ไม่สำเร็จ");
@@ -279,7 +272,7 @@ const BatchINV: React.FC = () => {
   }, [batchList, excludedOutboundIds]);
 
   useEffect(() => {
-    loadLast5DaysTransfers();
+    loadTransfers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -337,7 +330,7 @@ const BatchINV: React.FC = () => {
   // ✅ ปุ่มสแกน INV = toggle scan mode + reload list (กันข้อมูลเก่า)
   const onScanInv = async () => {
     setIsScanActive((p) => !p);
-    await loadLast5DaysTransfers();
+    await loadTransfers();
   };
 
   // ✅ เมื่อสแกนแล้วเจอใน invoiceList → ติ๊กให้เลย
@@ -419,7 +412,7 @@ const BatchINV: React.FC = () => {
           encodeURIComponent(payload?.batch_name || ""),
       );
 
-      await loadLast5DaysTransfers();
+      await loadTransfers();
     } catch (e: any) {
       console.error(e);
       const msg =

@@ -117,7 +117,7 @@
   border-radius: 10px;
   padding: 12px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  min-width: 180px;
+  min-width: 200px;
   max-height: 400px;
   overflow-y: auto;
 }
@@ -131,7 +131,7 @@
   border-radius: 10px;
   padding: 12px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  min-width: 180px;
+  min-width: 200px;
   max-height: 400px;
   overflow-y: auto;
   z-index: 10000;
@@ -151,7 +151,7 @@
 
 .filter-clear-btn {
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 700;
   color: #e53e3e;
   background: none;
   border: none;

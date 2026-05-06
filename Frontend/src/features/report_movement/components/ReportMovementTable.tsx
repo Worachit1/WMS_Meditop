@@ -10,6 +10,7 @@ import * as XLSX from "xlsx";
 
 import IconButton from "../../../components/Button/IconButton";
 import { confirmAlert } from "../../../utils/alert";
+import Swal from "sweetalert2";
 
 import "../report_movemnt.css";
 
@@ -98,6 +99,7 @@ type ReportMovementListRow = {
   user_ref?: string | null;
   source: string;
   qty?: number | null;
+  return: number | null;
   system_qty?: number | null;
 };
 
@@ -117,12 +119,18 @@ function getRowQty(mv: any, item: any): number | null {
 }
 
 function getInQty(row: ReportMovementListRow): number | null {
-  if (row.source === "inbound") return row.qty ?? null;
+  if (row.source === "inbound") return Number(row.qty) || null;
 
   if (row.source === "adjustment" && row.location_dest === "MDT") {
-    return row.qty ?? null;
+    return Number(row.qty) || null;
   }
 
+  if (row.source === "outbound_return") {
+    const val = Number(row.return ?? 0);
+
+    return Number.isFinite(val) && val !== 0 ? val : null;
+  }
+  console.log("ROW:", row);
   return null;
 }
 
@@ -205,6 +213,7 @@ function buildMovementRows(
         source: mv.source,
         qty: getRowQty(mv, item),
         system_qty: getRowQty(mv, item),
+        return: Number(mv.return ?? item?.return ?? 0),
       };
     });
   });
@@ -356,13 +365,118 @@ const ReportMovementTable = ({
     return `${dd}/${mm}/${yyyy} ${HH}:${MM}:${SS}`;
   };
 
+  function toDateInputValue(d: Date) {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
+  function isDateInRange(value: any, from: string, to: string) {
+    if (!value) return false;
+
+    const rowTime = new Date(value).getTime();
+    const fromTime = new Date(`${from}T00:00:00.000`).getTime();
+    const toTime = new Date(`${to}T23:59:59.999`).getTime();
+
+    return rowTime >= fromTime && rowTime <= toTime;
+  }
+
   const handleExport = async () => {
+    const today = toDateInputValue(new Date());
+
     const result = await confirmAlert(`Export Excel?\n(${formatNow()})`);
     if (!result.isConfirmed) return;
 
+    const rangeResult = await Swal.fire({
+      title: "เลือกข้อมูลที่ต้องการ Export",
+      html: `
+      <div style="text-align:left">
+        <label style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
+          <input type="radio" name="export_mode" value="all" checked />
+          <span>Export ทั้งหมด</span>
+        </label>
+
+        <label style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
+          <input type="radio" name="export_mode" value="date" />
+          <span>เลือกช่วงวันที่</span>
+        </label>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
+          <div>
+            <label style="font-size:13px">วันที่เริ่มต้น</label>
+            <input id="export_date_from" type="date" class="swal2-input" value="${today}" style="margin:4px 0 0;width:100%" />
+          </div>
+
+          <div>
+            <label style="font-size:13px">วันที่สิ้นสุด</label>
+            <input id="export_date_to" type="date" class="swal2-input" value="${today}" style="margin:4px 0 0;width:100%" />
+          </div>
+        </div>
+      </div>
+    `,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "Export",
+      confirmButtonColor: "#D90505",
+      cancelButtonText: "ยกเลิก",
+      reverseButtons: true,
+      preConfirm: () => {
+        const mode =
+          document.querySelector<HTMLInputElement>(
+            'input[name="export_mode"]:checked',
+          )?.value || "all";
+
+        const from =
+          document.querySelector<HTMLInputElement>("#export_date_from")
+            ?.value || "";
+
+        const to =
+          document.querySelector<HTMLInputElement>("#export_date_to")?.value ||
+          "";
+
+        if (mode === "date") {
+          if (!from || !to) {
+            Swal.showValidationMessage(
+              "กรุณาเลือกวันที่เริ่มต้นและวันที่สิ้นสุด",
+            );
+            return false;
+          }
+
+          if (new Date(from).getTime() > new Date(to).getTime()) {
+            Swal.showValidationMessage(
+              "วันที่เริ่มต้นต้องไม่มากกว่าวันที่สิ้นสุด",
+            );
+            return false;
+          }
+        }
+
+        return { mode, from, to };
+      },
+    });
+
+    if (!rangeResult.isConfirmed) return;
+
     try {
       const allRows = await onExportAll();
-      const exportRows = buildMovementRows(allRows);
+      let exportRows = buildMovementRows(allRows);
+
+      if (rangeResult.value?.mode === "date") {
+        const { from, to } = rangeResult.value;
+
+        exportRows = exportRows.filter((row) =>
+          isDateInRange(row.created_at, from, to),
+        );
+      }
+
+      if (exportRows.length === 0) {
+        Swal.fire({
+          icon: "warning",
+          title: "ไม่พบข้อมูล",
+          text: "ไม่มีข้อมูลสำหรับ Export ในช่วงวันที่ที่เลือก",
+        });
+        return;
+      }
 
       const rows = exportRows.map((s, index) => ({
         No: index + 1,
@@ -387,9 +501,13 @@ const ReportMovementTable = ({
       const wb = XLSX.utils.book_new();
 
       XLSX.utils.book_append_sheet(wb, ws, "ReportMovement");
-      const fileName = `report_movement_${formatFileDate()}.xlsx`;
 
-      XLSX.writeFile(wb, fileName);
+      const suffix =
+        rangeResult.value?.mode === "date"
+          ? `${rangeResult.value.from}_to_${rangeResult.value.to}_${formatFileDate()}`
+          : `all_${formatFileDate()}`;
+
+      XLSX.writeFile(wb, `report_movement_${suffix}.xlsx`);
     } catch (error) {
       console.error("Export report movement error:", error);
     }
@@ -485,7 +603,7 @@ const ReportMovementTable = ({
                     className="filter-clear-btn"
                     onClick={onClearAllColumns}
                   >
-                    <i className="fa fa-xmark"></i>
+                    clear
                   </button>
                 </div>
 

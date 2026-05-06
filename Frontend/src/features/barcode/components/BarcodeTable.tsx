@@ -169,20 +169,34 @@ const BarcodeTable = ({
     if (!result.isConfirmed) return;
 
     setIsSyncing(true);
+    Swal.fire({
+      title: "กำลังซิงค์ข้อมูล...",
+      text: "การ Sync ใช้เวลานาน กรุณารอประมาณ 10-15 นาที",
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      showConfirmButton: false,
+      didOpen: () => {
+        Swal.showLoading();
+      },
+    });
+
     try {
-      await http.post("/barcodes/sync");
-      Swal.fire({
+      await http.post(
+        "/barcodes/sync",
+        {},
+        {
+          timeout: 20 * 60 * 1000, // 20 นาที
+        },
+      );
+
+      await Swal.fire({
         icon: "success",
         title: "Sync สำเร็จ",
         text: "ซิงค์ข้อมูล Barcode เรียบร้อยแล้ว",
-        timer: 3000,
-        showConfirmButton: false,
+        confirmButtonText: "ตกลง",
       });
 
-      // รอ 3 วินาทีก่อน reload
-      setTimeout(() => {
-        window.location.reload();
-      }, 3000);
+      window.location.reload();
     } catch (error: any) {
       Swal.fire({
         icon: "error",
@@ -227,13 +241,14 @@ const BarcodeTable = ({
 
             {showFilterDropdown && (
               <div className="filter-dropdown">
-                <div className="filter-title">Search In Columns
+                <div className="filter-title">
+                  Search In Columns
                   <button
                     type="button"
                     className="filter-clear-btn"
                     onClick={onClearAllColumns}
                   >
-                    <i className="fa fa-xmark"></i>
+                    clear
                   </button>
                 </div>
 

@@ -332,6 +332,12 @@ const getUserLabel = (user: any) => {
   return `${fn} ${ln}`.trim() || "-";
 };
 
+const getUserWorkLabel = (user_work: any) => {
+  const fn = String(user_work?.first_name ?? "").trim();
+  const ln = String(user_work?.last_name ?? "").trim();
+  return `${fn} ${ln}`.trim() || "-";
+};
+
 const getProgressQty = (it: any, mode: ViewMode) => {
   if (mode === "pick") return n0(it?.qty_pick);
   if (mode === "put") return n0(it?.qty_put);
@@ -1415,7 +1421,7 @@ export default function DetailTransferMovement() {
 
   if (!transfer && loading) {
     return (
-      <div className="dt-tf-mv-container">
+      <div className="loading-overlay">
         <Loading />
       </div>
     );
@@ -1423,6 +1429,10 @@ export default function DetailTransferMovement() {
 
   const user = (transfer as any)?.user;
   const userLabel = getUserLabel(user);
+
+  const user_work = (transfer as any)?.user_work;
+  const userWorkLabel = getUserWorkLabel(user_work)
+  
 
   const currentIndex =
     detailList.findIndex((x) => String(x.no) === String(no)) + 1;
@@ -1491,7 +1501,7 @@ export default function DetailTransferMovement() {
             </div>
 
             <div className="dt-tf-mv-info-item">
-              <label>User :</label>
+              <label>เจ้าหน้าที่สร้างเอกสาร :</label>
               <span>{userLabel}</span>
             </div>
           </div>
@@ -1503,6 +1513,11 @@ export default function DetailTransferMovement() {
                 {formatDateTime(asText((transfer as any)?.created_at))}
               </span>
             </div>
+
+            <div className="dt-tf-mv-info-item">
+              <label>เจ้าหน้าที่ปฏิบัติงาน :</label>
+              <span>{userWorkLabel}</span>
+            </div>
           </div>
         </div>
 
@@ -1513,43 +1528,42 @@ export default function DetailTransferMovement() {
         >
           <div className="dt-tf-mv-scan-panel">
             <div className="dt-tf-mv-scan-row">
-  <label>Scan Location</label>
+              <label>Scan Location</label>
 
-  <input
-    ref={scanLocationInputRef}
-    type="text"
-    className="dt-tf-mv-scan-input"
-    value={scanLocation}
-    onChange={(e) => setScanLocation(e.target.value)}
-    onKeyDown={handleScanLocationKeyDown}
-    placeholder={
-      viewMode === "put"
-        ? "สแกน Location ปลายทาง"
-        : "สแกน Location ต้นทาง"
-    }
-    disabled={!isLocationScanOpen || viewMode === "done"}
-    style={{
-      borderColor: confirmedLocation ? "#4CAF50" : undefined,
-      opacity:
-        isLocationScanOpen && viewMode !== "done" ? 1 : 0.6,
-    }}
-  />
+              <input
+                ref={scanLocationInputRef}
+                type="text"
+                className="dt-tf-mv-scan-input"
+                value={scanLocation}
+                onChange={(e) => setScanLocation(e.target.value)}
+                onKeyDown={handleScanLocationKeyDown}
+                placeholder={
+                  viewMode === "put"
+                    ? "สแกน Location ปลายทาง"
+                    : "สแกน Location ต้นทาง"
+                }
+                disabled={!isLocationScanOpen || viewMode === "done"}
+                style={{
+                  borderColor: confirmedLocation ? "#4CAF50" : undefined,
+                  opacity: isLocationScanOpen && viewMode !== "done" ? 1 : 0.6,
+                }}
+              />
 
-  <button
-    type="button"
-    className={`dt-tf-mv-btn-toggle ${
-      isLocationScanOpen ? "active" : ""
-    }`}
-    onClick={toggleLocationScan}
-    disabled={viewMode === "done"}
-  >
-    {isLocationScanOpen ? (
-      <i className="fa-solid fa-xmark" />
-    ) : (
-      <i className="fa-solid fa-qrcode" />
-    )}
-  </button>
-</div>
+              <button
+                type="button"
+                className={`dt-tf-mv-btn-toggle ${
+                  isLocationScanOpen ? "active" : ""
+                }`}
+                onClick={toggleLocationScan}
+                disabled={viewMode === "done"}
+              >
+                {isLocationScanOpen ? (
+                  <i className="fa-solid fa-xmark" />
+                ) : (
+                  <i className="fa-solid fa-qrcode" />
+                )}
+              </button>
+            </div>
             <div className="dt-tf-mv-scan-row">
               <label>Scan Barcode/Serial</label>
 

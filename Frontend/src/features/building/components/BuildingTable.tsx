@@ -169,7 +169,7 @@ const BuildingTable = ({
                     className="filter-clear-btn"
                     onClick={onClearAllColumns}
                   >
-                    <i className="fa fa-xmark"></i>
+                    clear
                   </button>
                 </div>
 

@@ -1500,16 +1500,6 @@ const ScanBox = () => {
                   >
                     <div className="filter-title">
                       Filter ตามกล่อง
-                      <button
-                        type="button"
-                        className="filter-clear-btn"
-                        onClick={() => {
-                          setSelectedBoxFilter("all");
-                          setShowBoxFilterDropdown(false);
-                        }}
-                      >
-                        <i className="fa fa-xmark"></i>
-                      </button>
                     </div>
                     <label
                       className="filter-option"
