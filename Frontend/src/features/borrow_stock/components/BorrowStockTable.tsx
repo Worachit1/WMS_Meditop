@@ -1,4 +1,6 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
+import { departmentApi } from "../../department/services/department.api";
+
 import type { BorrowStockType } from "../types/borrow_stock.type";
 import { useNavigate } from "react-router-dom";
 
@@ -38,8 +40,9 @@ type Props = {
     pending: number;
     completed: number;
   };
+  selectedDepartmentFilter?: string[];
+  onDepartmentFilterChange?: (departments: string[]) => void;
 };
-
 
 function formatDepartments(deps: any): string[] {
   if (!deps) return ["-"];
@@ -84,9 +87,11 @@ const BorrowStockTable = ({
   currentPage = 1,
   itemsPerPage = 10,
   onRefresh,
-    statusTab,
+  statusTab,
   onChangeStatusTab,
   statusCounts,
+  selectedDepartmentFilter,
+  onDepartmentFilterChange,
 }: Props) => {
   const navigate = useNavigate();
 
@@ -97,20 +102,104 @@ const BorrowStockTable = ({
   ]);
   const [showDeptDropdown, setShowDeptDropdown] = useState(false);
 
+  const [departmentOptions, setDepartmentOptions] = useState<string[]>([]);
+
+  const getCurrentUserDepartments = (): string[] => {
+    const rawDepartments = localStorage.getItem("departments");
+
+    if (rawDepartments) {
+      try {
+        const parsed = JSON.parse(rawDepartments);
+
+        if (Array.isArray(parsed)) {
+          return parsed
+            .map((d: any) => String(d?.short_name ?? "").trim())
+            .filter(Boolean);
+        }
+      } catch {
+        // fallback
+      }
+    }
+
+    return String(localStorage.getItem("department") || "")
+      .split(",")
+      .map((x) => x.trim())
+      .filter(Boolean);
+  };
+
+  const currentUserLevel = localStorage.getItem("user_level") || "";
+  const currentUserDepartments = getCurrentUserDepartments();
+
+  const canSeeAllDepartments =
+    currentUserLevel === "Admin" || currentUserDepartments.includes("CNE");
+
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      try {
+        const resp: any = await departmentApi.getAll();
+
+        const rows = Array.isArray(resp?.data?.data)
+          ? resp.data.data
+          : Array.isArray(resp?.data)
+            ? resp.data
+            : [];
+
+        const allDeptNames = rows
+          .map((d: any) => String(d?.short_name ?? "").trim())
+          .filter(Boolean)
+          .sort();
+
+        if (canSeeAllDepartments) {
+          setDepartmentOptions(allDeptNames);
+          return;
+        }
+
+        const ownDeptOptions = currentUserDepartments
+          .filter((dept: string) => allDeptNames.includes(dept))
+          .sort();
+
+        setDepartmentOptions(ownDeptOptions);
+      } catch (err) {
+        console.error("Fetch departments failed:", err);
+        setDepartmentOptions([]);
+      }
+    };
+
+    fetchDepartments();
+  }, [canSeeAllDepartments, currentUserDepartments.join(",")]);
+
+  useEffect(() => {
+    if (selectedDepartmentFilter?.length) {
+      setSelectedDepartments(selectedDepartmentFilter);
+    }
+  }, [selectedDepartmentFilter]);
+
+  const applyDepartmentFilter = (next: string[]) => {
+    setSelectedDepartments(next);
+    onDepartmentFilterChange?.(next);
+  };
+
   const toggleDepartment = (dept: string) => {
     if (dept === "all") {
-      setSelectedDepartments(["all"]);
-    } else {
-      setSelectedDepartments((prev) => {
-        const withoutAll = prev.filter((d) => d !== "all");
-        if (withoutAll.includes(dept)) {
-          const next = withoutAll.filter((d) => d !== dept);
-          return next.length === 0 ? ["all"] : next;
-        }
-        return [...withoutAll, dept];
-      });
+      applyDepartmentFilter(["all"]);
+      onChangeStatusTab("pending");
+      return;
     }
-    onChangeStatusTab("pending");
+
+    setSelectedDepartments((prev) => {
+      const withoutAll = prev.filter((d) => d !== "all");
+
+      const next = withoutAll.includes(dept)
+        ? withoutAll.filter((d) => d !== dept)
+        : [...withoutAll, dept];
+
+      const finalNext = next.length === 0 ? ["all"] : next;
+
+      onDepartmentFilterChange?.(finalNext);
+      onChangeStatusTab("pending");
+
+      return finalNext;
+    });
   };
 
   const onView = (row: BorrowStockType) => {
@@ -151,38 +240,10 @@ const BorrowStockTable = ({
     }
   };
 
-  // unique departments จากข้อมูลที่ได้มา
-  const departmentOptions = useMemo(() => {
-    const depts = new Set<string>();
-    (borrow_stocks || []).forEach((x) => {
-      formatDepartments((x as any).departments).forEach((label) => {
-        if (label && label !== "-") depts.add(label);
-      });
-    });
-    return Array.from(depts).sort();
-  }, [borrow_stocks]);
+  const viewRows = borrow_stocks || [];
 
-  // filter by selected departments ก่อน แยก done/pending
-  const filteredBorrowStocks = useMemo(() => {
-    if (
-      selectedDepartments.length === 0 ||
-      selectedDepartments.includes("all") ||
-      selectedDepartments.includes("CNE")
-    ) {
-      return borrow_stocks || [];
-    }
-    return (borrow_stocks || []).filter((x) =>
-      formatDepartments((x as any).departments).some((d) =>
-        selectedDepartments.includes(d),
-      ),
-    );
-  }, [borrow_stocks, selectedDepartments]);
-
-
- const viewRows = filteredBorrowStocks;
-
-const pendingCount = Number(statusCounts?.pending ?? 0);
-const doneCount = Number(statusCounts?.completed ?? 0);
+  const pendingCount = Number(statusCounts?.pending ?? 0);
+  const doneCount = Number(statusCounts?.completed ?? 0);
 
   const handleVerify = async (row: BorrowStockType) => {
     if (verifyingId) return;
@@ -246,11 +307,7 @@ const doneCount = Number(statusCounts?.completed ?? 0);
                       <label className="filter-option" key={dept}>
                         <input
                           type="checkbox"
-                          checked={
-                            selectedDepartments.includes("all") ||
-                            selectedDepartments.includes(dept) ||
-                            selectedDepartments.includes("CNE")
-                          }
+                          checked={selectedDepartments.includes(dept)}
                           onChange={() => toggleDepartment(dept)}
                         />
                         <span>{dept}</span>
@@ -294,7 +351,7 @@ const doneCount = Number(statusCounts?.completed ?? 0);
                     className="filter-clear-btn"
                     onClick={onClearAllColumns}
                   >
-                   clear
+                    clear
                   </button>
                 </div>
 
@@ -336,16 +393,16 @@ const doneCount = Number(statusCounts?.completed ?? 0);
       >
         <button
           type="button"
-         className={`borrow-tab ${statusTab === "pending" ? "active" : ""}`}
-onClick={() => onChangeStatusTab("pending")}
+          className={`borrow-tab ${statusTab === "pending" ? "active" : ""}`}
+          onClick={() => onChangeStatusTab("pending")}
         >
           รอดำเนินการ <span className="badge">{pendingCount}</span>
         </button>
 
         <button
           type="button"
-        className={`borrow-tab ${statusTab === "completed" ? "active" : ""}`}
-onClick={() => onChangeStatusTab("completed")}
+          className={`borrow-tab ${statusTab === "completed" ? "active" : ""}`}
+          onClick={() => onChangeStatusTab("completed")}
         >
           ดำเนินการเสร็จสิ้น <span className="badge">{doneCount}</span>
         </button>
@@ -357,16 +414,18 @@ onClick={() => onChangeStatusTab("completed")}
             <tr>
               <td colSpan={tableHeaders.length} className="no-data">
                 {statusTab === "completed"
-  ? "No completed borrow stocks found."
-  : "No pending borrow stocks found."}
+                  ? "No completed borrow stocks found."
+                  : "No pending borrow stocks found."}
               </td>
             </tr>
           ) : (
             viewRows.map((borrow_stock: any, index: number) => {
               const st = String(borrow_stock?.status ?? "").toLowerCase();
-             const canVerify =
-  statusTab === "pending" &&
-  (st === "pending" || st === "in-progress" || st === "in-process");
+              const canVerify =
+                statusTab === "pending" &&
+                (st === "pending" ||
+                  st === "in-progress" ||
+                  st === "in-process");
               const busy = verifyingId === borrow_stock.id;
 
               return (
@@ -390,7 +449,7 @@ onClick={() => onChangeStatusTab("completed")}
                   <td>{borrow_stock.user_ref ?? "-"}</td>
                   <td>
                     <div className="borrow_stock-actions-buttons">
-                     {statusTab === "pending" ? (
+                      {statusTab === "pending" ? (
                         <>
                           <button
                             type="button"

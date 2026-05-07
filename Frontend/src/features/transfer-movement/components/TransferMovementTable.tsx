@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { departmentApi } from "../../department/services/department.api";
 import type { TransferType } from "../types/tranfers.type";
 import { useNavigate } from "react-router-dom";
 
@@ -39,6 +40,8 @@ type Props = {
     completed: number;
   };
   onChangeStatusTab: (tab: "pick" | "put" | "completed") => void;
+  selectedDepartmentFilter?: string[];
+  onDepartmentFilterChange?: (departments: string[]) => void;
 };
 
 type TabKey = "pick" | "put" | "completed";
@@ -218,29 +221,113 @@ const TransferMovementTable = ({
   statusTab,
   statusCounts,
   onChangeStatusTab,
+  selectedDepartmentFilter,
+  onDepartmentFilterChange,
 }: Props) => {
   const navigate = useNavigate();
   const { id: currentUserId, isOperator } = useMemo(() => getCurrentUser(), []);
 
   // ✅ 3 tabs
-  const [selectedDepartments, setSelectedDepartments] = useState<string[]>([
-    "all",
-  ]);
+  const [selectedDepartments, setSelectedDepartments] = useState<string[]>(
+    selectedDepartmentFilter?.length ? selectedDepartmentFilter : ["all"],
+  );
   const [showDeptDropdown, setShowDeptDropdown] = useState(false);
+
+  const [departmentOptions, setDepartmentOptions] = useState<string[]>([]);
+
+  const getCurrentUserDepartments = (): string[] => {
+    const rawDepartments = localStorage.getItem("departments");
+
+    if (rawDepartments) {
+      try {
+        const parsed = JSON.parse(rawDepartments);
+
+        if (Array.isArray(parsed)) {
+          return parsed
+            .map((d: any) => String(d?.short_name ?? "").trim())
+            .filter(Boolean);
+        }
+      } catch {
+        // fallback
+      }
+    }
+
+    return String(localStorage.getItem("department") || "")
+      .split(",")
+      .map((x) => x.trim())
+      .filter(Boolean);
+  };
+
+  const currentUserLevel = localStorage.getItem("user_level") || "";
+  const currentUserDepartments = getCurrentUserDepartments();
+
+  const canSeeAllDepartments =
+    currentUserLevel === "Admin" || currentUserDepartments.includes("CNE");
+
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      try {
+        const resp: any = await departmentApi.getAll();
+
+        const rows = Array.isArray(resp?.data?.data)
+          ? resp.data.data
+          : Array.isArray(resp?.data)
+            ? resp.data
+            : [];
+
+        const allDeptNames = rows
+          .map((d: any) => String(d?.short_name ?? "").trim())
+          .filter(Boolean)
+          .sort();
+
+        if (canSeeAllDepartments) {
+          setDepartmentOptions(allDeptNames);
+          return;
+        }
+
+        const ownDeptOptions = currentUserDepartments
+          .filter((dept: string) => allDeptNames.includes(dept))
+          .sort();
+
+        setDepartmentOptions(ownDeptOptions);
+      } catch (err) {
+        console.error("Fetch departments failed:", err);
+        setDepartmentOptions([]);
+      }
+    };
+
+    fetchDepartments();
+  }, [canSeeAllDepartments, currentUserDepartments.join(",")]);
+
+  useEffect(() => {
+    if (selectedDepartmentFilter?.length) {
+      setSelectedDepartments(selectedDepartmentFilter);
+    }
+  }, [selectedDepartmentFilter]);
+
+  const applyDepartmentFilter = (next: string[]) => {
+    setSelectedDepartments(next);
+    onDepartmentFilterChange?.(next);
+  };
 
   const toggleDepartment = (dept: string) => {
     if (dept === "all") {
-      setSelectedDepartments(["all"]);
+      applyDepartmentFilter(["all"]);
       return;
     }
 
     setSelectedDepartments((prev) => {
       const withoutAll = prev.filter((d) => d !== "all");
-      if (withoutAll.includes(dept)) {
-        const next = withoutAll.filter((d) => d !== dept);
-        return next.length === 0 ? ["all"] : next;
-      }
-      return [...withoutAll, dept];
+
+      const next = withoutAll.includes(dept)
+        ? withoutAll.filter((d) => d !== dept)
+        : [...withoutAll, dept];
+
+      const finalNext = next.length === 0 ? ["all"] : next;
+
+      onDepartmentFilterChange?.(finalNext);
+
+      return finalNext;
     });
   };
 
@@ -255,49 +342,7 @@ const TransferMovementTable = ({
 
   const counts = statusCounts;
 
-  const departmentOptions = useMemo(() => {
-    const depts = new Set<string>();
-    baseRows.forEach((t: any) => {
-      const deps = Array.isArray(t?.departments) ? t.departments : [];
-      if (deps.length > 0) {
-        deps.forEach((d: any) => {
-          const name = String(d?.short_name ?? d?.full_name ?? "").trim();
-          if (name) depts.add(name);
-        });
-      } else {
-        const name = String(
-          t?.department?.short_name ?? t?.department ?? "",
-        ).trim();
-        if (name) depts.add(name);
-      }
-    });
-    return Array.from(depts).sort();
-  }, [baseRows]);
-
-  const filteredTabRows = useMemo(() => {
-    if (
-      selectedDepartments.length === 0 ||
-      selectedDepartments.includes("all")
-    ) {
-      return tabRows;
-    }
-
-    return tabRows.filter((t: any) => {
-      const deps = Array.isArray(t?.departments) ? t.departments : [];
-      if (deps.length > 0) {
-        return deps.some((d: any) => {
-          const name = String(d?.short_name ?? d?.full_name ?? "").trim();
-          return selectedDepartments.includes(name);
-        });
-      }
-
-      const singleDept = String(
-        t?.department?.short_name ?? t?.department ?? "",
-      ).trim();
-
-      return singleDept ? selectedDepartments.includes(singleDept) : false;
-    });
-  }, [tabRows, selectedDepartments]);
+  const filteredTabRows = tabRows;
 
   const tableHeaders = useMemo(() => {
     const base = [
@@ -358,7 +403,7 @@ const TransferMovementTable = ({
         </div>
 
         <div className="toolbar">
-          {departmentOptions.length > 1 && (
+          {departmentOptions.length > 0 && (
             <div className="inbound-dept-filter">
               <label>แผนก:</label>
               <div className="filter-wrap">
@@ -391,10 +436,7 @@ const TransferMovementTable = ({
                       <label className="filter-option" key={dept}>
                         <input
                           type="checkbox"
-                          checked={
-                            selectedDepartments.includes("all") ||
-                            selectedDepartments.includes(dept)
-                          }
+                          checked={selectedDepartments.includes(dept)}
                           onChange={() => toggleDepartment(dept)}
                         />
                         <span>{dept}</span>

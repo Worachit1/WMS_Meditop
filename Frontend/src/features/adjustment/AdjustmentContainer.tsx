@@ -66,6 +66,8 @@ const AdjustmentContainer = () => {
     auto: { pending: 0, completed: 0 },
   });
 
+  const [departmentFilter, setDepartmentFilter] = useState<string[]>(["all"]);
+
   const enabledColumns = useMemo(() => {
     return Object.entries(searchableColumns)
       .filter(([, v]) => v)
@@ -75,7 +77,13 @@ const AdjustmentContainer = () => {
   const reqIdRef = useRef(0);
 
   const fetchAdjustments = useCallback(
-    async (page: number, limit: number, search: string, columns: string[]) => {
+    async (
+      page: number,
+      limit: number,
+      search: string,
+      columns: string[],
+      departments: string[],
+    ) => {
       const myReqId = ++reqIdRef.current;
 
       const startTime = Date.now();
@@ -91,6 +99,9 @@ const AdjustmentContainer = () => {
           columns: columns.length ? columns : undefined,
           level: levelTab,
           status: statusTab,
+          department: departments.includes("all")
+            ? undefined
+            : departments.join(","),
         });
 
         if (myReqId !== reqIdRef.current) return;
@@ -168,6 +179,7 @@ const AdjustmentContainer = () => {
       itemsPerPage,
       debouncedSearch,
       enabledColumns,
+      departmentFilter,
     );
   }, [
     fetchAdjustments,
@@ -177,10 +189,16 @@ const AdjustmentContainer = () => {
     enabledColumns,
     levelTab,
     statusTab,
+    departmentFilter,
   ]);
 
   const handleItemsPerPageChange = (limit: number) => {
     setItemsPerPage(limit);
+    setCurrentPage(1);
+  };
+
+  const handleDepartmentFilterChange = (departments: string[]) => {
+    setDepartmentFilter(departments);
     setCurrentPage(1);
   };
 
@@ -219,6 +237,7 @@ const AdjustmentContainer = () => {
               itemsPerPage,
               debouncedSearch,
               enabledColumns,
+              departmentFilter,
             )
           }
           levelTab={levelTab}
@@ -232,6 +251,8 @@ const AdjustmentContainer = () => {
             setStatusTab(status);
             setCurrentPage(1);
           }}
+          selectedDepartmentFilter={departmentFilter}
+          onDepartmentFilterChange={handleDepartmentFilterChange}
         />
 
         <Pegination

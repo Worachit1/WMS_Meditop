@@ -40,6 +40,7 @@ export const transferApi = {
     search?: string;
     columns?: string;
     status?: "pick" | "put" | "completed";
+    department?: string;
   }) => http.get<TransferListResponse>("/transfers-movements/get", { params }),
 
   getDetailExpNcr: (no: string) =>
@@ -108,16 +109,16 @@ export const transferApi = {
 
   // ✅ FIX: ใช้ transfer_item_id ให้ตรง transfer
   confirmToPick: (no: string, data: ConfirmTransferPickBody) =>
-  http.post(
-    `/transfers-movements/${encodeURIComponent(no)}/scan/confirm`,
-    data,
-  ),
+    http.post(
+      `/transfers-movements/${encodeURIComponent(no)}/scan/confirm`,
+      data,
+    ),
 
-confirmToPut: (no: string, data: ConfirmTransferPutBody) =>
-  http.post(
-    `/transfers-movements/${encodeURIComponent(no)}/scan/confirm/put`,
-    data,
-  ),
+  confirmToPut: (no: string, data: ConfirmTransferPutBody) =>
+    http.post(
+      `/transfers-movements/${encodeURIComponent(no)}/scan/confirm/put`,
+      data,
+    ),
 
   createMovementInvoice: (data: any) =>
     http.post("/transfers-movements/create", data),

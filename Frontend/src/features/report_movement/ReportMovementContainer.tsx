@@ -70,6 +70,8 @@ const ReportMovementContainer = () => {
     location_dest: true,
   });
 
+  const [departmentFilter, setDepartmentFilter] = useState<string[]>(["all"]);
+
   const requestIdRef = useRef(0);
 
   const buildEnabledColumns = useCallback(
@@ -110,6 +112,9 @@ const ReportMovementContainer = () => {
           columns: enabledColumns || undefined,
           sortBy: currentSortKey,
           sortDir: currentSortDir,
+          department: departmentFilter.includes("all")
+            ? undefined
+            : departmentFilter.join(","),
         });
 
         if (requestId !== requestIdRef.current) return;
@@ -139,7 +144,7 @@ const ReportMovementContainer = () => {
         }
       }
     },
-    [buildEnabledColumns],
+    [buildEnabledColumns, departmentFilter],
   );
 
   const handleExportAll = useCallback(async (): Promise<
@@ -186,6 +191,7 @@ const ReportMovementContainer = () => {
     snapshotDate,
     sortKey,
     sortDir,
+    departmentFilter,
   ]);
 
   useEffect(() => {
@@ -215,6 +221,11 @@ const ReportMovementContainer = () => {
   const handleSortChange = (key: BackendSortKey, dir: SortDir) => {
     setSortKey(key);
     setSortDir(dir);
+    setCurrentPage(1);
+  };
+
+  const handleDepartmentFilterChange = (departments: string[]) => {
+    setDepartmentFilter(departments);
     setCurrentPage(1);
   };
 
@@ -260,6 +271,8 @@ const ReportMovementContainer = () => {
           sortKey={sortKey}
           sortDir={sortDir}
           onSortChange={handleSortChange}
+          selectedDepartmentFilter={departmentFilter}
+          onDepartmentFilterChange={handleDepartmentFilterChange}
         />
 
         <Pegination

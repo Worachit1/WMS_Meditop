@@ -44,6 +44,8 @@ const InboundContainer = () => {
     status: true,
   });
 
+  const [departmentFilter, setDepartmentFilter] = useState<string[]>(["all"]);
+
   const fetchInbound = useCallback(
     async (
       page: number,
@@ -51,6 +53,7 @@ const InboundContainer = () => {
       limit: number,
       _columns: typeof searchableColumns,
       status: InboundTab,
+      departments: string[],
     ) => {
       const startTime = Date.now();
       const loadingTimeout = setTimeout(() => {
@@ -63,6 +66,9 @@ const InboundContainer = () => {
           limit,
           search: search.trim() || undefined,
           status,
+          department: departments.includes("all")
+            ? undefined
+            : departments.join(","),
         });
 
         const { data = [], meta } = response.data;
@@ -86,7 +92,7 @@ const InboundContainer = () => {
         }
       }
     },
-    [],
+    [searchableColumns],
   );
 
   useEffect(() => {
@@ -96,6 +102,7 @@ const InboundContainer = () => {
       itemsPerPage,
       searchableColumns,
       activeTab,
+      departmentFilter,
     );
   }, [
     fetchInbound,
@@ -104,6 +111,7 @@ const InboundContainer = () => {
     itemsPerPage,
     searchableColumns,
     activeTab,
+    departmentFilter,
   ]);
 
   useEffect(() => {
@@ -125,6 +133,11 @@ const InboundContainer = () => {
     setCurrentPage(1);
   };
 
+  const handleDepartmentFilterChange = (departments: string[]) => {
+    setDepartmentFilter(departments);
+    setCurrentPage(1);
+  };
+
   return (
     <div className="location-page-container">
       <div>
@@ -139,6 +152,8 @@ const InboundContainer = () => {
           showFilterDropdown={showFilterDropdown}
           currentPage={currentPage}
           itemsPerPage={itemsPerPage}
+          selectedDepartmentFilter={departmentFilter}
+          onDepartmentFilterChange={handleDepartmentFilterChange}
           onToggleFilter={() => setShowFilterDropdown((prev) => !prev)}
           searchableColumns={searchableColumns}
           onClearAllColumns={() =>

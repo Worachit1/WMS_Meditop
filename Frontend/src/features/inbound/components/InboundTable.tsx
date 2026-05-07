@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import type { InboundType } from "../types/inbound.type";
+import { departmentApi } from "../../department/services/department.api";
 
 import Table from "../../../components/Table/Table";
 import "../../../components/Button/button.css";
@@ -35,6 +36,9 @@ type Props = {
   onClearAllColumns: () => void;
   currentPage?: number;
   itemsPerPage?: number;
+
+  selectedDepartmentFilter?: string[];
+  onDepartmentFilterChange?: (departments: string[]) => void;
 };
 
 const formatDateTime = (dateString: string) => {
@@ -76,27 +80,72 @@ const InboundTable = ({
   searchableColumns,
   onToggleSearchableColumn,
   onClearAllColumns,
+  selectedDepartmentFilter,
+  onDepartmentFilterChange,
   currentPage = 1,
   itemsPerPage = 10,
 }: Props) => {
-  const [selectedDepartments, setSelectedDepartments] = useState<string[]>([
-    "all",
-  ]);
+  const [selectedDepartments, setSelectedDepartments] = useState<string[]>(
+    selectedDepartmentFilter?.length ? selectedDepartmentFilter : ["all"],
+  );
+
   const [showDeptDropdown, setShowDeptDropdown] = useState(false);
+
+  const [departmentOptions, setDepartmentOptions] = useState<string[]>([]);
+
+  const getCurrentUserDepartments = (): string[] => {
+    const rawDepartments = localStorage.getItem("departments");
+
+    if (rawDepartments) {
+      try {
+        const parsed = JSON.parse(rawDepartments);
+
+        if (Array.isArray(parsed)) {
+          return parsed
+            .map((d: any) => String(d?.short_name ?? "").trim())
+            .filter(Boolean);
+        }
+      } catch {
+        // fallback ด้านล่าง
+      }
+    }
+
+    return String(localStorage.getItem("department") || "")
+      .split(",")
+      .map((x) => x.trim())
+      .filter(Boolean);
+  };
+
+  const currentUserLevel = localStorage.getItem("user_level") || "";
+  const currentUserDepartments = getCurrentUserDepartments();
+
+  const canSeeAllDepartments =
+    currentUserLevel === "Admin" || currentUserDepartments.includes("CNE");
+
+  const applyDepartmentFilter = (next: string[]) => {
+    setSelectedDepartments(next);
+    onDepartmentFilterChange?.(next);
+  };
 
   const toggleDepartment = (dept: string) => {
     if (dept === "all") {
-      setSelectedDepartments(["all"]);
-    } else {
-      setSelectedDepartments((prev) => {
-        const withoutAll = prev.filter((d) => d !== "all");
-        if (withoutAll.includes(dept)) {
-          const next = withoutAll.filter((d) => d !== dept);
-          return next.length === 0 ? ["all"] : next;
-        }
-        return [...withoutAll, dept];
-      });
+      applyDepartmentFilter(["all"]);
+      return;
     }
+
+    setSelectedDepartments((prev) => {
+      const withoutAll = prev.filter((d) => d !== "all");
+
+      const next = withoutAll.includes(dept)
+        ? withoutAll.filter((d) => d !== dept)
+        : [...withoutAll, dept];
+
+      const finalNext = next.length === 0 ? ["all"] : next;
+
+      onDepartmentFilterChange?.(finalNext);
+
+      return finalNext;
+    });
   };
 
   const tableHeaders = [
@@ -110,31 +159,64 @@ const InboundTable = ({
     "Action",
   ];
 
-  // unique departments จากข้อมูลที่ได้มา
-  const departmentOptions = useMemo(() => {
-    const depts = new Set<string>();
-    (inbound || []).forEach((x) => {
-      const dept = (x as any).department;
-      if (dept) depts.add(dept);
-    });
-    return Array.from(depts).sort();
-  }, [inbound]);
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      try {
+        const resp: any = await departmentApi.getAll();
 
-  const filteredInbound = useMemo(() => {
-    if (
-      selectedDepartments.length === 0 ||
-      selectedDepartments.includes("all") ||
-      selectedDepartments.includes("CNE")
-    ) {
-      return inbound || [];
+        const rows = Array.isArray(resp?.data?.data)
+          ? resp.data.data
+          : Array.isArray(resp?.data)
+            ? resp.data
+            : [];
+
+        const allDeptNames = rows
+          .map((d: any) => String(d?.short_name ?? "").trim())
+          .filter(Boolean)
+          .sort();
+
+        if (canSeeAllDepartments) {
+          setDepartmentOptions(allDeptNames);
+          return;
+        }
+
+        const ownDeptOptions = currentUserDepartments
+          .filter((dept) => allDeptNames.includes(dept))
+          .sort();
+
+        setDepartmentOptions(ownDeptOptions);
+      } catch (err) {
+        console.error("Fetch departments failed:", err);
+        setDepartmentOptions([]);
+      }
+    };
+
+    fetchDepartments();
+  }, [canSeeAllDepartments, currentUserDepartments.join(",")]);
+
+  useEffect(() => {
+    if (selectedDepartmentFilter?.length) {
+      setSelectedDepartments(selectedDepartmentFilter);
     }
-    return (inbound || []).filter((x) =>
-      selectedDepartments.includes((x as any).department),
-    );
-  }, [inbound, selectedDepartments]);
+  }, [selectedDepartmentFilter]);
+
+  useEffect(() => {
+    if (departmentOptions.length === 0) return;
+
+    setSelectedDepartments((prev) => {
+      if (prev.includes("all")) return prev;
+
+      const validSelected = prev.filter((dept) =>
+        departmentOptions.includes(dept),
+      );
+
+      return validSelected.length > 0 ? validSelected : ["all"];
+    });
+  }, [departmentOptions]);
 
   // ✅ ใช้ตรงนี้เลย
-  const viewRows = filteredInbound;
+  const viewRows = inbound || [];
+
   return (
     <>
       <div className="page-header">
@@ -142,7 +224,7 @@ const InboundTable = ({
 
         <div className="toolbar">
           {/* Department filter */}
-          {departmentOptions.length > 1 && (
+          {departmentOptions.length > 0 && (
             <div className="inbound-dept-filter">
               <label>แผนก:</label>
               <div className="filter-wrap">
@@ -173,11 +255,7 @@ const InboundTable = ({
                       <label className="filter-option" key={dept}>
                         <input
                           type="checkbox"
-                          checked={
-                            selectedDepartments.includes("all") ||
-                            selectedDepartments.includes(dept) ||
-                            selectedDepartments.includes("CNE")
-                          }
+                          checked={selectedDepartments.includes(dept)}
                           onChange={() => toggleDepartment(dept)}
                         />
                         <span>{dept}</span>

@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import type { AdjustmentType } from "../types/adjustment.type";
+import { departmentApi } from "../../department/services/department.api";
 
 import Table from "../../../components/Table/Table";
 import "../../../components/Button/button.css";
@@ -45,6 +46,8 @@ type Props = {
   };
   onChangeLevelTab: (level: "manual" | "auto") => void;
   onChangeStatusTab: (status: "pending" | "completed") => void;
+  selectedDepartmentFilter?: string[];
+  onDepartmentFilterChange?: (departments: string[]) => void;
 };
 
 const formatDateTime = (dateString: string) => {
@@ -109,99 +112,164 @@ const AdjustmentTable = ({
   statusCounts,
   onChangeLevelTab,
   onChangeStatusTab,
+  selectedDepartmentFilter,
+  onDepartmentFilterChange,
 }: Props) => {
   const navigate = useNavigate();
-  const [selectedDepartments, setSelectedDepartments] = useState<string[]>([
-    "all",
-  ]);
+  const [selectedDepartments, setSelectedDepartments] = useState<string[]>(
+    selectedDepartmentFilter?.length ? selectedDepartmentFilter : ["all"],
+  );
   const [showDeptDropdown, setShowDeptDropdown] = useState(false);
+  const [departmentOptions, setDepartmentOptions] = useState<string[]>([]);
 
-  const departmentOptions = useMemo(() => {
-    const depts = new Set<string>();
-    (adjustments as any[]).forEach((a) => {
-      const dept = a?.department;
-      if (dept) depts.add(dept);
-    });
-    return Array.from(depts).sort();
-  }, [adjustments]);
+  const getCurrentUserDepartments = (): string[] => {
+    const rawDepartments = localStorage.getItem("departments");
+
+    if (rawDepartments) {
+      try {
+        const parsed = JSON.parse(rawDepartments);
+
+        if (Array.isArray(parsed)) {
+          return parsed
+            .map((d: any) => String(d?.short_name ?? "").trim())
+            .filter(Boolean);
+        }
+      } catch {
+        // fallback
+      }
+    }
+
+    return String(localStorage.getItem("department") || "")
+      .split(",")
+      .map((x) => x.trim())
+      .filter(Boolean);
+  };
+
+  const currentUserLevel = localStorage.getItem("user_level") || "";
+  const currentUserDepartments = getCurrentUserDepartments();
+
+  const canSeeAllDepartments =
+    currentUserLevel === "Admin" || currentUserDepartments.includes("CNE");
+
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      try {
+        const resp: any = await departmentApi.getAll();
+
+        const rows = Array.isArray(resp?.data?.data)
+          ? resp.data.data
+          : Array.isArray(resp?.data)
+            ? resp.data
+            : [];
+
+        const allDeptNames = rows
+          .map((d: any) => String(d?.short_name ?? "").trim())
+          .filter(Boolean)
+          .sort();
+
+        if (canSeeAllDepartments) {
+          setDepartmentOptions(allDeptNames);
+          return;
+        }
+
+        const ownDeptOptions = currentUserDepartments
+          .filter((dept: string) => allDeptNames.includes(dept))
+          .sort();
+
+        setDepartmentOptions(ownDeptOptions);
+      } catch (err) {
+        console.error("Fetch departments failed:", err);
+        setDepartmentOptions([]);
+      }
+    };
+
+    fetchDepartments();
+  }, [canSeeAllDepartments, currentUserDepartments.join(",")]);
+
+  useEffect(() => {
+    if (selectedDepartmentFilter?.length) {
+      setSelectedDepartments(selectedDepartmentFilter);
+    }
+  }, [selectedDepartmentFilter]);
+
+  const applyDepartmentFilter = (next: string[]) => {
+    setSelectedDepartments(next);
+    onDepartmentFilterChange?.(next);
+  };
 
   const toggleDepartment = (dept: string) => {
     if (dept === "all") {
-      setSelectedDepartments(["all"]);
-    } else {
-      setSelectedDepartments((prev) => {
-        const withoutAll = prev.filter((d) => d !== "all");
-        if (withoutAll.includes(dept)) {
-          const next = withoutAll.filter((d) => d !== dept);
-          return next.length === 0 ? ["all"] : next;
-        }
-        return [...withoutAll, dept];
-      });
+      applyDepartmentFilter(["all"]);
+      return;
     }
+
+    setSelectedDepartments((prev) => {
+      const withoutAll = prev.filter((d) => d !== "all");
+
+      const next = withoutAll.includes(dept)
+        ? withoutAll.filter((d) => d !== dept)
+        : [...withoutAll, dept];
+
+      const finalNext = next.length === 0 ? ["all"] : next;
+
+      onDepartmentFilterChange?.(finalNext);
+
+      return finalNext;
+    });
   };
 
-  const viewAdjustments = useMemo(() => {
-    let list = adjustments as any[];
-
-    if (!selectedDepartments.includes("all")) {
-      list = list.filter((a) =>
-        selectedDepartments.includes(a?.department ?? ""),
-      );
-    }
-
-    return list;
-  }, [adjustments, selectedDepartments]);
+  const viewAdjustments = adjustments as any[];
 
   // ✅ View ไปหน้า detail
   const openDetail = (adj: any) => {
-  const id = adj?.id;
-  if (!id) return;
+    const id = adj?.id;
+    if (!id) return;
 
-  const src = detectSrc(adj);
+    const src = detectSrc(adj);
 
-  navigate(`/adjustment/${id}?src=${src}`, {
-    state: {
-      navGroup,
-      level: levelTab,
-      status: statusTab,
-      detailList: viewAdjustments.map((x: any) => ({
-        id: Number(x.id),
-        src: detectSrc(x),
-      })),
-      detailTotal:
-        levelTab === "auto"
-          ? Number(statusCounts.auto.completed ?? 0)
-          : statusTab === "completed"
-            ? Number(statusCounts.manual.completed ?? 0)
-            : Number(statusCounts.manual.pending ?? 0),
-    },
-  });
-};
+    navigate(`/adjustment/${id}?src=${src}`, {
+      state: {
+        navGroup,
+        level: levelTab,
+        status: statusTab,
+        detailList: viewAdjustments.map((x: any) => ({
+          id: Number(x.id),
+          src: detectSrc(x),
+        })),
+        detailTotal:
+          levelTab === "auto"
+            ? Number(statusCounts.auto.completed ?? 0)
+            : statusTab === "completed"
+              ? Number(statusCounts.manual.completed ?? 0)
+              : Number(statusCounts.manual.pending ?? 0),
+      },
+    });
+  };
 
- const openManualAdjust = (adj: any) => {
-  const id = adj?.id;
-  if (!id) return;
+  const openManualAdjust = (adj: any) => {
+    const id = adj?.id;
+    if (!id) return;
 
-  const src = detectSrc(adj);
+    const src = detectSrc(adj);
 
-  navigate(`/adjustment/${id}/manual?src=${src}`, {
-    state: {
-      navGroup,
-      level: levelTab,
-      status: statusTab,
-      detailList: viewAdjustments.map((x: any) => ({
-        id: Number(x.id),
-        src: detectSrc(x),
-      })),
-      detailTotal:
-        levelTab === "auto"
-          ? Number(statusCounts.auto.completed ?? 0)
-          : statusTab === "completed"
-            ? Number(statusCounts.manual.completed ?? 0)
-            : Number(statusCounts.manual.pending ?? 0),
-    },
-  });
-};
+    navigate(`/adjustment/${id}/manual?src=${src}`, {
+      state: {
+        navGroup,
+        level: levelTab,
+        status: statusTab,
+        detailList: viewAdjustments.map((x: any) => ({
+          id: Number(x.id),
+          src: detectSrc(x),
+        })),
+        detailTotal:
+          levelTab === "auto"
+            ? Number(statusCounts.auto.completed ?? 0)
+            : statusTab === "completed"
+              ? Number(statusCounts.manual.completed ?? 0)
+              : Number(statusCounts.manual.pending ?? 0),
+      },
+    });
+  };
 
   // ✅ Process/Continue ตอนนี้ทำเป็น toast ไว้ก่อน (ภายหลังค่อย navigate)
   const handleProcessOrContinue = (adj: any) => {
@@ -214,11 +282,11 @@ const AdjustmentTable = ({
   };
 
   const navGroup =
-  levelTab === "auto"
-    ? "auto_completed"
-    : statusTab === "completed"
-      ? "manual_completed"
-      : "manual_pending";
+    levelTab === "auto"
+      ? "auto_completed"
+      : statusTab === "completed"
+        ? "manual_completed"
+        : "manual_pending";
 
   const tableHeaders = [
     "No",
@@ -303,7 +371,10 @@ const AdjustmentTable = ({
                   {selectedDepartments.includes("all")
                     ? "ทั้งหมด"
                     : selectedDepartments.join(", ")}
-                  <i className="fa fa-chevron-down" style={{ marginLeft: 42 }} />
+                  <i
+                    className="fa fa-chevron-down"
+                    style={{ marginLeft: 42 }}
+                  />
                 </button>
                 {showDeptDropdown && (
                   <div className="filter-dropdown-2">
@@ -319,10 +390,7 @@ const AdjustmentTable = ({
                       <label className="filter-option" key={dept}>
                         <input
                           type="checkbox"
-                          checked={
-                            selectedDepartments.includes("all") ||
-                            selectedDepartments.includes(dept)
-                          }
+                          checked={selectedDepartments.includes(dept)}
                           onChange={() => toggleDepartment(dept)}
                         />
                         <span>{dept}</span>

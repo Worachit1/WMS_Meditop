@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
+import { departmentApi } from "../../department/services/department.api";
 import type { BorType } from "../types/bor.type";
 
 import Table from "../../../components/Table/Table";
@@ -39,6 +40,8 @@ type Props = {
 
   currentPage?: number;
   itemsPerPage?: number;
+  selectedDepartmentFilter?: string[];
+  onDepartmentFilterChange?: (departments: string[]) => void;
 };
 
 const resolveStr = (val: any): string => {
@@ -54,19 +57,6 @@ const formatDisplayDate = (value: string) => {
   return `${day}/${month}/${year.slice(-2)}`;
 };
 
-// const getStatusLabel = (status?: string) => {
-//   switch (status) {
-//     case "waiting":
-//       return "WAITING";
-//     case "error":
-//       return "ERROR";
-//     case "done":
-//       return "DONE";
-//     default:
-//       return status ?? "-";
-//   }
-// };
-
 const BorTable = ({
   bors,
   searchQuery,
@@ -81,51 +71,114 @@ const BorTable = ({
   onExportAll,
   currentPage = 1,
   itemsPerPage = 10,
+  selectedDepartmentFilter,
+  onDepartmentFilterChange,
 }: Props) => {
   const [selectedDepartments, setSelectedDepartments] = useState<string[]>([
     "all",
   ]);
   const [showDeptDropdown, setShowDeptDropdown] = useState(false);
 
+  const [departmentOptions, setDepartmentOptions] = useState<string[]>([]);
+
+  const getCurrentUserDepartments = (): string[] => {
+    const rawDepartments = localStorage.getItem("departments");
+
+    if (rawDepartments) {
+      try {
+        const parsed = JSON.parse(rawDepartments);
+
+        if (Array.isArray(parsed)) {
+          return parsed
+            .map((d: any) => String(d?.short_name ?? "").trim())
+            .filter(Boolean);
+        }
+      } catch {
+        // fallback
+      }
+    }
+
+    return String(localStorage.getItem("department") || "")
+      .split(",")
+      .map((x) => x.trim())
+      .filter(Boolean);
+  };
+
+  const currentUserLevel = localStorage.getItem("user_level") || "";
+  const currentUserDepartments = getCurrentUserDepartments();
+
+  const canSeeAllDepartments =
+    currentUserLevel === "Admin" || currentUserDepartments.includes("CNE");
+
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      try {
+        const resp: any = await departmentApi.getAll();
+
+        const rows = Array.isArray(resp?.data?.data)
+          ? resp.data.data
+          : Array.isArray(resp?.data)
+            ? resp.data
+            : [];
+
+        const allDeptNames = rows
+          .map((d: any) => String(d?.short_name ?? "").trim())
+          .filter(Boolean)
+          .sort();
+
+        if (canSeeAllDepartments) {
+          setDepartmentOptions(allDeptNames);
+          return;
+        }
+
+        const ownDeptOptions = currentUserDepartments
+          .filter((dept: string) => allDeptNames.includes(dept))
+          .sort();
+
+        setDepartmentOptions(ownDeptOptions);
+      } catch (err) {
+        console.error("Fetch departments failed:", err);
+        setDepartmentOptions([]);
+      }
+    };
+
+    fetchDepartments();
+  }, [canSeeAllDepartments, currentUserDepartments.join(",")]);
+
+  useEffect(() => {
+    if (selectedDepartmentFilter?.length) {
+      setSelectedDepartments(selectedDepartmentFilter);
+    }
+  }, [selectedDepartmentFilter]);
+
+  const applyDepartmentFilter = (next: string[]) => {
+    setSelectedDepartments(next);
+    onDepartmentFilterChange?.(next);
+  };
+
   const toggleDepartment = (dept: string) => {
     if (dept === "all") {
-      setSelectedDepartments(["all"]);
+      applyDepartmentFilter(["all"]);
       return;
     }
 
     setSelectedDepartments((prev) => {
       const withoutAll = prev.filter((d) => d !== "all");
-      if (withoutAll.includes(dept)) {
-        const next = withoutAll.filter((d) => d !== dept);
-        return next.length === 0 ? ["all"] : next;
-      }
-      return [...withoutAll, dept];
+
+      const next = withoutAll.includes(dept)
+        ? withoutAll.filter((d) => d !== dept)
+        : [...withoutAll, dept];
+
+      const finalNext = next.length === 0 ? ["all"] : next;
+
+      onDepartmentFilterChange?.(finalNext);
+
+      return finalNext;
     });
   };
 
-  const departmentOptions = useMemo(() => {
-    const depts = new Set<string>();
-    (bors || []).forEach((b: any) => {
-      const name = String(resolveStr(b?.department)).trim();
-      if (name && name !== "-") depts.add(name);
-    });
-    return Array.from(depts).sort();
-  }, [bors]);
-
-  const filteredBors = useMemo(() => {
-    if (
-      selectedDepartments.length === 0 ||
-      selectedDepartments.includes("all")
-    ) {
-      return bors;
-    }
-
-    return (bors || []).filter((b: any) => {
-      const dept = String(resolveStr(b?.department)).trim();
-      return dept ? selectedDepartments.includes(dept) : false;
-    });
-  }, [bors, selectedDepartments]);
-
+  const viewRows = bors || [];
+  
   const tableHeaders = [
     "No",
     "Date/Time",
@@ -176,7 +229,7 @@ const BorTable = ({
         </div>
 
         <div className="toolbar">
-          {departmentOptions.length > 1 && (
+          {departmentOptions.length > 0 && (
             <div className="inbound-dept-filter">
               <label>แผนก:</label>
               <div className="filter-wrap">
@@ -209,10 +262,7 @@ const BorTable = ({
                       <label className="filter-option" key={dept}>
                         <input
                           type="checkbox"
-                          checked={
-                            selectedDepartments.includes("all") ||
-                            selectedDepartments.includes(dept)
-                          }
+                          checked={selectedDepartments.includes(dept)}
                           onChange={() => toggleDepartment(dept)}
                         />
                         <span>{dept}</span>
@@ -294,17 +344,16 @@ const BorTable = ({
           <IconButton variant="export" onClick={handleExport} />
         </div>
       </div>
-
       <div className="table__wrapper">
         <Table headers={tableHeaders}>
-          {filteredBors.length === 0 ? (
+          {viewRows.length === 0 ? (
             <tr>
               <td colSpan={tableHeaders.length} className="no-data">
                 No stocks found.
               </td>
             </tr>
           ) : (
-            filteredBors.map((bor, index) => (
+            viewRows.map((bor, index) => (
               <tr key={bor.no}>
                 <td>{(currentPage - 1) * itemsPerPage + index + 1}</td>
                 <td>{formatDateTime(bor.created_at)}</td>
@@ -319,10 +368,10 @@ const BorTable = ({
                       navigate(`/bor/detail/${encodeURIComponent(bor.no)}`, {
                         state: {
                           view: "bor",
-                          detailList: filteredBors.map((x: any) => ({
+                          detailList: viewRows.map((x: any) => ({
                             no: String(x?.no ?? "").trim(),
                           })),
-                          detailTotal: filteredBors.length,
+                          detailTotal: viewRows.length,
                         },
                       })
                     }

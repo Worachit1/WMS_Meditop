@@ -56,4 +56,5 @@ export interface GetAllPaginatedParams {
   limit: number;
   search?: string;
   columns?: string[];
+  department?: string; // ✅ เพิ่ม
 }

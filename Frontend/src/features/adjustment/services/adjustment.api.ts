@@ -41,10 +41,13 @@ export type GetAdjustmentStatus = "pending" | "completed";
 
 export const adjustmentApi = {
   // ✅ list page: ใช้ combined endpoint ตัวเดียว
-  getAllPaginated: (params: GetAllPaginatedParams & {
-    level?: GetAdjustmentLevel;
-    status?: GetAdjustmentStatus;
-  }) =>
+  getAllPaginated: (
+    params: GetAllPaginatedParams & {
+      level?: GetAdjustmentLevel;
+      status?: GetAdjustmentStatus;
+      department?: string; // ✅ เพิ่ม
+    },
+  ) =>
     http.get<ApiAdjustmentResponse>("/Adjust", {
       params: {
         ...params,
@@ -74,18 +77,16 @@ export const adjustmentApi = {
     http.post(`/Adjust/${encodeURIComponent(no)}/complete`, body),
 
   removeItem: (adjustmentId: number, itemId: number, pin: string) =>
-  http.delete(`/Adjust/${adjustmentId}/items/${itemId}`, {
-    data: { pin },
-  }),
+    http.delete(`/Adjust/${adjustmentId}/items/${itemId}`, {
+      data: { pin },
+    }),
 
   scanBarcode: (
-  no: string,
-  data: {
-    barcode: string;
-    location_full_name: string;
-    user_ref?: string | null;
-  },
-) => http.post(`/Adjust/${encodeURIComponent(no)}/scan/barcode`, data),
-
-
+    no: string,
+    data: {
+      barcode: string;
+      location_full_name: string;
+      user_ref?: string | null;
+    },
+  ) => http.post(`/Adjust/${encodeURIComponent(no)}/scan/barcode`, data),
 };

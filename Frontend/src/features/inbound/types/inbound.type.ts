@@ -78,6 +78,7 @@ export interface InboundMeta {
     pending: number;
     completed: number;
   };
+  department?: string;
 }
 
 export interface ApiInboundResponse {

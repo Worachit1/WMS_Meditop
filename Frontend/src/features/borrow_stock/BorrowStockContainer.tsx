@@ -41,6 +41,8 @@ const BorrowStockContainer = () => {
     completed: 0,
   });
 
+  const [departmentFilter, setDepartmentFilter] = useState<string[]>(["all"]);
+
   const fetchStocks = useCallback(
     async (
       page: number,
@@ -72,8 +74,10 @@ const BorrowStockContainer = () => {
           page,
           limit,
           search: search.trim() || undefined,
-          columns: enabledColumns || undefined,
           status: statusTab,
+          department: departmentFilter.includes("all")
+            ? undefined
+            : departmentFilter.join(","),
         });
 
         const { data = [], meta } = resp.data;
@@ -98,7 +102,7 @@ const BorrowStockContainer = () => {
         }
       }
     },
-    [statusTab],
+    [statusTab, departmentFilter],
   );
 
   useEffect(() => {
@@ -124,6 +128,11 @@ const BorrowStockContainer = () => {
 
   const handleItemsPerPageChange = (limit: number) => {
     setItemsPerPage(limit);
+    setCurrentPage(1);
+  };
+
+  const handleDepartmentFilterChange = (departments: string[]) => {
+    setDepartmentFilter(departments);
     setCurrentPage(1);
   };
 
@@ -169,6 +178,8 @@ const BorrowStockContainer = () => {
           statusCounts={statusCounts}
           currentPage={currentPage}
           itemsPerPage={itemsPerPage}
+          selectedDepartmentFilter={departmentFilter}
+          onDepartmentFilterChange={handleDepartmentFilterChange}
         />
 
         <Pegination

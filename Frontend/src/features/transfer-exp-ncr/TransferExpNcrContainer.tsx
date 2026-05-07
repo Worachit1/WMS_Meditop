@@ -42,6 +42,8 @@ const TransferExpNcrContainer = () => {
     completed: 0,
   });
 
+  const [departmentFilter, setDepartmentFilter] = useState<string[]>(["all"]);
+
   const fetchTransfers = useCallback(
     async (
       page: number,
@@ -66,9 +68,13 @@ const TransferExpNcrContainer = () => {
           search: search.trim() || undefined,
           columns: enabledColumns || undefined,
           status: statusTab,
+          department: departmentFilter.includes("all")
+            ? undefined
+            : departmentFilter.join(","),
         });
 
         const { data = [], meta } = response.data as any;
+
         setTransfers(Array.isArray(data) ? data : []);
         setTotalPages(Number(meta?.totalPages ?? 1));
         setTotalItems(Number(meta?.total ?? 0));
@@ -89,7 +95,7 @@ const TransferExpNcrContainer = () => {
         }
       }
     },
-    [statusTab],
+    [statusTab, departmentFilter],
   );
 
   useEffect(() => {
@@ -106,6 +112,7 @@ const TransferExpNcrContainer = () => {
     itemsPerPage,
     searchableColumns,
     statusTab,
+    departmentFilter,
   ]);
 
   // debounce search
@@ -119,6 +126,11 @@ const TransferExpNcrContainer = () => {
 
   const handleItemsPerPageChange = (limit: number) => {
     setItemsPerPage(limit);
+    setCurrentPage(1);
+  };
+
+  const handleDepartmentFilterChange = (departments: string[]) => {
+    setDepartmentFilter(departments);
     setCurrentPage(1);
   };
 
@@ -156,6 +168,8 @@ const TransferExpNcrContainer = () => {
             setStatusTab(tab);
             setCurrentPage(1);
           }}
+          selectedDepartmentFilter={departmentFilter}
+          onDepartmentFilterChange={handleDepartmentFilterChange}
         />
 
         <Pegination

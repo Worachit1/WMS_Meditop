@@ -36,6 +36,8 @@ const TransferMovementContainer = () => {
     "pick",
   );
 
+  const [departmentFilter, setDepartmentFilter] = useState<string[]>(["all"]);
+
   const [statusCounts, setStatusCounts] = useState({
     pick: 0,
     put: 0,
@@ -66,6 +68,9 @@ const TransferMovementContainer = () => {
           search: search.trim() || undefined,
           columns: enabledColumns || undefined,
           status: statusTab,
+          department: departmentFilter.includes("all")
+            ? undefined
+            : departmentFilter.join(","),
         });
 
         const { data = [], meta } = response.data as any;
@@ -91,7 +96,7 @@ const TransferMovementContainer = () => {
         }
       }
     },
-    [statusTab],
+    [statusTab, departmentFilter],
   );
 
   useEffect(() => {
@@ -121,6 +126,11 @@ const TransferMovementContainer = () => {
 
   const handleItemsPerPageChange = (limit: number) => {
     setItemsPerPage(limit);
+    setCurrentPage(1);
+  };
+
+  const handleDepartmentFilterChange = (departments: string[]) => {
+    setDepartmentFilter(departments);
     setCurrentPage(1);
   };
 
@@ -158,6 +168,8 @@ const TransferMovementContainer = () => {
             setStatusTab(tab);
             setCurrentPage(1);
           }}
+          selectedDepartmentFilter={departmentFilter}
+          onDepartmentFilterChange={handleDepartmentFilterChange}
         />
 
         <Pegination

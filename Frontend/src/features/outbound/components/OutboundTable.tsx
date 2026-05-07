@@ -9,7 +9,8 @@ import "./groporder/grouporder.css";
 import { formatDateTime } from "../../../components/Datetime/FormatDateTime";
 import type { OutboundView } from "../types/outbound.type";
 import { Link } from "react-router-dom";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { departmentApi } from "../../department/services/department.api";
 
 type OutboundDocRow = {
   no: string;
@@ -147,41 +148,96 @@ const OutboundTable = ({
   ]);
   const [showDeptDropdown, setShowDeptDropdown] = useState(false);
 
+  const [departmentOptions, setDepartmentOptions] = useState<string[]>([]);
+
+  const getCurrentUserDepartments = (): string[] => {
+    const rawDepartments = localStorage.getItem("departments");
+
+    if (rawDepartments) {
+      try {
+        const parsed = JSON.parse(rawDepartments);
+
+        if (Array.isArray(parsed)) {
+          return parsed
+            .map((d: any) => String(d?.short_name ?? "").trim())
+            .filter(Boolean);
+        }
+      } catch {
+        // fallback
+      }
+    }
+
+    return String(localStorage.getItem("department") || "")
+      .split(",")
+      .map((x) => x.trim())
+      .filter(Boolean);
+  };
+
+  const currentUserLevel = localStorage.getItem("user_level") || "";
+  const currentUserDepartments = getCurrentUserDepartments();
+
+  const canSeeAllDepartments =
+    currentUserLevel === "Admin" || currentUserDepartments.includes("CNE");
+
   const toggleDepartment = (dept: string) => {
     if (dept === "all") {
       setSelectedDepartments(["all"]);
-    } else {
-      setSelectedDepartments((prev) => {
-        const withoutAll = prev.filter((d) => d !== "all");
-        if (withoutAll.includes(dept)) {
-          const next = withoutAll.filter((d) => d !== dept);
-          return next.length === 0 ? ["all"] : next;
-        }
-        return [...withoutAll, dept];
-      });
+      return;
     }
+
+    setSelectedDepartments((prev) => {
+      const withoutAll = prev.filter((d) => d !== "all");
+
+      const next = withoutAll.includes(dept)
+        ? withoutAll.filter((d) => d !== dept)
+        : [...withoutAll, dept];
+
+      return next.length === 0 ? ["all"] : next;
+    });
   };
 
-  const departmentOptions = useMemo(() => {
-    const depts = new Set<string>();
-    (docs || []).forEach((x) => {
-      if (x.department) depts.add(x.department);
-    });
-    return Array.from(depts).sort();
-  }, [docs]);
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      try {
+        const resp: any = await departmentApi.getAll();
 
-  const filteredDocs = useMemo(() => {
-    if (
-      selectedDepartments.length === 0 ||
-      selectedDepartments.includes("all") ||
-      selectedDepartments.includes("CNE")
-    ) {
-      return docs || [];
-    }
-    return (docs || []).filter((x) =>
-      selectedDepartments.includes(x.department ?? ""),
-    );
-  }, [docs, selectedDepartments]);
+        const rows = Array.isArray(resp?.data?.data)
+          ? resp.data.data
+          : Array.isArray(resp?.data)
+            ? resp.data
+            : [];
+
+        const allDeptNames = rows
+          .map((d: any) => String(d?.short_name ?? "").trim())
+          .filter(Boolean)
+          .sort();
+
+        if (canSeeAllDepartments) {
+          setDepartmentOptions(allDeptNames);
+          return;
+        }
+
+        const ownDeptOptions = currentUserDepartments
+          .filter((dept: string) => allDeptNames.includes(dept))
+          .sort();
+
+        setDepartmentOptions(ownDeptOptions);
+      } catch (err) {
+        console.error("Fetch departments failed:", err);
+        setDepartmentOptions([]);
+      }
+    };
+
+    fetchDepartments();
+  }, [canSeeAllDepartments, currentUserDepartments.join(",")]);
+
+  const filteredDocs = (docs || []).filter((doc: any) => {
+    if (selectedDepartments.includes("all")) return true;
+
+    const docDepartment = String(doc?.department ?? "").trim();
+
+    return selectedDepartments.includes(docDepartment);
+  });
 
   const filteredPickingBatches = pickingBatches;
 
@@ -298,7 +354,7 @@ const OutboundTable = ({
         )}
 
         <div className="toolbar">
-          {isDoc && departmentOptions.length > 1 && (
+          {isDoc && departmentOptions.length > 0 && (
             <div className="inbound-dept-filter">
               <label>แผนก:</label>
               <div className="filter-wrap">
@@ -329,11 +385,7 @@ const OutboundTable = ({
                       <label className="filter-option" key={dept}>
                         <input
                           type="checkbox"
-                          checked={
-                            selectedDepartments.includes("all") ||
-                            selectedDepartments.includes(dept) ||
-                            selectedDepartments.includes("CNE")
-                          }
+                          checked={selectedDepartments.includes(dept)}
                           onChange={() => toggleDepartment(dept)}
                         />
                         <span>{dept}</span>

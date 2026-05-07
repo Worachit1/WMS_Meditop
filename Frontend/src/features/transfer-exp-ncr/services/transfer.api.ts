@@ -52,6 +52,7 @@ export const transferApi = {
   search?: string;
   columns?: string;
   status?: "pending" | "process" | "completed";
+  department?: string;
 }) => http.get<TransferListResponse>("/transfers/get", { params }),
 
 

@@ -66,44 +66,35 @@ const UserTable = ({
   const [departmentOptions, setDepartmentOptions] = useState<string[]>([]);
 
   const currentUserLevel = localStorage.getItem("user_level");
-  const currentUserDepartment = localStorage.getItem("department") || "";
 
   const isCurrentUserAdmin = currentUserLevel === "Admin";
 
-  const canSeeDepartmentFilter =
-    currentUserLevel === "Admin" ||
-    currentUserDepartment
-      .split(",")
-      .map((x) => x.trim())
-      .includes("CNE");
 
   useEffect(() => {
-    if (!canSeeDepartmentFilter) return;
+  const fetchDepartments = async () => {
+    try {
+      const resp: any = await departmentApi.getAll();
 
-    const fetchDepartments = async () => {
-      try {
-        const resp: any = await departmentApi.getAll();
+      const rows = Array.isArray(resp?.data?.data)
+        ? resp.data.data
+        : Array.isArray(resp?.data)
+          ? resp.data
+          : [];
 
-        const rows = Array.isArray(resp?.data?.data)
-          ? resp.data.data
-          : Array.isArray(resp?.data)
-            ? resp.data
-            : [];
+      const options = rows
+        .map((d: any) => String(d?.short_name ?? "").trim())
+        .filter(Boolean)
+        .sort();
 
-        const options = rows
-          .map((d: any) => String(d?.short_name ?? "").trim())
-          .filter(Boolean)
-          .sort();
+      setDepartmentOptions(options);
+    } catch (err) {
+      console.error("Fetch departments failed:", err);
+      setDepartmentOptions([]);
+    }
+  };
 
-        setDepartmentOptions(options);
-      } catch (err) {
-        console.error("Fetch departments failed:", err);
-        setDepartmentOptions([]);
-      }
-    };
-
-    fetchDepartments();
-  }, [canSeeDepartmentFilter]);
+  fetchDepartments();
+}, []);
 
   const openProfile = (id: number) => {
     setProfileUserId(id);
@@ -136,7 +127,9 @@ const UserTable = ({
           .filter(Boolean)
       : [];
 
-    return userDepartments.some((dept: string) => selectedDepartments.includes(dept));
+    return userDepartments.some((dept: string) =>
+      selectedDepartments.includes(dept),
+    );
   });
 
   const tableHeaders = [
@@ -248,7 +241,7 @@ const UserTable = ({
 
         <div className="toolbar">
           {/* Department filter */}
-          {canSeeDepartmentFilter && departmentOptions.length > 0 && (
+          {departmentOptions.length > 0 && (
             <div className="inbound-dept-filter">
               <label>แผนก:</label>
               <div className="filter-wrap">
@@ -363,14 +356,14 @@ const UserTable = ({
 
       <div className="table__wrapper">
         <Table headers={tableHeaders}>
-         {filteredUsers.length === 0 ? (
+          {filteredUsers.length === 0 ? (
             <tr>
               <td colSpan={tableHeaders.length} className="no-data">
                 No users found.
               </td>
             </tr>
           ) : (
-        filteredUsers.map((user, index) => (
+            filteredUsers.map((user, index) => (
               <tr key={user.id}>
                 <td>{(currentPage - 1) * itemsPerPage + index + 1}</td>
                 <td style={{ minWidth: "230px" }}>

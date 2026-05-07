@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { departmentApi } from "../../department/services/department.api";
 import type { ReportMovementType } from "../types/report_movement.type";
 
 import Table from "../../../components/Table/Table";
@@ -79,6 +80,8 @@ type Props = {
   sortKey: BackendSortKey;
   sortDir: SortDir;
   onSortChange: (key: BackendSortKey, dir: SortDir) => void;
+  selectedDepartmentFilter?: string[];
+  onDepartmentFilterChange?: (departments: string[]) => void;
 };
 
 type ReportMovementListRow = {
@@ -310,29 +313,73 @@ const ReportMovementTable = ({
   sortKey,
   sortDir,
   onSortChange,
+  selectedDepartmentFilter,
+  onDepartmentFilterChange,
 }: Props) => {
-  const [selectedDepartments, setSelectedDepartments] = useState<string[]>([
-    "all",
-  ]);
+  const [selectedDepartments, setSelectedDepartments] = useState<string[]>(
+    selectedDepartmentFilter?.length ? selectedDepartmentFilter : ["all"],
+  );
   const [showDeptDropdown, setShowDeptDropdown] = useState(false);
+
+  const [departmentOptions, setDepartmentOptions] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (selectedDepartmentFilter?.length) {
+      setSelectedDepartments(selectedDepartmentFilter);
+    }
+  }, [selectedDepartmentFilter]);
+
+  const applyDepartmentFilter = (next: string[]) => {
+    setSelectedDepartments(next);
+    onDepartmentFilterChange?.(next);
+  };
 
   const toggleDepartment = (dept: string) => {
     if (dept === "all") {
-      setSelectedDepartments(["all"]);
+      applyDepartmentFilter(["all"]);
       return;
     }
 
     setSelectedDepartments((prev) => {
       const withoutAll = prev.filter((d) => d !== "all");
 
-      if (withoutAll.includes(dept)) {
-        const next = withoutAll.filter((d) => d !== dept);
-        return next.length === 0 ? ["all"] : next;
-      }
+      const next = withoutAll.includes(dept)
+        ? withoutAll.filter((d) => d !== dept)
+        : [...withoutAll, dept];
 
-      return [...withoutAll, dept];
+      const finalNext = next.length === 0 ? ["all"] : next;
+
+      onDepartmentFilterChange?.(finalNext);
+
+      return finalNext;
     });
   };
+
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      try {
+        const resp: any = await departmentApi.getAll();
+
+        const rows = Array.isArray(resp?.data?.data)
+          ? resp.data.data
+          : Array.isArray(resp?.data)
+            ? resp.data
+            : [];
+
+        const options = rows
+          .map((d: any) => String(d?.short_name ?? "").trim())
+          .filter(Boolean)
+          .sort((a: string, b: string) => a.localeCompare(b, "th"));
+
+        setDepartmentOptions(options);
+      } catch (err) {
+        console.error("Fetch departments failed:", err);
+        setDepartmentOptions([]);
+      }
+    };
+
+    fetchDepartments();
+  }, []);
 
   const toggleSort = (key: BackendSortKey) => {
     const nextDir: SortDir =
@@ -389,41 +436,7 @@ const ReportMovementTable = ({
     return buildMovementRows(report_movements);
   }, [report_movements]);
 
-  const departmentOptions = useMemo(() => {
-    const depts = new Set<string>();
-
-    flattenedMovements.forEach((row) => {
-      const values = row.department_values?.length
-        ? row.department_values
-        : [row.department];
-
-      values
-        .map((x) => String(x ?? "").trim())
-        .filter(Boolean)
-        .forEach((dept) => depts.add(dept));
-    });
-
-    return Array.from(depts).sort((a, b) => a.localeCompare(b, "th"));
-  }, [flattenedMovements]);
-
-  const filteredMovements = useMemo(() => {
-    if (
-      selectedDepartments.length === 0 ||
-      selectedDepartments.includes("all")
-    ) {
-      return flattenedMovements;
-    }
-
-    return flattenedMovements.filter((row) => {
-      const values = row.department_values?.length
-        ? row.department_values
-        : [row.department];
-
-      return values.some((dept) =>
-        selectedDepartments.includes(String(dept ?? "").trim()),
-      );
-    });
-  }, [flattenedMovements, selectedDepartments]);
+  const viewRows = flattenedMovements;
 
   const formatFileDate = (d: Date = new Date()) => {
     const dd = String(d.getDate()).padStart(2, "0");
@@ -607,7 +620,7 @@ const ReportMovementTable = ({
         </div>
 
         <div className="toolbar">
-          {departmentOptions.length > 1 && (
+          {departmentOptions.length > 0 && (
             <div className="inbound-dept-filter">
               <label>แผนก:</label>
 
@@ -621,7 +634,10 @@ const ReportMovementTable = ({
                     ? "ทั้งหมด"
                     : selectedDepartments.join(", ")}
 
-                  <i className="fa fa-chevron-down" style={{ marginLeft: 40 }} />
+                  <i
+                    className="fa fa-chevron-down"
+                    style={{ marginLeft: 40 }}
+                  />
                 </button>
 
                 {showDeptDropdown && (
@@ -639,10 +655,7 @@ const ReportMovementTable = ({
                       <label className="filter-option" key={dept}>
                         <input
                           type="checkbox"
-                          checked={
-                            selectedDepartments.includes("all") ||
-                            selectedDepartments.includes(dept)
-                          }
+                          checked={selectedDepartments.includes(dept)}
                           onChange={() => toggleDepartment(dept)}
                         />
                         <span>{dept}</span>
@@ -732,14 +745,14 @@ const ReportMovementTable = ({
 
       <div className="table__wrapper">
         <Table headers={tableHeaders}>
-          {filteredMovements.length === 0 ? (
+          {viewRows.length === 0 ? (
             <tr>
               <td colSpan={tableHeaders.length} className="no-data">
                 No report movements found.
               </td>
             </tr>
           ) : (
-            filteredMovements.map((row, index) => (
+            viewRows.map((row, index) => (
               <tr key={row.row_id}>
                 <td>{(currentPage - 1) * itemsPerPage + index + 1}</td>
                 <td>{formatDateTime(row.created_at)}</td>
@@ -754,9 +767,11 @@ const ReportMovementTable = ({
                 <td>{row.lot_serial ?? "-"}</td>
                 <td>{row.exp ? formatDateTime(row.exp) : "-"}</td>
                 <td>{row.zone_type ?? "-"}</td>
-                <td style={{ whiteSpace: "pre-line", width: "30px" }}>{row.location ?? "-"}</td>
+                <td style={{ whiteSpace: "pre-line", width: "30px" }}>
+                  {row.location ?? "-"}
+                </td>
                 <td style={{ whiteSpace: "pre-line", width: "400px" }}>
-                  {row.location_dest  || "-"}
+                  {row.location_dest || "-"}
                 </td>
                 <td>{getInQty(row) ?? "-"}</td>
                 <td>{getOutQty(row) ?? "-"}</td>

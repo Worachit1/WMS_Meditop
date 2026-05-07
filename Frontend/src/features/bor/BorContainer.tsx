@@ -30,7 +30,7 @@ const BorContainer = () => {
   const [currentPage, setCurrentPage] = useState(1);
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [debouncedSearch, _setDebouncedSearch] = useState("");
   const [itemsPerPage, setItemsPerPage] = useState(DEFAULT_PAGE_LIMIT);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
@@ -46,14 +46,16 @@ const BorContainer = () => {
     department: true,
   });
 
-  const buildEnabledColumns = useCallback(
-    (columns: typeof searchableColumns) =>
-      Object.entries(columns)
-        .filter(([, enabled]) => enabled)
-        .map(([col]) => col)
-        .join(","),
-    [],
-  );
+  const [departmentFilter, setDepartmentFilter] = useState<string[]>(["all"]);
+
+  // const buildEnabledColumns = useCallback(
+  //   (columns: typeof searchableColumns) =>
+  //     Object.entries(columns)
+  //       .filter(([, enabled]) => enabled)
+  //       .map(([col]) => col)
+  //       .join(","),
+  //   [],
+  // );
 
   const fetchBors = useCallback(
     async (
@@ -61,6 +63,7 @@ const BorContainer = () => {
       search: string,
       limit: number,
       _columns: typeof searchableColumns,
+      departments: string[],
     ) => {
       const startTime = Date.now();
       const loadingTimeout = setTimeout(() => {
@@ -68,12 +71,13 @@ const BorContainer = () => {
       }, SHOW_LOADING_THRESHOLD);
 
       try {
-        // const enabledColumns = buildEnabledColumns(columns);
-
         const response = await borApi.getPagination({
           page,
           limit,
           search: search.trim() || undefined,
+          department: departments.includes("all")
+            ? undefined
+            : departments.join(","),
         });
 
         const { data = [], meta } = response.data;
@@ -92,22 +96,23 @@ const BorContainer = () => {
         }
       }
     },
-    [buildEnabledColumns],
+    [],
   );
 
   // ✅ export all ของวันนั้น + ตาม search/filter ปัจจุบัน
   const handleExportAll = useCallback(async (): Promise<BorType[]> => {
-    // const enabledColumns = buildEnabledColumns(searchableColumns);
-
     const response = await borApi.getPagination({
       page: 1,
-      limit: 100000, // ✅ ดึงทั้งหมดของวันนั้น
+      limit: 5000000,
       search: debouncedSearch.trim() || undefined,
+      department: departmentFilter.includes("all")
+        ? undefined
+        : departmentFilter.join(","),
     });
 
     const { data = [] } = response.data;
     return data;
-  }, [buildEnabledColumns, debouncedSearch, searchableColumns, snapshotDate]);
+  }, [debouncedSearch, departmentFilter]);
 
   useEffect(() => {
     fetchBors(
@@ -115,6 +120,7 @@ const BorContainer = () => {
       debouncedSearch,
       itemsPerPage,
       searchableColumns,
+      departmentFilter,
     );
   }, [
     fetchBors,
@@ -123,19 +129,16 @@ const BorContainer = () => {
     itemsPerPage,
     searchableColumns,
     snapshotDate,
+    departmentFilter,
   ]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearch(searchQuery);
-      setCurrentPage(1);
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
 
   const handleItemsPerPageChange = (limit: number) => {
     setItemsPerPage(limit);
+    setCurrentPage(1);
+  };
+
+  const handleDepartmentFilterChange = (departments: string[]) => {
+    setDepartmentFilter(departments);
     setCurrentPage(1);
   };
 
@@ -159,16 +162,18 @@ const BorContainer = () => {
           }
           onClearAllColumns={() =>
             setSearchableColumns({
-                no: false,
-                created_at: false,
-                location_name: false,
-                location_dest_name: false,
-                department: false,
+              no: false,
+              created_at: false,
+              location_name: false,
+              location_dest_name: false,
+              department: false,
             })
           }
           onExportAll={handleExportAll}
           currentPage={currentPage}
           itemsPerPage={itemsPerPage}
+          selectedDepartmentFilter={departmentFilter}
+          onDepartmentFilterChange={handleDepartmentFilterChange}
         />
 
         <Pegination

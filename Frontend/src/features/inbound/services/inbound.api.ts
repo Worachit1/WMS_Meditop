@@ -8,8 +8,13 @@ import type {
 export const inboundApi = {
   getAll: (params?: any) => http.get("/inbounds/getAll", { params }),
 
-  getAllPaginated: (params: { page: number; limit: number; search?: string;  status?: "pending" | "completed"; }) =>
-    http.get<ApiInboundResponse>("/inbounds/get", { params }),
+  getAllPaginated: (params: {
+    page: number;
+    limit: number;
+    search?: string;
+    status?: "pending" | "completed";
+    department?: string; // ✅ เพิ่ม
+  }) => http.get<ApiInboundResponse>("/inbounds/get", { params }),
 
   getById: (no: string) =>
     http.get<ApiInboundByIdResponse>(
@@ -47,8 +52,6 @@ export const inboundApi = {
       location_full_name: string;
     },
   ) => http.post(`/inbounds/${encodeURIComponent(no)}/scan/undo`, data),
-
-  
 
   confirmToStock: (
     no: string,

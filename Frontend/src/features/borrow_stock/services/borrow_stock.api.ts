@@ -28,6 +28,7 @@ export const borrowStockApi = {
     search?: string;
     columns?: string;
     status?: string;
+    department?: string; // ✅ เพิ่ม
   }) => http.get<ApiBorrowStockResponse>("/borrow-stocks/get", { params }),
 
   getById: (id: string) =>

@@ -17,15 +17,16 @@ type BackendSortKey =
   | "source";
 
 export const reportMovementApi = {
-  getReport: (params: {
-    page: number;
-    limit: number;
-    search?: string;
-    columns?: string;
-    sortBy?: BackendSortKey;
-    sortDir?: SortDir;
-  }) =>
-    http.get<ApiReportMovementResponse>("/reports/get/history", { params }),
+ getReport: (params: {
+  page: number;
+  limit: number;
+  search?: string;
+  columns?: string;
+  sortBy?: BackendSortKey;
+  sortDir?: SortDir;
+  department?: string; // ✅ เพิ่ม
+}) =>
+  http.get<ApiReportMovementResponse>("/reports/get/history", { params }),
 
   getDetail: (source: string, id: string) =>
     http.get<{ data: DetailReportMovementType }>(`/all/${source}/${id}`),
