@@ -1,12 +1,18 @@
 import type { ReportStockAllType } from "../types/reposrt_stockall.type";
+import { reportStockAllApi } from "../services/report_stockall.api"; 
 
 import Table from "../../../components/Table/Table";
 import "../../../components/Button/button.css";
 import "../../../components/Table/table.css";
 import "../../../styles/component.css";
 import { formatDateTime } from "../../../components/Datetime/FormatDateTime";
+import IconButton from "../../../components/Button/IconButton";
+import { confirmAlert, successAlert } from "../../../utils/alert";
 
-import "../report_sotckall.css"
+import * as XLSX from "xlsx";
+import Swal from "sweetalert2";
+
+import "../report_sotckall.css";
 
 type StockType = "default" | "bor" | "ser";
 
@@ -85,7 +91,6 @@ const ReportStockAllTable = ({
     </button>
   );
 
-
   const defaultHeaders = [
     "No",
     <SortHeader label="สินค้า" sk="product_code" />,
@@ -97,8 +102,8 @@ const ReportStockAllTable = ({
   ];
   const borHeaders = [
     "No",
-    <SortHeader label="SKU" sk="product_code" />,
-    "Name",
+    <SortHeader label="สินค้า" sk="product_code" />,
+    "ชื่อ",
     <SortHeader label="Lot. Serial" sk="lot_name" />,
     "Exp. Date",
     <SortHeader label="Lock No." sk="location_name" />,
@@ -106,8 +111,8 @@ const ReportStockAllTable = ({
   ];
   const serHeaders = [
     "No",
-    <SortHeader label="SKU" sk="product_code" />,
-    "Name",
+    <SortHeader label="สินค้า" sk="product_code" />,
+    "ชื่อ",
     <SortHeader label="Lot. Serial" sk="lot_name" />,
     "Exp. Date",
     <SortHeader label="Lock No." sk="location_name" />,
@@ -115,9 +120,138 @@ const ReportStockAllTable = ({
   ];
 
   const tableHeaders =
-    stockType === "bor" ? borHeaders
-    : stockType === "ser" ? serHeaders
-    : defaultHeaders;
+    stockType === "bor"
+      ? borHeaders
+      : stockType === "ser"
+        ? serHeaders
+        : defaultHeaders;
+
+  const handleExportExcel = async () => {
+  const result = await confirmAlert(
+    `คุณต้องการ Export ข้อมูล ${stockType.toUpperCase()} เป็นไฟล์ Excel ใช่หรือไม่?`,
+  );
+
+  if (!result.isConfirmed) return;
+
+  try {
+    Swal.fire({
+      title: "กำลังดึงข้อมูล...",
+      text: "กรุณารอสักครู่",
+      allowOutsideClick: false,
+      didOpen: () => {
+        Swal.showLoading();
+      },
+    });
+
+    // ✅ ยิง API ใหม่เพื่อเอาทั้งหมด
+    let response: any;
+
+    const params = {
+      page: 1,
+      limit: 999999,
+      search: searchQuery || undefined,
+      columns: Object.entries(searchableColumns)
+        .filter(([, value]) => value)
+        .map(([key]) => key)
+        .join(","),
+      sortBy: sortKey || undefined,
+      sortDir: sortDir || undefined,
+    };
+
+    if (stockType === "bor") {
+      response = await reportStockAllApi.getAllBorPaginated(params);
+    } else if (stockType === "ser") {
+      response = await reportStockAllApi.getAllSerPaginated(params);
+    } else {
+      response = await reportStockAllApi.getAllPaginated(params);
+    }
+
+    const allStocks =
+      response?.data?.data ||
+      response?.data?.stocks ||
+      response?.data ||
+      [];
+
+    Swal.close();
+
+    if (!allStocks || allStocks.length === 0) {
+      Swal.fire({
+        icon: "warning",
+        title: "ไม่พบข้อมูล",
+        text: "ไม่มีข้อมูลสำหรับ Export",
+      });
+
+      return;
+    }
+
+    const dataToExport = allStocks.map(
+      (stock: ReportStockAllType, index: number) => ({
+        No: index + 1,
+        SKU: stock.product_code ?? "-",
+        Name: stock.product_name ?? "-",
+        "Lot. Serial": stock.lot_name ?? "-",
+        "Exp. Date": stock.expiration_date
+          ? formatDateTime(stock.expiration_date)
+          : "-",
+        "Lock No.": stock.location_name ?? "-",
+        Quantity: stock.quantity ?? 0,
+      }),
+    );
+
+    const ws = XLSX.utils.json_to_sheet(dataToExport);
+
+    ws["!cols"] = [
+      { wch: 8 },
+      { wch: 20 },
+      { wch: 35 },
+      { wch: 25 },
+      { wch: 25 },
+      { wch: 30 },
+      { wch: 15 },
+    ];
+
+    const wb = XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(
+      wb,
+      ws,
+      stockType === "default"
+        ? "DEFAULT"
+        : stockType === "bor"
+          ? "BOR"
+          : "SER",
+    );
+
+    const date = new Date();
+
+    const pad = (n: number) => String(n).padStart(2, "0");
+
+    const dateTime =
+      `${date.getFullYear()}-` +
+      `${pad(date.getMonth() + 1)}-` +
+      `${pad(date.getDate())}_` +
+      `${pad(date.getHours())}-` +
+      `${pad(date.getMinutes())}-` +
+      `${pad(date.getSeconds())}`;
+
+    const fileName = `REPORT_STOCK_${stockType.toUpperCase()}_${dateTime}.xlsx`;
+
+    XLSX.writeFile(wb, fileName);
+
+    await successAlert(
+      "Export สำเร็จ",
+      `Export ข้อมูล ${allStocks.length} รายการเรียบร้อยแล้ว`,
+    );
+  } catch (error: any) {
+    console.error("Export error:", error);
+
+    Swal.fire({
+      icon: "error",
+      title: "Export ไม่สำเร็จ",
+      text: error?.response?.data?.message || "เกิดข้อผิดพลาด",
+    });
+  }
+};
 
   return (
     <>
@@ -127,7 +261,15 @@ const ReportStockAllTable = ({
         <div className="toolbar">
           <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
             {(["default", "bor", "ser"] as StockType[]).map((type) => (
-              <label key={type} style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer" }}>
+              <label
+                key={type}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  cursor: "pointer",
+                }}
+              >
                 <input
                   type="checkbox"
                   className="rpAll-ckeckbox"
@@ -135,7 +277,11 @@ const ReportStockAllTable = ({
                   onChange={() => onStockTypeChange(type)}
                 />
                 <span>
-                  {type === "default" ? "Default" : type === "bor" ? "BOR" : "SER"}
+                  {type === "default"
+                    ? "Default"
+                    : type === "bor"
+                      ? "BOR"
+                      : "SER"}
                 </span>
               </label>
             ))}
@@ -169,13 +315,14 @@ const ReportStockAllTable = ({
 
             {showFilterDropdown && (
               <div className="filter-dropdown-2">
-                <div className="filter-title">Search In Columns
+                <div className="filter-title">
+                  Search In Columns
                   <button
                     type="button"
                     className="filter-clear-btn"
                     onClick={onClearAllColumns}
                   >
-                   clear
+                    clear
                   </button>
                 </div>
 
@@ -205,7 +352,7 @@ const ReportStockAllTable = ({
               </div>
             )}
           </div>
-          {/* <IconButton variant="sync" onClick={handleSync} disabled={isSyncing} /> */}
+          <IconButton variant="export" onClick={handleExportExcel} />
         </div>
       </div>
 

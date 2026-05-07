@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import ProfileModal from "./profile/ProfileModal";
 
 import type { UserType } from "../types/user.type";
@@ -12,6 +12,8 @@ import * as XLSX from "xlsx";
 import { confirmAlert } from "../../../utils/alert";
 import { userApi } from "../services/user.api";
 import Swal from "sweetalert2";
+
+import { departmentApi } from "../../department/services/department.api";
 
 type Props = {
   users: UserType[];
@@ -27,6 +29,7 @@ type Props = {
     user_level: boolean;
     status: boolean;
     remark: boolean;
+    department: boolean;
   };
   onToggleSearchableColumn: (column: keyof Props["searchableColumns"]) => void;
   onClearAllColumns: () => void;
@@ -55,16 +58,93 @@ const UserTable = ({
 }: Props) => {
   const [profileUserId, setProfileUserId] = useState<number | null>(null);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [selectedDepartments, setSelectedDepartments] = useState<string[]>([
+    "all",
+  ]);
+  const [showDeptDropdown, setShowDeptDropdown] = useState(false);
+
+  const [departmentOptions, setDepartmentOptions] = useState<string[]>([]);
+
+  const currentUserLevel = localStorage.getItem("user_level");
+  const currentUserDepartment = localStorage.getItem("department") || "";
+
+  const isCurrentUserAdmin = currentUserLevel === "Admin";
+
+  const canSeeDepartmentFilter =
+    currentUserLevel === "Admin" ||
+    currentUserDepartment
+      .split(",")
+      .map((x) => x.trim())
+      .includes("CNE");
+
+  useEffect(() => {
+    if (!canSeeDepartmentFilter) return;
+
+    const fetchDepartments = async () => {
+      try {
+        const resp: any = await departmentApi.getAll();
+
+        const rows = Array.isArray(resp?.data?.data)
+          ? resp.data.data
+          : Array.isArray(resp?.data)
+            ? resp.data
+            : [];
+
+        const options = rows
+          .map((d: any) => String(d?.short_name ?? "").trim())
+          .filter(Boolean)
+          .sort();
+
+        setDepartmentOptions(options);
+      } catch (err) {
+        console.error("Fetch departments failed:", err);
+        setDepartmentOptions([]);
+      }
+    };
+
+    fetchDepartments();
+  }, [canSeeDepartmentFilter]);
 
   const openProfile = (id: number) => {
     setProfileUserId(id);
     setIsProfileOpen(true);
   };
+
+  const toggleDepartment = (dept: string) => {
+    if (dept === "all") {
+      setSelectedDepartments(["all"]);
+      return;
+    }
+
+    setSelectedDepartments((prev) => {
+      const withoutAll = prev.filter((d) => d !== "all");
+
+      const next = withoutAll.includes(dept)
+        ? withoutAll.filter((d) => d !== dept)
+        : [...withoutAll, dept];
+
+      return next.length === 0 ? ["all"] : next;
+    });
+  };
+
+  const filteredUsers = users.filter((user) => {
+    if (selectedDepartments.includes("all")) return true;
+
+    const userDepartments = Array.isArray((user as any).departments)
+      ? (user as any).departments
+          .map((d: any) => String(d?.short_name ?? "").trim())
+          .filter(Boolean)
+      : [];
+
+    return userDepartments.some((dept: string) => selectedDepartments.includes(dept));
+  });
+
   const tableHeaders = [
     "No",
     "Full Name",
     "Email",
     "Tel.",
+    "Department",
     "Level",
     "Status",
     "Remark",
@@ -161,15 +241,55 @@ const UserTable = ({
     }
   };
 
-  const currentUserLevel = localStorage.getItem("user_level");
-  const isCurrentUserAdmin = currentUserLevel === "Admin";
-
   return (
     <>
       <div className="page-header">
         <div className="page-title">User</div>
 
         <div className="toolbar">
+          {/* Department filter */}
+          {canSeeDepartmentFilter && departmentOptions.length > 0 && (
+            <div className="inbound-dept-filter">
+              <label>แผนก:</label>
+              <div className="filter-wrap">
+                <button
+                  type="button"
+                  className="inbound-dept-select"
+                  onClick={() => setShowDeptDropdown((v) => !v)}
+                >
+                  {selectedDepartments.includes("all")
+                    ? "ทั้งหมด"
+                    : selectedDepartments.join(", ")}
+                  <i
+                    className="fa fa-chevron-down"
+                    style={{ marginLeft: 45 }}
+                  />
+                </button>
+                {showDeptDropdown && (
+                  <div className="filter-dropdown-2">
+                    <label className="filter-option">
+                      <input
+                        type="checkbox"
+                        checked={selectedDepartments.includes("all")}
+                        onChange={() => toggleDepartment("all")}
+                      />
+                      <span>ทั้งหมด</span>
+                    </label>
+                    {departmentOptions.map((dept) => (
+                      <label className="filter-option" key={dept}>
+                        <input
+                          type="checkbox"
+                          checked={selectedDepartments.includes(dept)}
+                          onChange={() => toggleDepartment(dept)}
+                        />
+                        <span>{dept}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
           <div className="search-box">
             <i className="fa fa-search search-icon" />
 
@@ -216,6 +336,7 @@ const UserTable = ({
                   user_level: "Level",
                   status: "Status",
                   remark: "Remark",
+                  department: "Department",
                 }).map(([key, label]) => (
                   <label className="filter-option" key={key}>
                     <input
@@ -242,14 +363,14 @@ const UserTable = ({
 
       <div className="table__wrapper">
         <Table headers={tableHeaders}>
-          {users.length === 0 ? (
+         {filteredUsers.length === 0 ? (
             <tr>
               <td colSpan={tableHeaders.length} className="no-data">
                 No users found.
               </td>
             </tr>
           ) : (
-            users.map((user, index) => (
+        filteredUsers.map((user, index) => (
               <tr key={user.id}>
                 <td>{(currentPage - 1) * itemsPerPage + index + 1}</td>
                 <td style={{ minWidth: "230px" }}>
@@ -257,6 +378,14 @@ const UserTable = ({
                 </td>
                 <td>{user.email}</td>
                 <td>{user.tel}</td>
+                <td>
+                  {Array.isArray((user as any).departments)
+                    ? (user as any).departments
+                        .map((d: any) => d?.short_name)
+                        .filter(Boolean)
+                        .join(", ")
+                    : "-"}
+                </td>
                 <td>{user.user_level}</td>
                 <td>{user.status}</td>
                 <td>{user.remark}</td>

@@ -39,6 +39,7 @@ const UserContainer = () => {
     user_level: true,
     status: true,
     remark: true,
+    department: true,
   });
 
   // submission state
@@ -109,6 +110,17 @@ const UserContainer = () => {
             if (
               columns.remark &&
               user.remark?.toLowerCase().includes(searchLower)
+            )
+              return true;
+            if (
+              columns.department &&
+              Array.isArray((user as any).departments) &&
+              (user as any).departments
+                .map((d: any) => d?.short_name)
+                .filter(Boolean)
+                .join(", ")
+                .toLowerCase()
+                .includes(searchLower)
             )
               return true;
 
@@ -217,6 +229,7 @@ const UserContainer = () => {
               user_level: false,
               status: false,
               remark: false,
+              department: false,
             })
           }
           onAddNew={handleAddNew}
