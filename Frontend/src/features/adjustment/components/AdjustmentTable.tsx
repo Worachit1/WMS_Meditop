@@ -360,12 +360,12 @@ const AdjustmentTable = ({
           </div>
 
           {departmentOptions.length > 0 && (
-            <div className="adjustment-dept-filter">
+            <div className="dept-filter">
               <label>แผนก:</label>
               <div className="filter-wrap">
                 <button
                   type="button"
-                  className="adjustment-dept-select"
+                  className="dept-select"
                   onClick={() => setShowDeptDropdown((v) => !v)}
                 >
                   {selectedDepartments.includes("all")
@@ -373,11 +373,10 @@ const AdjustmentTable = ({
                     : selectedDepartments.join(", ")}
                   <i
                     className="fa fa-chevron-down"
-                    style={{ marginLeft: 42 }}
                   />
                 </button>
                 {showDeptDropdown && (
-                  <div className="filter-dropdown-2">
+                  <div className="filter-dropdown-3">
                     <label className="filter-option">
                       <input
                         type="checkbox"

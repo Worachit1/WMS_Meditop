@@ -497,47 +497,8 @@
 }
 
 /* ===== Department filter bar ===== */
-.inbound-dept-filter {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 12px;
-  background: #fff;
-  border: 1px solid #9f9f9f;
-  border-radius: 8px;
-  height: 36px;
-  width: fit-content;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
-}
 
-.inbound-dept-filter label {
-  font-size: 13px;
-  font-weight: 600;
-  color: #374151;
-  white-space: nowrap;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
 
-.inbound-dept-select {
-  padding: 0;
-  border: none;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  color: #1f2937;
-  background: transparent;
-  cursor: pointer;
-  appearance: none;
-  -webkit-appearance: none;
-  transition:
-    border-color 0.15s ease,
-    box-shadow 0.15s ease;
-  min-width: 100px;
-  display: inline-flex;
-  align-items: center;
-}
 
 /* row colors */
 tr.row-progress td {

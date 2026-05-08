@@ -230,12 +230,12 @@ const BorTable = ({
 
         <div className="toolbar">
           {departmentOptions.length > 0 && (
-            <div className="inbound-dept-filter">
+            <div className="dept-filter">
               <label>แผนก:</label>
               <div className="filter-wrap">
                 <button
                   type="button"
-                  className="inbound-dept-select"
+                  className="dept-select"
                   onClick={() => setShowDeptDropdown((v) => !v)}
                 >
                   {selectedDepartments.includes("all")
@@ -243,12 +243,11 @@ const BorTable = ({
                     : selectedDepartments.join(", ")}
                   <i
                     className="fa fa-chevron-down"
-                    style={{ marginLeft: 45 }}
                   />
                 </button>
 
                 {showDeptDropdown && (
-                  <div className="filter-dropdown-2">
+                  <div className="filter-dropdown-3">
                     <label className="filter-option">
                       <input
                         type="checkbox"

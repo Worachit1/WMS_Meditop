@@ -99,11 +99,12 @@
 }
 
 /* Filter dropdown */
+
 .filter-wrap {
-  position: relative; /* ✅ ทำให้ dropdown อ้างอิงกล่องนี้ */
-  display: inline-flex;
-  align-items: center;
+  position: relative;
+  display: inline-block;
 }
+
 
 .filter-dropdown {
   position: absolute;
@@ -134,6 +135,25 @@
   min-width: 200px;
   max-height: 400px;
   overflow-y: auto;
+  z-index: 10000;
+}
+
+.filter-dropdown-3 {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: auto;
+
+  width: 100%;
+  min-width: 170px;
+  max-height: 300px;
+  overflow-y: auto;
+
+  background: #ffffff;
+  border: 1px solid #d0d7e2;
+  border-radius: 10px;
+  padding: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
   z-index: 10000;
 }
 
@@ -190,6 +210,41 @@
   font-size: 14px;
   color: #000000;
   user-select: none;
+}
+
+.dept-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dept-filter label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.dept-select {
+  min-width: 170px;
+  height: 38px;
+  padding: 0 12px;
+
+  border: 1px solid #d0d7e2;
+  border-radius: 8px;
+  background: #fff;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+
+  cursor: pointer;
+}
+
+.dept-select span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .select {

@@ -355,12 +355,12 @@ const OutboundTable = ({
 
         <div className="toolbar">
           {isDoc && departmentOptions.length > 0 && (
-            <div className="inbound-dept-filter">
+            <div className="dept-filter">
               <label>แผนก:</label>
               <div className="filter-wrap">
                 <button
                   type="button"
-                  className="inbound-dept-select"
+                  className="dept-select"
                   onClick={() => setShowDeptDropdown((v) => !v)}
                 >
                   {selectedDepartments.includes("all")
