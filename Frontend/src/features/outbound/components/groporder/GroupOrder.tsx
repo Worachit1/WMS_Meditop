@@ -23,7 +23,7 @@ import type {
   GoodsOutItemLocationPick,
 } from "../../types/outbound.type";
 
-import InvoiceListModal from "../../invoiceslist/InvoiceListModal";
+import InvoiceListModal from "../invoiceslist/InvoiceListModal";
 
 import {
   confirmAlert,

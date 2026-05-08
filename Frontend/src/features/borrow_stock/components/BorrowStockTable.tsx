@@ -273,9 +273,28 @@ const BorrowStockTable = ({
     <>
       <div className="page-header">
         <div className="page-title">Borrow Stock</div>
+      </div>
+
+      <div className="borrow-toolbar-row">
+        <div className="borrow-view-tabs">
+          <button
+            type="button"
+            className={`borrow-tab ${statusTab === "pending" ? "active" : ""}`}
+            onClick={() => onChangeStatusTab("pending")}
+          >
+            รอดำเนินการ <span className="badge">{pendingCount}</span>
+          </button>
+
+          <button
+            type="button"
+            className={`borrow-tab ${statusTab === "completed" ? "active" : ""}`}
+            onClick={() => onChangeStatusTab("completed")}
+          >
+            ดำเนินการเสร็จสิ้น <span className="badge">{doneCount}</span>
+          </button>
+        </div>
 
         <div className="toolbar">
-          {/* Department filter */}
           {departmentOptions.length > 0 && (
             <div className="dept-filter">
               <label>แผนก:</label>
@@ -288,10 +307,9 @@ const BorrowStockTable = ({
                   {selectedDepartments.includes("all")
                     ? "ทั้งหมด"
                     : selectedDepartments.join(", ")}
-                  <i
-                    className="fa fa-chevron-down"
-                  />
+                  <i className="fa fa-chevron-down" />
                 </button>
+
                 {showDeptDropdown && (
                   <div className="filter-dropdown-3">
                     <label className="filter-option">
@@ -302,6 +320,7 @@ const BorrowStockTable = ({
                       />
                       <span>ทั้งหมด</span>
                     </label>
+
                     {departmentOptions.map((dept) => (
                       <label className="filter-option" key={dept}>
                         <input
@@ -317,6 +336,7 @@ const BorrowStockTable = ({
               </div>
             </div>
           )}
+
           <div className="search-box">
             <i className="fa fa-search search-icon" />
             <input
@@ -384,27 +404,6 @@ const BorrowStockTable = ({
             Count
           </button>
         </div>
-      </div>
-
-      <div
-        className="borrow-view-tabs"
-        style={{ marginTop: 10, marginBottom: 10 }}
-      >
-        <button
-          type="button"
-          className={`borrow-tab ${statusTab === "pending" ? "active" : ""}`}
-          onClick={() => onChangeStatusTab("pending")}
-        >
-          รอดำเนินการ <span className="badge">{pendingCount}</span>
-        </button>
-
-        <button
-          type="button"
-          className={`borrow-tab ${statusTab === "completed" ? "active" : ""}`}
-          onClick={() => onChangeStatusTab("completed")}
-        >
-          ดำเนินการเสร็จสิ้น <span className="badge">{doneCount}</span>
-        </button>
       </div>
 
       <div className="table__wrapper">
@@ -480,13 +479,15 @@ const BorrowStockTable = ({
                         </button>
                       )}
 
-                      <button
-                        type="button"
-                        className="borrow-action-btn borrow-action-btn-delete"
-                        onClick={() => handleDelete(borrow_stock)}
-                      >
-                        Delete
-                      </button>
+                      {statusTab === "pending" && (
+                        <button
+                          type="button"
+                          className="borrow-action-btn borrow-action-btn-delete"
+                          onClick={() => handleDelete(borrow_stock)}
+                        >
+                          Delete
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

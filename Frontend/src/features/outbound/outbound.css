@@ -20,6 +20,7 @@
   font-size: 20px;
   transition: all 0.2s;
   text-decoration: none;
+  display: inline-block;
   min-width: 250px;
   text-align: center;
 }
@@ -266,30 +267,110 @@
   cursor: not-allowed;
 }
 
-.outbound-picking-draft{
-  display:inline-block;
-  padding:8px 16px;
-  border-radius:6px;
-  background:#f5a623;
-  color:#fff;
-  font-weight:700;
-  text-decoration:none;
-  transition:all 0.2s ease;
+.outbound-picking-draft {
+  display: inline-block;
+  padding: 8px 16px;
+  border-radius: 6px;
+  background: #f5a623;
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
+  transition: all 0.2s ease;
 }
-.outbound-picking-draft:hover{ filter:brightness(0.95); transform:translateY(-1px); }
+.outbound-picking-draft:hover {
+  filter: brightness(0.95);
+  transform: translateY(-1px);
+}
 
 .outbound-picking-completed {
   background: #4caf50;
-    display:inline-block;
-  padding:8px 16px;
-  border-radius:6px;
-  color:#fff;
-  font-weight:700;
-  text-decoration:none;
-  transition:all 0.2s ease;
+  display: inline-block;
+  padding: 8px 16px;
+  border-radius: 6px;
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
+  transition: all 0.2s ease;
   opacity: 0.85;
 }
 .outbound-picking-completed:hover {
-  filter:brightness(0.95);
-  transform:translateY(-2px)
+  filter: brightness(0.95);
+  transform: translateY(-2px);
+}
+
+.outbound-toolbar-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 5px;
+  position: relative;
+  z-index: 120;
+}
+
+.outbound-toolbar-row .toolbar {
+  margin-left: auto;
+}
+
+.outbound-empty-tabs {
+  height: 36px;
+}
+
+@media (max-width: 992px) {
+  .outbound-toolbar-row {
+    align-items: flex-start;
+  }
+
+  .outbound-toolbar-row .toolbar {
+    width: 100%;
+    justify-content: flex-start;
+    margin-left: 0;
+    flex-wrap: wrap;
+  }
+
+  .outbound-toolbar-row .dept-filter {
+    width: 100%;
+  }
+
+  .outbound-toolbar-row .dept-select {
+    width: 100%;
+  }
+}
+
+.outbound-page-header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  margin-bottom: 12px;
+}
+
+/* title ซ้าย */
+.outbound-page-header .page-title {
+  z-index: 1;
+}
+
+/* ปุ่มอยู่กลางจริง */
+.outbound-action-center {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+/* responsive */
+@media (max-width: 992px) {
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .outbound-action-center {
+    position: static;
+    transform: none;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+  }
 }

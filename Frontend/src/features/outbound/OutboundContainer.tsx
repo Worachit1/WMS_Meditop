@@ -94,6 +94,8 @@ const OutboundContainer = () => {
     completed: 0,
   });
 
+  const [departmentFilter, setDepartmentFilter] = useState<string[]>(["all"]);
+
   const handleChangePackingTab = (tab: "process" | "completed") => {
     setPackingTab(tab);
     setCurrentPage(1);
@@ -214,6 +216,9 @@ const OutboundContainer = () => {
             page,
             limit,
             search: search.trim() || undefined,
+            department: departmentFilter.includes("all")
+              ? undefined
+              : departmentFilter.join(","),
           });
 
           const list = Array.isArray(resp?.data?.data)
@@ -404,7 +409,7 @@ const OutboundContainer = () => {
         }
       }
     },
-    [filterByView, pickingPackTab, packingTab],
+    [filterByView, pickingPackTab, packingTab, departmentFilter],
   );
 
   useEffect(() => {
@@ -455,6 +460,11 @@ const OutboundContainer = () => {
 
   const handleChangePickingTab = (tab: "not_packed" | "packed") => {
     setPickingPackTab(tab);
+    setCurrentPage(1);
+  };
+
+  const handleDepartmentFilterChange = (departments: string[]) => {
+    setDepartmentFilter(departments);
     setCurrentPage(1);
   };
 
@@ -533,6 +543,8 @@ const OutboundContainer = () => {
           packingTab={packingTab}
           onChangePackingTab={handleChangePackingTab}
           packingStatusCounts={packStatusCounts}
+          selectedDepartmentFilter={departmentFilter}
+          onDepartmentFilterChange={handleDepartmentFilterChange}
         />
 
         <Pegination

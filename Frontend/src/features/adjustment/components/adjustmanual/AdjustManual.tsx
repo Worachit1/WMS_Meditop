@@ -709,7 +709,7 @@ const AdjustManual: React.FC = () => {
             <thead>
               <tr>
                 <th className="adj-mn-col-no">No</th>
-                <th className="adj-mn-col-code">Code</th>
+                <th className="adj-mn-col-code">สินค้า</th>
                 <th className="adj-mn-col-name">ชื่อ</th>
                 <th className="adj-mn-col-impact">Impact</th>
                 <th className="adj-mn-col-qty">QTY</th>

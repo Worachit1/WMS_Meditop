@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
 
-import { goodsoutApi } from "../services/outbound.api";
-import { confirmAlert, successAlert } from "../../../utils/alert";
+import { goodsoutApi } from "../../services/outbound.api";
+import { confirmAlert, successAlert } from "../../../../utils/alert";
 
-import "../../../styles/component.css";
-import type { LotUpdatedPayload } from "../components/groporder/GroupOrder";
+import "../../../../styles/component.css";
+import type { LotUpdatedPayload } from "../groporder/GroupOrder";
 
 /* ================= Types ================= */
 

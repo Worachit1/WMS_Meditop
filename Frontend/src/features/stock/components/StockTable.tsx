@@ -50,8 +50,8 @@ const StockTable = ({
   // const [isSyncing, setIsSyncing] = useState(false);
   const tableHeaders = [
     "No",
-    "SKU",
-    "Name",
+    "สินค้า",
+    "ชื่อ",
     "Lot. Serial",
     "Exp. Date",
     "Lock No.",
@@ -145,8 +145,8 @@ const StockTable = ({
                 </div>
 
                 {Object.entries({
-                  product_code: "SKU",
-                  product_name: "Name",
+                  product_code: "สินค้า",
+                  product_name: "ชื่อ",
                   lot_name: "Lot. Serial",
                   expiration_date: "Exp. Date",
                   location_name: "Lock No.",

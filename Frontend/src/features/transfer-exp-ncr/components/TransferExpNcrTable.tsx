@@ -297,6 +297,35 @@ const TransferExpNcrTable = ({
         <div className="page-title">
           Transfer - <span className="transfer-exp-ncr-title">EXP&amp;NCR</span>
         </div>
+      </div>
+
+      <div className="transfer-exp-ncr-toolbar-row">
+        <div className="transfer-exp-ncr-list-tabs">
+          <button
+            type="button"
+            className={`transfer-exp-ncr-tab ${statusTab === "pending" ? "active" : ""}`}
+            onClick={() => onChangeStatusTab("pending")}
+          >
+            รอการดำเนินการ <span className="badge">{statusCounts.pending}</span>
+          </button>
+
+          <button
+            type="button"
+            className={`transfer-exp-ncr-tab ${statusTab === "process" ? "active" : ""}`}
+            onClick={() => onChangeStatusTab("process")}
+          >
+            จัดการสินค้า <span className="badge">{statusCounts.process}</span>
+          </button>
+
+          <button
+            type="button"
+            className={`transfer-exp-ncr-tab ${statusTab === "completed" ? "active" : ""}`}
+            onClick={() => onChangeStatusTab("completed")}
+          >
+            ดำเนินการเสร็จสิ้น{" "}
+            <span className="badge">{statusCounts.completed}</span>
+          </button>
+        </div>
 
         <div className="toolbar">
           {departmentOptions.length > 0 && (
@@ -311,10 +340,9 @@ const TransferExpNcrTable = ({
                   {selectedDepartments.includes("all")
                     ? "ทั้งหมด"
                     : selectedDepartments.join(", ")}
-                  <i
-                    className="fa fa-chevron-down"
-                  />
+                  <i className="fa fa-chevron-down" />
                 </button>
+
                 {showDeptDropdown && (
                   <div className="filter-dropdown-3">
                     <label className="filter-option">
@@ -325,6 +353,7 @@ const TransferExpNcrTable = ({
                       />
                       <span>ทั้งหมด</span>
                     </label>
+
                     {departmentOptions.map((dept) => (
                       <label className="filter-option" key={dept}>
                         <input
@@ -406,33 +435,6 @@ const TransferExpNcrTable = ({
         </div>
       </div>
 
-      <div className="transfer-exp-ncr-list-tabs">
-        <button
-          type="button"
-          className={`transfer-exp-ncr-tab ${statusTab === "pending" ? "active" : ""}`}
-          onClick={() => onChangeStatusTab("pending")}
-        >
-          รอการดำเนินการ <span className="badge">{statusCounts.pending}</span>
-        </button>
-
-        <button
-          type="button"
-          className={`transfer-exp-ncr-tab ${statusTab === "process" ? "active" : ""}`}
-          onClick={() => onChangeStatusTab("process")}
-        >
-          จัดการสินค้า <span className="badge">{statusCounts.process}</span>
-        </button>
-
-        <button
-          type="button"
-          className={`transfer-exp-ncr-tab ${statusTab === "completed" ? "active" : ""}`}
-          onClick={() => onChangeStatusTab("completed")}
-        >
-          ดำเนินการเสร็จสิ้น{" "}
-          <span className="badge">{statusCounts.completed}</span>
-        </button>
-      </div>
-
       <div className="table__wrapper">
         <Table headers={tableHeaders}>
           {filteredTabTransfers.length === 0 ? (
@@ -461,7 +463,6 @@ const TransferExpNcrTable = ({
                 <td>{t?.department ?? "-"}</td>
                 <td>{statusText(t)}</td>
                 <td>{getUserRefFromTransferItems(t)}</td>
-
                 <td>
                   {statusTab === "pending" ? (
                     <button

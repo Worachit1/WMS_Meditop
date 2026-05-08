@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import "./invoiceslist.css";
 
-import type { LotUpdatedPayload } from "../components/groporder/GroupOrder";
+import type { LotUpdatedPayload } from "../groporder/GroupOrder";
 
-import { goodsoutApi } from "../services/outbound.api";
+import { goodsoutApi } from "../../services/outbound.api";
 // import { deleteAlert, successAlert } from "../../../utils/alert";
 
 import EditLotModal from "./EditLotModal";

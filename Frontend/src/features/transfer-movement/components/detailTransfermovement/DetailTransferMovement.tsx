@@ -1356,7 +1356,6 @@ export default function DetailTransferMovement() {
       `ยืนยันเปลี่ยนสถานะ ${totalLines} รายการ เป็น PUT ใช่ไหม?`,
     );
     if (!c.isConfirmed) return;
-
     try {
       setLoading(true);
 
@@ -1365,8 +1364,11 @@ export default function DetailTransferMovement() {
         locations,
       });
 
-      await successAlert("ยืนยันสำเร็จแล้ว");
       await fetchDetail();
+
+      setLoading(false);
+
+      await successAlert("ยืนยันสำเร็จแล้ว");
     } catch (err: any) {
       toast.error(err?.response?.data?.message || "Confirm ไม่สำเร็จ");
     } finally {

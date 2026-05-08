@@ -77,7 +77,7 @@ const ReportStockTable = ({
   const tableHeaders = [
     "No",
     "สินค้า",
-    "Name",
+    "ชื่อ",
     "Lot. Serial",
     "Unit",
     "Exp. Date",
@@ -100,7 +100,7 @@ const ReportStockTable = ({
       const rows = allRows.map((s, index) => ({
         No: index + 1,
         สินค้า: s.product_code,
-        Name: s.product_name,
+        ชื่อ: s.product_name,
         "Lot. Serial": s.lot_name,
         Unit: s.unit,
         "Exp. Date": s.expiration_date
@@ -220,7 +220,7 @@ const ReportStockTable = ({
 
                 {Object.entries({
                   product_code: "สินค้า",
-                  product_name: "Name",
+                  product_name: "ชื่อ",
                   unit: "Unit",
                   lot_name: "Lot. Serial",
                   expiration_date: "Exp. Date",

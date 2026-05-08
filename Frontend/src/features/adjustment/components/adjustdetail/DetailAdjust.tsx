@@ -404,7 +404,7 @@ const DetailAdjust: React.FC = () => {
             <thead>
               <tr>
                 <th className="adj-dt-col-no">No</th>
-                <th className="adj-dt-col-code">Code</th>
+                <th className="adj-dt-col-code">สินค้า</th>
                 <th className="adj-dt-col-name">ชื่อ</th>
                 <th className="adj-dt-col-qty">QTY</th>
                 <th className="adj-dt-col-uom">หน่วย</th>

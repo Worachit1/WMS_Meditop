@@ -46,6 +46,7 @@ export const outboundApi = {
     page: number;
     limit: number;
     search?: string;
+    department?: string; // ✅ เพิ่ม
   }) => http.get("/outbounds/get/odoo/transfers/available", { params }),
   getOutboundByUser: (
     params: { page: number; limit: number; search?: string },

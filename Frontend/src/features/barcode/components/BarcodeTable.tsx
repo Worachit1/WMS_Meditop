@@ -59,7 +59,7 @@ const BarcodeTable = ({
   const tableHeaders = [
     "No",
     "Barcode",
-    "Product Code",
+    "สินค้า",
     "Lot Start",
     "Lot Stop",
     "Exp Date Start",
@@ -254,7 +254,7 @@ const BarcodeTable = ({
 
                 {Object.entries({
                   barcode: "Barcode",
-                  product_code: "Product Code",
+                  product_code: "สินค้า",
                   // lot_start: "Lot Start",
                   // lot_stop: "Lot Stop",
                   // exp_start: "Exp Date Start",

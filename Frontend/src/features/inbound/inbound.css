@@ -22,7 +22,6 @@
 .inbound-detail-header {
   margin-bottom: 0;
 }
-
 .inbound-detail-title {
   font-size: 28px;
   font-weight: 600;
@@ -625,6 +624,7 @@ tr.row-done td {
   cursor: pointer;
   font-weight: 700;
   white-space: nowrap;
+  transition: all 0.2s ease;
 }
 
 .inbound-batch-generate-btn.secondary {
@@ -636,6 +636,10 @@ tr.row-done td {
 .inbound-batch-generate-btn:disabled {
   opacity: 0.55;
   cursor: not-allowed;
+}
+
+.inbound-batch-generate-btn:hover {
+  color: #8b9bb8;
 }
 
 .inbound-barcode-filter-option {
@@ -769,7 +773,6 @@ tr.row-done td {
     "meta scan"
     "search search"
     "table table";
-  gap: 20px;
   align-items: start;
   overflow: visible;
 }
@@ -911,5 +914,56 @@ tr.row-done td {
 
   .inbound-scan-sticky-wrap {
     top: 12px;
+  }
+}
+
+.inbound-toolbar-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 5px;
+  position: relative;
+  z-index: 120;
+}
+
+.inbound-toolbar-row .toolbar {
+  margin-left: auto;
+}
+
+.inbound-toolbar-row .filter-wrap {
+  z-index: 130;
+}
+
+.inbound-toolbar-row .filter-dropdown-2 {
+  z-index: 140;
+}
+
+.inbound-view-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 0;
+}
+
+@media (max-width: 992px) {
+  .inbound-toolbar-row {
+    align-items: flex-start;
+  }
+
+  .inbound-toolbar-row .toolbar {
+    width: 100%;
+    justify-content: flex-start;
+    margin-left: 0;
+    flex-wrap: wrap;
+  }
+
+  .inbound-toolbar-row .dept-filter {
+    width: 100%;
+  }
+
+  .inbound-toolbar-row .dept-select {
+    width: 100%;
   }
 }

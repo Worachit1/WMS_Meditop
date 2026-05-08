@@ -91,10 +91,10 @@
 }
 
 .borrow-action-btn-view {
-  background-color: #d5dbe3;
+  background-color: #1a73e8;
 }
 .borrow-action-btn-view:hover {
-  background-color: #b0b8c9;
+  background-color: #186ad5;
   transform: translateY(-1px);
 }
 
@@ -104,4 +104,55 @@
 .borrow-action-btn-delete:hover {
   background-color: #c9302c;
   transform: translateY(-1px);
+}
+
+.borrow-toolbar-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 5px;
+  position: relative;
+  z-index: 120;
+}
+
+.borrow-toolbar-row .toolbar {
+  margin-left: auto;
+}
+
+.borrow-toolbar-row .filter-wrap {
+  z-index: 130;
+}
+
+.borrow-toolbar-row .filter-dropdown-2 {
+  z-index: 140;
+}
+
+.borrow-view-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 0;
+}
+
+@media (max-width: 992px) {
+  .borrow-toolbar-row {
+    align-items: flex-start;
+  }
+
+  .borrow-toolbar-row .toolbar {
+    width: 100%;
+    justify-content: flex-start;
+    margin-left: 0;
+    flex-wrap: wrap;
+  }
+
+  .borrow-toolbar-row .dept-filter {
+    width: 100%;
+  }
+
+  .borrow-toolbar-row .dept-select {
+    width: 100%;
+  }
 }

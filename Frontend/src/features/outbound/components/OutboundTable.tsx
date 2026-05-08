@@ -108,6 +108,8 @@ type Props = {
     process: number;
     completed: number;
   };
+  selectedDepartmentFilter?: string[];
+  onDepartmentFilterChange?: (departments: string[]) => void;
 };
 
 const OutboundTable = ({
@@ -138,14 +140,16 @@ const OutboundTable = ({
   packingTab,
   onChangePackingTab,
   packingStatusCounts,
+  selectedDepartmentFilter,
+  onDepartmentFilterChange,
 }: Props) => {
   const isDoc = view === "doc";
   const isPicking = view === "picking";
   const isPacking = view === "packing";
 
-  const [selectedDepartments, setSelectedDepartments] = useState<string[]>([
-    "all",
-  ]);
+  const [selectedDepartments, setSelectedDepartments] = useState<string[]>(
+    selectedDepartmentFilter?.length ? selectedDepartmentFilter : ["all"],
+  );
   const [showDeptDropdown, setShowDeptDropdown] = useState(false);
 
   const [departmentOptions, setDepartmentOptions] = useState<string[]>([]);
@@ -179,9 +183,14 @@ const OutboundTable = ({
   const canSeeAllDepartments =
     currentUserLevel === "Admin" || currentUserDepartments.includes("CNE");
 
+  const applyDepartmentFilter = (next: string[]) => {
+    setSelectedDepartments(next);
+    onDepartmentFilterChange?.(next);
+  };
+
   const toggleDepartment = (dept: string) => {
     if (dept === "all") {
-      setSelectedDepartments(["all"]);
+      applyDepartmentFilter(["all"]);
       return;
     }
 
@@ -192,9 +201,19 @@ const OutboundTable = ({
         ? withoutAll.filter((d) => d !== dept)
         : [...withoutAll, dept];
 
-      return next.length === 0 ? ["all"] : next;
+      const finalNext = next.length === 0 ? ["all"] : next;
+
+      onDepartmentFilterChange?.(finalNext);
+
+      return finalNext;
     });
   };
+
+  useEffect(() => {
+    if (selectedDepartmentFilter?.length) {
+      setSelectedDepartments(selectedDepartmentFilter);
+    }
+  }, [selectedDepartmentFilter]);
 
   useEffect(() => {
     const fetchDepartments = async () => {
@@ -231,13 +250,7 @@ const OutboundTable = ({
     fetchDepartments();
   }, [canSeeAllDepartments, currentUserDepartments.join(",")]);
 
-  const filteredDocs = (docs || []).filter((doc: any) => {
-    if (selectedDepartments.includes("all")) return true;
-
-    const docDepartment = String(doc?.department ?? "").trim();
-
-    return selectedDepartments.includes(docDepartment);
-  });
+  const filteredDocs = docs || [];
 
   const filteredPickingBatches = pickingBatches;
 
@@ -318,40 +331,98 @@ const OutboundTable = ({
 
   return (
     <>
-      <div className="page-header">
-        {isDoc && (
-          <div className="page-title">
-            Outbound - <span className="outbound-title"> Doc No.</span>
-          </div>
-        )}
-        {isPicking && (
-          <div className="page-title">
-            Outbound - <span className="outbound-title"> Picking</span>
-          </div>
-        )}
-        {isPacking && (
-          <div className="page-title">
-            Outbound - <span className="outbound-title"> Packing</span>
-          </div>
-        )}
+      <div className="outbound-page-header">
+        <div className="page-title">
+          Outbound -{" "}
+          <span className="outbound-title">
+            {isDoc ? "Doc No." : isPicking ? "Picking" : "Packing"}
+          </span>
+        </div>
 
-        {isPicking && (
-          <Link to="/batch-inv" className="outbound-btn-replace">
-            Picking
-          </Link>
+        {(isPicking || isPacking) && (
+          <div className="outbound-action-center">
+            {isPicking && (
+              <Link to="/batch-inv" className="outbound-btn-replace">
+                Picking
+              </Link>
+            )}
+
+            {isPacking && (
+              <Link
+                to="/scan-box"
+                state={{
+                  view: "packing",
+                  status: packingTab,
+                }}
+                className="outbound-btn-packing"
+              >
+                Packing
+              </Link>
+            )}
+          </div>
         )}
-        {isPacking && (
-          <Link
-            to="/scan-box"
-            state={{
-              view: "packing",
-              status: packingTab,
-            }}
-            className="outbound-btn-packing"
-          >
-            Packing
-          </Link>
-        )}
+      </div>
+
+      <div className="outbound-toolbar-row">
+        <div className="groupOrder-view-tabs">
+          {isDoc && <div className="outbound-empty-tabs" />}
+
+          {isPicking && (
+            <>
+              <button
+                type="button"
+                className={`groupOrder-tab ${pickingPackTab === "not_packed" ? "active" : ""}`}
+                onClick={() => onChangePickingTab("not_packed")}
+              >
+                กำลังดำเนินการ
+                {pickingNotPackedCount > 0 && (
+                  <span className="badge">{pickingNotPackedCount}</span>
+                )}
+              </button>
+
+              <button
+                type="button"
+                className={`groupOrder-tab ${pickingPackTab === "packed" ? "active" : ""}`}
+                onClick={() => onChangePickingTab("packed")}
+              >
+                ดำเนินการเสร็จสิ้น
+                {pickingPackedCount > 0 && (
+                  <span className="badge">{pickingPackedCount}</span>
+                )}
+              </button>
+            </>
+          )}
+
+          {isPacking && (
+            <>
+              <button
+                type="button"
+                className={`groupOrder-tab ${packingTab === "process" ? "active" : ""}`}
+                onClick={() => onChangePackingTab("process")}
+              >
+                กำลังดำเนินการ
+                {Number(packingStatusCounts?.process ?? 0) > 0 && (
+                  <span className="badge">
+                    {Number(packingStatusCounts?.process ?? 0)}
+                  </span>
+                )}
+              </button>
+
+              <button
+                type="button"
+                className={`groupOrder-tab ${packingTab === "completed" ? "active" : ""}`}
+                onClick={() => onChangePackingTab("completed")}
+              >
+                ดำเนินการเสร็จสิ้น
+                {Number(packingStatusCounts?.completed ?? 0) > 0 && (
+                  <span className="badge">
+                    {Number(packingStatusCounts?.completed ?? 0)}
+                  </span>
+                )}
+              </button>
+            </>
+          )}
+        </div>
 
         <div className="toolbar">
           {isDoc && departmentOptions.length > 0 && (
@@ -366,13 +437,11 @@ const OutboundTable = ({
                   {selectedDepartments.includes("all")
                     ? "ทั้งหมด"
                     : selectedDepartments.join(", ")}
-                  <i
-                    className="fa fa-chevron-down"
-                    style={{ marginLeft: 45 }}
-                  />
+                  <i className="fa fa-chevron-down" />
                 </button>
+
                 {showDeptDropdown && (
-                  <div className="filter-dropdown-2">
+                  <div className="filter-dropdown-3">
                     <label className="filter-option">
                       <input
                         type="checkbox"
@@ -381,6 +450,7 @@ const OutboundTable = ({
                       />
                       <span>ทั้งหมด</span>
                     </label>
+
                     {departmentOptions.map((dept) => (
                       <label className="filter-option" key={dept}>
                         <input
@@ -535,63 +605,6 @@ const OutboundTable = ({
           </div>
         </div>
       </div>
-
-      {isPicking && (
-        <div className="groupOrder-view-tabs">
-          <button
-            type="button"
-            className={`groupOrder-tab ${pickingPackTab === "not_packed" ? "active" : ""}`}
-            onClick={() => onChangePickingTab("not_packed")}
-          >
-            กำลังดำเนินการ
-            {pickingNotPackedCount > 0 && (
-              <span className="badge">{pickingNotPackedCount}</span>
-            )}
-          </button>
-          <button
-            type="button"
-            className={`groupOrder-tab ${pickingPackTab === "packed" ? "active" : ""}`}
-            onClick={() => onChangePickingTab("packed")}
-          >
-            ดำเนินการเสร็จสิ้น
-            {pickingPackedCount > 0 && (
-              <span className="badge">{pickingPackedCount}</span>
-            )}
-          </button>
-        </div>
-      )}
-
-      {isPacking && (
-        <div className="groupOrder-view-tabs">
-          <button
-            type="button"
-            className={`groupOrder-tab ${packingTab === "process" ? "active" : ""}`}
-            onClick={() => onChangePackingTab("process")}
-          >
-            กำลังดำเนินการ
-            {Number(packingStatusCounts?.process ?? 0) > 0 && (
-              <span className="badge">
-                {Number(packingStatusCounts?.process ?? 0)}
-              </span>
-            )}
-          </button>
-
-          <button
-            type="button"
-            className={`groupOrder-tab ${packingTab === "completed" ? "active" : ""}`}
-            onClick={() => onChangePackingTab("completed")}
-          >
-            ดำเนินการเสร็จสิ้น
-            {Number(packingStatusCounts?.completed ?? 0) > 0 && (
-              <span className="badge">
-                {Number(packingStatusCounts?.completed ?? 0)}
-              </span>
-            )}
-          </button>
-        </div>
-      )}
-
-      <br />
 
       <div className="table__wrapper">
         <Table

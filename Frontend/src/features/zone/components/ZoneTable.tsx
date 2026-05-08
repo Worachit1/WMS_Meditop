@@ -142,7 +142,6 @@ const ZoneTable = ({
     <>
       <div className="page-header">
         <div className="page-title">Zone</div>
-
         <div className="toolbar">
           <div className="search-box">
             <i className="fa fa-search search-icon" />

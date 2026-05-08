@@ -221,9 +221,30 @@ const InboundTable = ({
     <>
       <div className="page-header">
         <div className="page-title">Inbound</div>
+      </div>
+
+      <div className="inbound-toolbar-row">
+        <div className="inbound-view-tabs">
+          <button
+            type="button"
+            className={`inbound-tab ${activeTab === "pending" ? "active" : ""}`}
+            onClick={() => onTabChange("pending")}
+          >
+            รอดำเนินการ <span className="badge">{statusCounts.pending}</span>
+          </button>
+
+          <button
+            type="button"
+            className={`inbound-tab ${activeTab === "completed" ? "active" : ""}`}
+            onClick={() => onTabChange("completed")}
+          >
+            ดำเนินการเสร็จสิ้น{" "}
+            <span className="badge">{statusCounts.completed}</span>
+          </button>
+        </div>
 
         <div className="toolbar">
-          {/* Department filter */}
+          {/* Department filter ของเดิม */}
           {departmentOptions.length > 0 && (
             <div className="dept-filter">
               <label>แผนก:</label>
@@ -238,9 +259,9 @@ const InboundTable = ({
                       ? "ทั้งหมด"
                       : selectedDepartments.join(", ")}
                   </span>
-
                   <i className="fa fa-chevron-down" />
                 </button>
+
                 {showDeptDropdown && (
                   <div className="filter-dropdown-3">
                     <label className="filter-option">
@@ -251,6 +272,7 @@ const InboundTable = ({
                       />
                       <span>ทั้งหมด</span>
                     </label>
+
                     {departmentOptions.map((dept) => (
                       <label className="filter-option" key={dept}>
                         <input
@@ -266,9 +288,9 @@ const InboundTable = ({
               </div>
             </div>
           )}
+
           <div className="search-box">
             <i className="fa fa-search search-icon" />
-
             <input
               type="text"
               placeholder="Search"
@@ -335,27 +357,6 @@ const InboundTable = ({
         </div>
       </div>
 
-      {/* ✅ Tabs */}
-      <div className="inbound-view-tabs">
-        <button
-          type="button"
-          className={`inbound-tab ${activeTab === "pending" ? "active" : ""}`}
-          onClick={() => onTabChange("pending")}
-        >
-          รอดำเนินการ <span className="badge">{statusCounts.pending}</span>
-        </button>
-
-        <button
-          type="button"
-          className={`inbound-tab ${activeTab === "completed" ? "active" : ""}`}
-          onClick={() => onTabChange("completed")}
-        >
-          ดำเนินการเสร็จสิ้น{" "}
-          <span className="badge">{statusCounts.completed}</span>
-        </button>
-      </div>
-
-      <br />
       <div className="table__wrapper">
         <Table headers={tableHeaders}>
           {viewRows.length === 0 ? (

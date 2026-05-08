@@ -23,7 +23,7 @@
 
 .transfer-movement-details-btn {
   padding: 10px 20px;
-  background-color:#1a73e8;
+  background-color: #1a73e8;
   color: white;
   border: none;
   border-radius: 4px;
@@ -70,3 +70,54 @@
 /* .transfer-movement-department-cell {
   white-space: pre-line;
 } */
+
+.transfer-movement-toolbar-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 5px;
+  position: relative;
+  z-index: 120;
+}
+
+.transfer-movement-toolbar-row .toolbar {
+  margin-left: auto;
+}
+
+.transfer-movement-toolbar-row .filter-wrap {
+  z-index: 130;
+}
+
+.transfer-movement-toolbar-row .filter-dropdown-2 {
+  z-index: 140;
+}
+
+.transfer-movement-toolbar-row .dt-tf-mv-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 0;
+}
+
+@media (max-width: 992px) {
+  .transfer-movement-toolbar-row {
+    align-items: flex-start;
+  }
+
+  .transfer-movement-toolbar-row .toolbar {
+    width: 100%;
+    justify-content: flex-start;
+    margin-left: 0;
+    flex-wrap: wrap;
+  }
+
+  .transfer-movement-toolbar-row .dept-filter {
+    width: 100%;
+  }
+
+  .transfer-movement-toolbar-row .dept-select {
+    width: 100%;
+  }
+}

@@ -8,7 +8,7 @@ export const stock_countApi = {
     http.get<ApiStockCountResponse>("/stocks/get", { params }),
   getById: (id: string) => http.get<ApiStockCountResponse>(`/stocks/get/${id}`),
 
-  startCount: (data: StockCountFormeData) => http.post("/stocks/start_count", data),
+  startCount: (data: StockCountFormeData) => http.post("/stocks/start-count", data),
 
   update: (id: string, data: StockCountUpdateData) => http.patch(`/stocks/update/${id}`, data),
 };

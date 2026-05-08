@@ -384,7 +384,7 @@ tr.transfer-exp-ncr-row-done td {
     "meta scan"
     "search search"
     "table table";
-  gap: 20px;
+  gap: 1px;
   align-items: start;
   overflow: visible;
 }
@@ -547,4 +547,55 @@ tr.transfer-exp-ncr-row-done td {
 .transfer-exp-ncr-scan-spacer-view {
   width: 59px;
   height: 34px;
+}
+
+.transfer-exp-ncr-toolbar-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 5px;
+  position: relative;
+  z-index: 120;
+}
+
+.transfer-exp-ncr-toolbar-row .toolbar {
+  margin-left: auto;
+}
+
+.transfer-exp-ncr-toolbar-row .filter-wrap {
+  z-index: 130;
+}
+
+.transfer-exp-ncr-toolbar-row .filter-dropdown-2 {
+  z-index: 140;
+}
+
+.transfer-exp-ncr-list-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 0;
+}
+
+@media (max-width: 992px) {
+  .transfer-exp-ncr-toolbar-row {
+    align-items: flex-start;
+  }
+
+  .transfer-exp-ncr-toolbar-row .toolbar {
+    width: 100%;
+    justify-content: flex-start;
+    margin-left: 0;
+    flex-wrap: wrap;
+  }
+
+  .transfer-exp-ncr-toolbar-row .dept-filter {
+    width: 100%;
+  }
+
+  .transfer-exp-ncr-toolbar-row .dept-select {
+    width: 100%;
+  }
 }

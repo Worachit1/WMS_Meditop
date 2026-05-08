@@ -401,6 +401,22 @@ const TransferMovementTable = ({
         <div className="page-title">
           Transfer - <span className="transfer-movement-title">Movement</span>
         </div>
+      </div>
+
+      <div className="transfer-movement-toolbar-row">
+        <div className="dt-tf-mv-tabs">
+          {(["pick", "put", "completed"] as TabKey[]).map((k) => (
+            <button
+              key={k}
+              type="button"
+              className={`dt-tf-mv-tab ${statusTab === k ? "active" : ""}`}
+              onClick={() => onChangeStatusTab(k)}
+              title={tabLabel(k)}
+            >
+              {tabLabel(k)} <span className="dt-tf-mv-badge">{counts[k]}</span>
+            </button>
+          ))}
+        </div>
 
         <div className="toolbar">
           {departmentOptions.length > 0 && (
@@ -415,9 +431,7 @@ const TransferMovementTable = ({
                   {selectedDepartments.includes("all")
                     ? "ทั้งหมด"
                     : selectedDepartments.join(", ")}
-                  <i
-                    className="fa fa-chevron-down"
-                  />
+                  <i className="fa fa-chevron-down" />
                 </button>
 
                 {showDeptDropdown && (
@@ -476,7 +490,7 @@ const TransferMovementTable = ({
             </button>
 
             {showFilterDropdown && (
-              <div className="filter-dropdown">
+              <div className="filter-dropdown-2">
                 <div className="filter-title">
                   Search In Columns
                   <button
@@ -526,22 +540,6 @@ const TransferMovementTable = ({
         </div>
       </div>
 
-      {/* ✅ 3 Tabs */}
-      <div className="dt-tf-mv-tabs" style={{ marginTop: 10 }}>
-        {(["pick", "put", "completed"] as TabKey[]).map((k) => (
-          <button
-            key={k}
-            type="button"
-            className={`dt-tf-mv-tab ${statusTab === k ? "active" : ""}`}
-            onClick={() => onChangeStatusTab(k)}
-            title={tabLabel(k)}
-          >
-            {tabLabel(k)} <span className="dt-tf-mv-badge">{counts[k]}</span>
-          </button>
-        ))}
-      </div>
-
-      <br />
       <div className="table__wrapper">
         <Table headers={tableHeaders}>
           {filteredTabRows.length === 0 ? (
@@ -571,6 +569,7 @@ const TransferMovementTable = ({
                       Details
                     </button>
                   </td>
+
                   {!isOperator && statusTab === "pick" && (
                     <td>
                       <button
