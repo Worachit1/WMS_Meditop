@@ -48,6 +48,7 @@ export const outboundApi = {
     search?: string;
     department?: string; // ✅ เพิ่ม
   }) => http.get("/outbounds/get/odoo/transfers/available", { params }),
+
   getOutboundByUser: (
     params: { page: number; limit: number; search?: string },
     batchName: string,
@@ -213,11 +214,6 @@ export const goodsoutApi = {
     data: { barcode: string; location_full_name: string; qty_input?: number },
   ) => http.post(`/outbounds/${encodeURIComponent(no)}/scan/barcode`, data),
 
-  scanReturn: (
-    no: string,
-    data: { barcode: string; location_full_name: string; qty_input?: number },
-  ) => http.post(`/outbounds/${encodeURIComponent(no)}/scan/return`, data),
-
   checkOutboundItemBarcode: (
     no: string,
     itemId: string | number,
@@ -229,7 +225,7 @@ export const goodsoutApi = {
       { timeout: 60000 },
     ),
 
-  scanReturnProduct: (
+  scanReturn: (
     no: string,
     body: {
       barcode: string;
@@ -238,15 +234,40 @@ export const goodsoutApi = {
     },
   ) => {
     return http.post(
+      `/outbounds/${encodeURIComponent(no)}/scan/barcode/return-pick`,
+      body,
+    );
+  },
+
+  scanReturnProduct: (
+    no: string,
+    body: {
+      barcode: string;
+      location_full_name: string;
+      qty_input?: number;
+      return_mode?: "PD" | "RTC" | "COMPLETED";
+    },
+  ) => {
+    return http.post(
       `/outbounds/${encodeURIComponent(no)}/scan/barcode/return`,
       body,
     );
   },
 
-  confirmReturn: (no: string) => {
+  confirmReturn: (
+    no: string,
+    body?: {
+      return_mode?: "PICK" | "PD" | "RTC" | "COMPLETED";
+    },
+  ) =>
+    http.post(
+      `/outbounds/${encodeURIComponent(no)}/return/confirm`,
+      body ?? {},
+    ),
+
+  confirmRtcToStock: (no: string) => {
     return http.post(
-      `/outbounds/${encodeURIComponent(no)}/scan/confirm/return`,
-      {},
+      `/outbounds/${encodeURIComponent(no)}/confirm-rtc-to-stock`,
     );
   },
 };
@@ -375,4 +396,29 @@ export const packProductApi = {
     status?: string;
   }) =>
     http.get<PackProductListResponse>("/outbounds/pack-products", { params }),
+
+  movePdPackingToLocation: (
+    packProductId: number | string,
+    body: {
+      outbound_no: string;
+      location_full_name: string;
+    },
+  ) =>
+    http.post(
+      `/outbounds/pack-products/${packProductId}/pd/move-to-pack-location`,
+      body,
+    ),
+
+  moveRtcPackingToLocation: (
+    packProductId: number | string,
+    body: {
+      outbound_no: string;
+      location_full_name: string;
+    },
+  ) =>
+    http.post(
+      `/outbounds/pack-products/${packProductId}/rtc/move-to-location`,
+      body,
+      { timeout: 60000 },
+    ),
 };

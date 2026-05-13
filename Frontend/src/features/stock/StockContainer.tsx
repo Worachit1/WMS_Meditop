@@ -37,45 +37,65 @@ const StockContainer = () => {
     active: true,
   });
 
-  const fetchStocks = useCallback(async (page: number, search: string, limit: number, columns: typeof searchableColumns) => {
-    const startTime = Date.now();
-    const loadingTimeout = setTimeout(() => {
-      setLoading(true);
-    }, SHOW_LOADING_THRESHOLD);
+  const [locationMode, setLocationMode] = useState<
+    "default" | "exp_ncr" | "location_pack"
+  >("default");
 
-    try {
-      // ส่ง search และ columns ไปให้ backend จัดการ
-      const enabledColumns = Object.entries(columns)
-        .filter(([, enabled]) => enabled)
-        .map(([col]) => col)
-        .join(',');
+  const fetchStocks = useCallback(
+    async (
+      page: number,
+      search: string,
+      limit: number,
+      columns: typeof searchableColumns,
+    ) => {
+      const startTime = Date.now();
+      const loadingTimeout = setTimeout(() => {
+        setLoading(true);
+      }, SHOW_LOADING_THRESHOLD);
 
-      const response = await stockApi.getAllPaginated({
-        page,
-        limit,
-        search: search.trim() || undefined,
-        columns: enabledColumns || undefined,
-      });
-      const { data = [], meta } = response.data;
-      setStocks(data);
-      setTotalPages(meta.totalPages);
-      setTotalItems(meta.total);
-    } catch (error) {
-      console.error("Error fetching stocks:", error);
-    } finally {
-      clearTimeout(loadingTimeout);
-      const elapsedTime = Date.now() - startTime;
-      if (elapsedTime < MIN_LOADING_TIME) {
-        setTimeout(() => setLoading(false), MIN_LOADING_TIME - elapsedTime);
-      } else {
-        setLoading(false);
+      try {
+        // ส่ง search และ columns ไปให้ backend จัดการ
+        const enabledColumns = Object.entries(columns)
+          .filter(([, enabled]) => enabled)
+          .map(([col]) => col)
+          .join(",");
+
+        const response = await stockApi.getAllPaginated({
+          page,
+          limit,
+          search: search.trim() || undefined,
+          columns: enabledColumns || undefined,
+          locationMode,
+        });
+        const { data = [], meta } = response.data;
+        setStocks(data);
+        setTotalPages(meta.totalPages);
+        setTotalItems(meta.total);
+      } catch (error) {
+        console.error("Error fetching stocks:", error);
+      } finally {
+        clearTimeout(loadingTimeout);
+        const elapsedTime = Date.now() - startTime;
+        if (elapsedTime < MIN_LOADING_TIME) {
+          setTimeout(() => setLoading(false), MIN_LOADING_TIME - elapsedTime);
+        } else {
+          setLoading(false);
+        }
       }
-    }
-  }, []);
+    },
+    [locationMode],
+  );
 
   useEffect(() => {
     fetchStocks(currentPage, debouncedSearch, itemsPerPage, searchableColumns);
-  }, [fetchStocks, currentPage, debouncedSearch, itemsPerPage, searchableColumns]);
+  }, [
+    fetchStocks,
+    currentPage,
+    debouncedSearch,
+    itemsPerPage,
+    searchableColumns,
+    locationMode,
+  ]);
 
   // Debounce search query
   useEffect(() => {
@@ -107,23 +127,33 @@ const StockContainer = () => {
           showFilterDropdown={showFilterDropdown}
           onToggleFilter={() => setShowFilterDropdown((prev) => !prev)}
           searchableColumns={searchableColumns}
-          onClearAllColumns={() => 
+          onClearAllColumns={() =>
             setSearchableColumns({
-            product_id: false,
-            product_code: false,
-            product_name: false,
-            lot_name: false,
-            expiration_date: false,
-            location_name: false,
-            quantity: false,
-            active: false,
-          })}
+              product_id: false,
+              product_code: false,
+              product_name: false,
+              lot_name: false,
+              expiration_date: false,
+              location_name: false,
+              quantity: false,
+              active: false,
+            })
+          }
           onToggleSearchableColumn={(column) =>
-            setSearchableColumns((prev) => ({ ...prev, [column]: !prev[column] }))
+            setSearchableColumns((prev) => ({
+              ...prev,
+              [column]: !prev[column],
+            }))
           }
           onPrint={handlePrint}
           currentPage={currentPage}
           itemsPerPage={itemsPerPage}
+          // ✅ add
+          locationMode={locationMode}
+          onLocationModeChange={(mode) => {
+            setLocationMode(mode);
+            setCurrentPage(1);
+          }}
         />
 
         <Pegination

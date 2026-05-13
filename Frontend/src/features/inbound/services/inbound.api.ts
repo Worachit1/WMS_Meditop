@@ -72,6 +72,20 @@ export const inboundApi = {
       }[];
     },
   ) => http.post(`/inbounds/${encodeURIComponent(no)}/scan/confirm`, data),
+
+  replaceOutbound: (
+  no: string,
+  data: {
+    outbound_id: number;
+    user_id: number;
+    remark?: string;
+  },
+) =>
+  http.post(
+    `/inbounds/${encodeURIComponent(no)}/replace-outbound`,
+    data,
+    { timeout: 60000 },
+  ),
 };
 
 export const BarcodeCountDepartmentApi = {

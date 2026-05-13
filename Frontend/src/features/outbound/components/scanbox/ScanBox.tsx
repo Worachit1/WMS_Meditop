@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import DetailNavigator from "../../../../components/DetailNavigator/DetailNavigator";
 import Swal from "sweetalert2";
 import { packProductApi } from "../../services/outbound.api";
+import { locationApi } from "../../../location/services/location.api";
 import { socket } from "../../../../services/socket";
 import type {
   InvoiceData,
@@ -20,6 +21,8 @@ import "./scanbox.css";
 import { createPortal } from "react-dom";
 import { toast } from "react-toastify";
 import Loading from "../../../../components/Loading/Loading";
+
+import Select from "react-select";
 
 type SortDir = "asc" | "desc" | null;
 type ViewMode = "pending" | "done";
@@ -208,6 +211,41 @@ const ScanBox = () => {
   const [viewMode, setViewMode] = useState<ViewMode>(
     isReadOnly ? "done" : "pending",
   );
+
+  const [pdPackingAlert, setPdPackingAlert] = useState<{
+    open: boolean;
+    payload: any | null;
+    selectedLocation: string;
+    mode: "PD" | "RTC";
+  }>({
+    open: false,
+    payload: null,
+    selectedLocation: "",
+    mode: "PD",
+  });
+
+  const [packingLocationOptions, setPackingLocationOptions] = useState<
+    Array<{ value: string; label: string; full_name: string; lock_no?: string }>
+  >([]);
+
+  const syncScanBoxUrl = (packIdValue: number | string) => {
+    const id = Number(packIdValue);
+
+    if (!id) return;
+
+    navigate(
+      `/scan-box?packId=${id}${navStatus === "completed" ? "&readonly=1" : ""}`,
+      {
+        replace: true,
+        state: {
+          view: navView,
+          status: navStatus,
+          detailList,
+          detailTotal: total,
+        },
+      },
+    );
+  };
 
   type MenuPos = { top: number; left: number };
 
@@ -613,6 +651,39 @@ const ScanBox = () => {
   }, [packProduct?.id]);
 
   useEffect(() => {
+    if (!packProduct?.id) return;
+
+    const openPackingAlert = (payload: any, mode: "PD" | "RTC") => {
+      if (Number(payload?.pack_product_id) !== Number(packProduct?.id)) {
+        return;
+      }
+
+      setPdPackingAlert({
+        open: true,
+        payload,
+        selectedLocation: "",
+        mode,
+      });
+    };
+
+    const handlePdDetected = (payload: any) => {
+      openPackingAlert(payload, "PD");
+    };
+
+    const handleRtcDetected = (payload: any) => {
+      openPackingAlert(payload, "RTC");
+    };
+
+    socket.on("packing:pd_detected", handlePdDetected);
+    socket.on("packing:rtc_detected", handleRtcDetected);
+
+    return () => {
+      socket.off("packing:pd_detected", handlePdDetected);
+      socket.off("packing:rtc_detected", handleRtcDetected);
+    };
+  }, [packProduct?.id]);
+
+  useEffect(() => {
     if (isScanActive && inputRef.current) inputRef.current.focus();
   }, [isScanActive]);
 
@@ -636,6 +707,46 @@ const ScanBox = () => {
       status: isBoxClosed ? "closed" : "open",
     });
   }, [currentBox, isBoxClosed, currentBoxScopeKey, packProduct]);
+
+  useEffect(() => {
+    const loadLocationPack = async () => {
+      try {
+        const res = await locationApi.getLocationPack();
+
+        const rows = Array.isArray(res?.data?.data)
+          ? res.data.data
+          : Array.isArray(res?.data)
+            ? res.data
+            : [];
+
+        const options = rows
+          .map((loc: any) => {
+            const fullName = String(loc?.full_name ?? "").trim();
+            if (!fullName) return null;
+
+            return {
+              value: fullName,
+              label: fullName,
+              full_name: fullName,
+              lock_no: loc?.lock_no ?? "",
+            };
+          })
+          .filter(Boolean) as Array<{
+          value: string;
+          label: string;
+          full_name: string;
+          lock_no?: string;
+        }>;
+
+        setPackingLocationOptions(options);
+      } catch (err) {
+        console.error("load location pack error:", err);
+        setPackingLocationOptions([]);
+      }
+    };
+
+    void loadLocationPack();
+  }, []);
 
   const closeDropdown = () => {
     setOpenDropdownId(null);
@@ -712,18 +823,46 @@ const ScanBox = () => {
   }, [batchItems]);
 
   useEffect(() => {
-  const navState = (location.state as any) || {};
+    const navState = (location.state as any) || {};
 
-  const rows = Array.isArray(navState.detailList)
-    ? navState.detailList
-        .map((x: any) => ({
-          id: Number(x?.id ?? 0),
-        }))
-        .filter((x: { id: number }) => x.id > 0)
-    : [];
+    const rows = Array.isArray(navState.detailList)
+      ? navState.detailList
+          .map((x: any) => ({
+            id: Number(x?.id ?? 0),
+          }))
+          .filter((x: { id: number }) => x.id > 0)
+      : [];
 
-  setDetailList(rows);
-}, [location.key]);
+    setDetailList(rows);
+  }, [location.key]);
+
+  useEffect(() => {
+    const loadPackProduct = async () => {
+      if (!packId) return;
+
+      try {
+        setIsLoading(true);
+
+        const res = await packProductApi.getById(packId);
+
+        const detail = res?.data?.data;
+
+        if (!detail) return;
+
+        applyPackProductData(detail, {
+          preserveLocalBox: true,
+        });
+      } catch (error: any) {
+        toast.error(
+          error?.response?.data?.message || "โหลดข้อมูล pack product ไม่สำเร็จ",
+        );
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadPackProduct();
+  }, [packId]);
 
   const getDocNo = (inv: any): string => {
     const candidates = [inv?.no, inv?.origin, inv?.origin?.no];
@@ -841,6 +980,13 @@ const ScanBox = () => {
 
       applyPackProductData(data, { preserveLocalBox: false });
 
+      // ✅ เปลี่ยน URL ทันทีหลัง scan สำเร็จ
+      const nextPackId = data?.pack_product?.id;
+
+      if (nextPackId) {
+        syncScanBoxUrl(nextPackId);
+      }
+
       if (
         data.current_box &&
         String(data.current_box.status ?? "").toLowerCase() === "open"
@@ -919,7 +1065,16 @@ const ScanBox = () => {
       );
       const data = res.data.data;
 
-      applyPackProductData(data, { preserveLocalBox: false });
+      applyPackProductData(data, {
+        preserveLocalBox: false,
+      });
+
+      // ✅ sync route
+      const nextPackId = data?.pack_product?.id;
+
+      if (nextPackId) {
+        syncScanBoxUrl(nextPackId);
+      }
 
       if (
         data.current_box &&
@@ -999,18 +1154,34 @@ const ScanBox = () => {
           scanned,
           getUserRef() || undefined,
         );
+
         const data = res.data.data;
 
-        applyPackProductData(data, { preserveLocalBox: false });
+        applyPackProductData(data, {
+          preserveLocalBox: false,
+        });
+
+        // ✅ sync route หลังปิดกล่อง
+        const nextPackId = data?.pack_product?.id;
+
+        if (nextPackId) {
+          syncScanBoxUrl(nextPackId);
+        }
 
         toast.success(
-          `ปิดกล่องสำเร็จ: ${data.current_box?.box_label || currentBox.box_name}`,
+          `ปิดกล่องสำเร็จ: ${
+            data.current_box?.box_label || currentBox.box_name
+          }`,
           { autoClose: 1200 },
         );
 
         setItemScanInput("");
         setIsOpenBoxScanActive(true);
-        setTimeout(() => boxOpenScanRef.current?.focus(), 100);
+
+        setTimeout(() => {
+          boxOpenScanRef.current?.focus();
+        }, 100);
+
         return;
       } catch (error: any) {
         Swal.fire({
@@ -1018,6 +1189,7 @@ const ScanBox = () => {
           title: "ปิดกล่องไม่สำเร็จ",
           text: error?.response?.data?.message || "กรุณาลองใหม่อีกครั้ง",
         });
+
         return;
       }
     }
@@ -1498,9 +1670,7 @@ const ScanBox = () => {
                     className="filter-dropdown-2"
                     style={{ right: 0, left: "auto", minWidth: 180 }}
                   >
-                    <div className="filter-title">
-                      Filter ตามกล่อง
-                    </div>
+                    <div className="filter-title">Filter ตามกล่อง</div>
                     <label
                       className="filter-option"
                       style={{ cursor: "pointer" }}
@@ -1724,6 +1894,162 @@ const ScanBox = () => {
               </button>
             )}
           </div>
+
+          {pdPackingAlert.open && (
+            <div className="modal-overlay">
+              <div className="pd-packing-modal">
+                <h3>
+                  {pdPackingAlert.mode === "RTC"
+                    ? "พบ RTC ระหว่าง Packing"
+                    : "พบ PD ระหว่าง Packing"}
+                </h3>
+
+                <p>
+                  {pdPackingAlert.mode === "RTC"
+                    ? "มี RTC ส่งเข้ามาสำหรับใบที่กำลัง Packing อยู่"
+                    : "มี PD ส่งเข้ามาสำหรับใบที่กำลัง Packing อยู่"}
+                </p>
+
+                <div>
+                  <b>{pdPackingAlert.mode === "RTC" ? "RTC No:" : "PD No:"}</b>{" "}
+                  {pdPackingAlert.mode === "RTC"
+                    ? pdPackingAlert.payload?.rtc_no || "-"
+                    : pdPackingAlert.payload?.pd_no || "-"}
+                </div>
+
+                <div>
+                  <b>Outbound No:</b>{" "}
+                  {pdPackingAlert.payload?.outbound_no || "-"}
+                </div>
+
+                <div>
+                  <b>Origin:</b> {pdPackingAlert.payload?.origin || "-"}
+                </div>
+
+                <div>
+                  <b>Invoice:</b> {pdPackingAlert.payload?.invoice || "-"}
+                </div>
+
+                <label>Location Packing</label>
+
+                <Select
+                  value={
+                    packingLocationOptions.find(
+                      (x) => x.value === pdPackingAlert.selectedLocation,
+                    ) ?? null
+                  }
+                  onChange={(option) =>
+                    setPdPackingAlert((prev) => ({
+                      ...prev,
+                      selectedLocation: option?.value ?? "",
+                    }))
+                  }
+                  options={packingLocationOptions}
+                  placeholder="เลือก Location Packing"
+                  isClearable
+                />
+
+                <div className="modal-actions">
+                  <button
+                    type="button"
+                    disabled={
+                      !pdPackingAlert.selectedLocation || !packProduct?.id
+                    }
+                    onClick={async () => {
+                      const mode = pdPackingAlert.mode;
+
+                      try {
+                        if (!packProduct?.id) {
+                          toast.error("ไม่พบ Pack Product");
+                          return;
+                        }
+
+                        const body = {
+                          outbound_no: pdPackingAlert.payload?.outbound_no,
+                          location_full_name: pdPackingAlert.selectedLocation,
+                        };
+
+                        const res =
+                          mode === "RTC"
+                            ? await packProductApi.moveRtcPackingToLocation(
+                                packProduct.id,
+                                body,
+                              )
+                            : await packProductApi.movePdPackingToLocation(
+                                packProduct.id,
+                                body,
+                              );
+
+                        setPdPackingAlert({
+                          open: false,
+                          payload: null,
+                          selectedLocation: "",
+                          mode: "PD",
+                        });
+
+                        if (mode === "RTC") {
+                          const isLast = Boolean(
+                            res?.data?.data?.is_last_outbound_in_pack,
+                          );
+
+                          toast.success("ยืนยันการ RTC สำเร็จ");
+
+                          if (isLast) {
+                            navigate("/outbound?view=packing", {
+                              replace: true,
+                            });
+                            return;
+                          }
+
+                          await reloadPackProductDetail(Number(packProduct.id));
+                          syncScanBoxUrl(packProduct.id);
+                          return;
+                        }
+
+                        const action = res?.data?.data?.pack_product_action;
+
+                        if (action === "soft_delete") {
+                          navigate("/outbound/packing");
+                          return;
+                        }
+
+                        await reloadPackProductDetail(Number(packProduct.id));
+                        syncScanBoxUrl(packProduct.id);
+
+                        toast.success("ย้ายสินค้าไป Location Packing สำเร็จ");
+                      } catch (err: any) {
+                        toast.error(
+                          err?.response?.data?.message ||
+                            err?.message ||
+                            (mode === "RTC"
+                              ? "ยืนยันการ RTC ไม่สำเร็จ"
+                              : "ย้ายสินค้าไม่สำเร็จ"),
+                        );
+                      }
+                    }}
+                  >
+                    {pdPackingAlert.mode === "RTC"
+                      ? "ยืนยันการ RTC"
+                      : "ย้ายของไป Location Packing"}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setPdPackingAlert({
+                        open: false,
+                        payload: null,
+                        selectedLocation: "",
+                        mode: "PD",
+                      })
+                    }
+                  >
+                    ยกเลิก
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </>
       )}
       {loading && (

@@ -3,6 +3,8 @@ import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { createPortal } from "react-dom";
 import type { InboundType, GoodsInType } from "../types/inbound.type";
 import { inboundApi } from "../services/inbound.api";
+import { outboundApi } from "../../outbound/services/outbound.api";
+
 import { ensureSharedBarcodeForGoodsInGroup } from "../services/barcodeGeneration";
 import { printBarcodeLabels } from "../services/barcodePrint";
 import BarcodeModal from "./BarcodeModal";
@@ -61,6 +63,21 @@ type GroupedRow = {
 type ConfirmedLocationState = {
   id: number | null;
   full_name: string;
+};
+
+type ReplaceOutboundRow = {
+  id: number;
+  no: string;
+  origin?: string | null;
+  reference?: string | null;
+  department?: string | null;
+  items?: any[];
+  goods_outs?: any[];
+};
+
+type OutboundMatchResult = {
+  ok: boolean;
+  reason: string;
 };
 
 const getInboundLocStorageKey = (docNo?: string | null) =>
@@ -134,11 +151,6 @@ const InboundById = () => {
     | "pending"
     | "completed"
     | undefined;
-  const navState = (location.state as any) || {};
-  const stateDetailList = Array.isArray(navState.detailList)
-    ? navState.detailList
-    : [];
-  const stateDetailTotal = Number(navState.detailTotal ?? 0);
 
   const [inboundItem, setInboundItem] = useState<InboundType | null>(null);
   const [detailList, setDetailList] = useState<Array<{ no: string }>>([]);
@@ -175,6 +187,18 @@ const InboundById = () => {
   const [selectedGroupKeys, setSelectedGroupKeys] = useState<string[]>([]);
   const [isGeneratingBarcodes, setIsGeneratingBarcodes] = useState(false);
   const [isPrintingBarcodes, setIsPrintingBarcodes] = useState(false);
+
+  const [isReplaceOutboundOpen, setIsReplaceOutboundOpen] = useState(false);
+  const [replaceOutboundRows, setReplaceOutboundRows] = useState<
+    ReplaceOutboundRow[]
+  >([]);
+  const [replaceOutboundSearch, setReplaceOutboundSearch] = useState("");
+  const [selectedReplaceOutboundId, setSelectedReplaceOutboundId] = useState<
+    number | null
+  >(null);
+  const [isLoadingReplaceOutbound, setIsLoadingReplaceOutbound] =
+    useState(false);
+  const [isReplacingOutbound, setIsReplacingOutbound] = useState(false);
 
   // Dropdown state (portal+fixed)
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
@@ -1877,6 +1901,246 @@ const InboundById = () => {
     }
   };
 
+  const normReplaceText = (v: unknown) =>
+    String(v ?? "")
+      .trim()
+      .toLowerCase();
+
+  const getReplaceQty = (v: unknown) => Number(v ?? 0);
+
+  const buildReplaceKey = (item: any) => {
+    return [
+      item.product_id ?? "NULL",
+      normReplaceText(item.code),
+      item.lot_id ?? "NULL",
+      normReplaceText(item.lot_serial ?? item.lot ?? item.lot_name),
+    ].join("|");
+  };
+
+  const summarizeInboundReplaceLines = useCallback((rows: any[]) => {
+    const map = new Map<string, number>();
+
+    rows.forEach((row) => {
+      const key = buildReplaceKey(row);
+      const q = getReplaceQty(row.quantity_receive ?? row.qty);
+      map.set(key, (map.get(key) ?? 0) + q);
+    });
+
+    return map;
+  }, []);
+
+  const summarizeOutboundReplaceLines = useCallback((rows: any[]) => {
+    const map = new Map<string, number>();
+
+    rows.forEach((row) => {
+      const key = buildReplaceKey(row);
+      const q = getReplaceQty(row.qty);
+      map.set(key, (map.get(key) ?? 0) + q);
+    });
+
+    return map;
+  }, []);
+
+  const checkOutboundMatchedInbound = useCallback(
+    (outbound: ReplaceOutboundRow): OutboundMatchResult => {
+      const inboundRows = Array.isArray((inboundItem as any)?.items)
+        ? (inboundItem as any).items
+        : Array.isArray((inboundItem as any)?.goods_ins)
+          ? (inboundItem as any).goods_ins
+          : [];
+
+      const outboundRows = Array.isArray((outbound as any).items)
+        ? (outbound as any).items
+        : Array.isArray((outbound as any).goods_outs)
+          ? (outbound as any).goods_outs
+          : [];
+
+      if (inboundRows.length === 0) {
+        return { ok: false, reason: "Inbound ไม่มีรายการสินค้า" };
+      }
+
+      if (outboundRows.length === 0) {
+        return { ok: false, reason: "Outbound ไม่มีรายการสินค้า" };
+      }
+
+      const inMap = summarizeInboundReplaceLines(inboundRows);
+      const outMap = summarizeOutboundReplaceLines(outboundRows);
+
+      if (inMap.size !== outMap.size) {
+        return {
+          ok: false,
+          reason: `จำนวนกลุ่มสินค้าไม่ตรงกัน Inbound ${inMap.size} / Outbound ${outMap.size}`,
+        };
+      }
+
+      for (const [key, inQty] of inMap.entries()) {
+        const outQty = outMap.get(key);
+
+        if (outQty == null) {
+          return {
+            ok: false,
+            reason: "สินค้า/lot ไม่ตรงกับ inbound",
+          };
+        }
+
+        if (Number(inQty) !== Number(outQty)) {
+          return {
+            ok: false,
+            reason: `จำนวนไม่ตรงกัน Inbound ${inQty} / Outbound ${outQty}`,
+          };
+        }
+      }
+
+      return { ok: true, reason: "ตรงกันทุกอย่าง" };
+    },
+    [inboundItem, summarizeInboundReplaceLines, summarizeOutboundReplaceLines],
+  );
+
+  const matchedReplaceOutboundRows = replaceOutboundRows.filter((row) => {
+    const match = checkOutboundMatchedInbound(row);
+    return match.ok;
+  });
+
+  const handleOpenReplaceOutbound = useCallback(async () => {
+    if (!inboundItem) return;
+
+    try {
+      setIsReplaceOutboundOpen(true);
+      setIsLoadingReplaceOutbound(true);
+      setSelectedReplaceOutboundId(null);
+
+      const resp = await outboundApi.getOutboundBatch({
+        page: 1,
+        limit: 100,
+        search: replaceOutboundSearch,
+        department: inboundItem.department || undefined,
+      });
+
+      const rows = Array.isArray(resp?.data?.data)
+        ? resp.data.data
+        : Array.isArray(resp?.data)
+          ? resp.data
+          : [];
+
+      console.log("========== OUTBOUND API ==========");
+      console.log(rows);
+
+      setReplaceOutboundRows(rows);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "โหลด Outbound ไม่สำเร็จ");
+    } finally {
+      setIsLoadingReplaceOutbound(false);
+    }
+  }, [inboundItem, replaceOutboundSearch]);
+
+  const handleSearchReplaceOutbound = useCallback(async () => {
+    if (!inboundItem) return;
+
+    try {
+      setIsLoadingReplaceOutbound(true);
+
+      const resp = await outboundApi.getOutboundBatch({
+        page: 1,
+        limit: 100,
+        search: replaceOutboundSearch,
+        department: inboundItem.department || undefined,
+      });
+
+      const rows = Array.isArray(resp?.data?.data)
+        ? resp.data.data
+        : Array.isArray(resp?.data)
+          ? resp.data
+          : [];
+
+      console.log("========== SEARCH OUTBOUND API ==========");
+      console.log(rows);
+
+      setReplaceOutboundRows(rows);
+      setSelectedReplaceOutboundId(null);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "ค้นหา Outbound ไม่สำเร็จ");
+    } finally {
+      setIsLoadingReplaceOutbound(false);
+    }
+  }, [inboundItem, replaceOutboundSearch]);
+
+  const handleConfirmReplaceOutbound = useCallback(async () => {
+    if (!no || !inboundItem) return;
+
+    if (!selectedReplaceOutboundId) {
+      warningAlert("กรุณาเลือก Outbound");
+      return;
+    }
+
+    const selectedOutbound = replaceOutboundRows.find(
+      (x) => Number(x.id) === Number(selectedReplaceOutboundId),
+    );
+
+    if (!selectedOutbound) {
+      warningAlert("ไม่พบ Outbound ที่เลือก");
+      return;
+    }
+
+    const match = checkOutboundMatchedInbound(selectedOutbound);
+
+    if (!match.ok) {
+      warningAlert(match.reason);
+      return;
+    }
+
+    const userId = Number(localStorage.getItem("id") || 0);
+
+    if (!Number.isFinite(userId) || userId <= 0) {
+      warningAlert("ไม่พบ user_id กรุณา login ใหม่");
+      return;
+    }
+
+    const c = await confirmAlert(
+      `ยืนยันแทนที่ด้วย Outbound ${selectedOutbound.no} และสร้าง PICK batch ใช่ไหม?`,
+    );
+
+    if (!c.isConfirmed) return;
+
+    try {
+      setIsReplacingOutbound(true);
+      setLoading(true);
+
+      const resp = await inboundApi.replaceOutbound(no, {
+        outbound_id: selectedOutbound.id,
+        user_id: userId,
+        remark: `Replace outbound ${selectedOutbound.no} from inbound ${inboundItem.no}`,
+      });
+
+      await successAlert(
+        "แทนที่ Outbound สำเร็จ",
+        resp?.data?.data?.batch_name
+          ? `Batch: ${resp.data.data.batch_name}`
+          : undefined,
+      );
+
+      persistConfirmedLocation(no, null);
+      persistCountByLoc(no, {});
+      setIsReplaceOutboundOpen(false);
+
+      navigate("/inbound", {
+        state: { status: navStatus },
+      });
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "แทนที่ Outbound ไม่สำเร็จ");
+    } finally {
+      setLoading(false);
+      setIsReplacingOutbound(false);
+    }
+  }, [
+    no,
+    inboundItem,
+    selectedReplaceOutboundId,
+    replaceOutboundRows,
+    checkOutboundMatchedInbound,
+    navigate,
+    navStatus,
+  ]);
+
   // ---------- confirm (multi-location) ----------
   const handleConfirm = async () => {
     if (!no) return;
@@ -2695,25 +2959,32 @@ const InboundById = () => {
     };
   }, [no, applyInboundPayload, confirmedLocation?.full_name]);
 
+
   useEffect(() => {
-    const stateRows = stateDetailList
+    const rawStateRows = Array.isArray((location.state as any)?.detailList)
+      ? (location.state as any).detailList
+      : [];
+
+    const stateRows = rawStateRows
       .map((x: any) => ({
         no: String(x?.no ?? "").trim(),
       }))
       .filter((x: { no: string }) => x.no);
 
-    const shouldFetchAll =
-      stateRows.length === 0 ||
-      (stateDetailTotal > 0 && stateRows.length < stateDetailTotal);
+    
+
+    const shouldFetchAll = stateRows.length === 0;
 
     if (!shouldFetchAll) {
       setDetailList(stateRows);
       return;
     }
 
+    let cancelled = false;
+
     const fetchDetailList = async () => {
       try {
-        const limit = 100;
+        const limit = 5000;
         let page = 1;
         let totalPages = 1;
         const allRows: any[] = [];
@@ -2726,12 +2997,17 @@ const InboundById = () => {
           });
 
           const rows = Array.isArray(resp?.data?.data) ? resp.data.data : [];
+
           const meta = resp?.data?.meta ?? {};
 
           allRows.push(...rows);
+
           totalPages = Number(meta?.totalPages ?? 1);
+
           page += 1;
         } while (page <= totalPages);
+
+        if (cancelled) return;
 
         const mapped = allRows
           .map((x: any) => ({
@@ -2741,13 +3017,20 @@ const InboundById = () => {
 
         setDetailList(mapped);
       } catch (error) {
+        if (cancelled) return;
+
         console.error("Error fetching inbound detail list:", error);
+
         setDetailList([]);
       }
     };
 
     fetchDetailList();
-  }, [navStatus, stateDetailList, stateDetailTotal]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [navStatus]);
 
   //logic navigator
   const currentIndex =
@@ -2761,7 +3044,11 @@ const InboundById = () => {
 
     const prevItem = detailList[idx - 1];
     navigate(`/inbound/${encodeURIComponent(prevItem.no)}`, {
-      state: { status: navStatus },
+      state: {
+        status: navStatus,
+        detailList,
+        detailTotal: detailList.length,
+      },
     });
   }, [detailList, no, navigate, navStatus]);
 
@@ -2770,9 +3057,13 @@ const InboundById = () => {
     if (idx < 0 || idx >= detailList.length - 1) return;
 
     const nextItem = detailList[idx + 1];
-    navigate(`/inbound/${encodeURIComponent(nextItem.no)}`, {
-      state: { status: navStatus },
-    });
+  navigate(`/inbound/${encodeURIComponent(nextItem.no)}`, {
+  state: {
+    status: navStatus,
+    detailList,
+    detailTotal: detailList.length,
+  },
+});
   }, [detailList, no, navigate, navStatus]);
 
   // ---------- render ----------
@@ -3394,7 +3685,7 @@ const InboundById = () => {
           flexWrap: "wrap",
         }}
       >
-        <div>
+        <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
           <button
             type="button"
             className="inbound-batch-generate-btn secondary"
@@ -3402,6 +3693,17 @@ const InboundById = () => {
           >
             Print ChangeLocation 4×4
           </button>
+
+          {!isCompletedStatus && (
+            <button
+              type="button"
+              className="inbound-batch-generate-btn"
+              onClick={handleOpenReplaceOutbound}
+              disabled={isReplacingOutbound}
+            >
+              {isReplacingOutbound ? "กำลังแทนที่..." : "แทนที่ outbound"}
+            </button>
+          )}
         </div>
 
         <div style={{ display: "flex", gap: "12px" }}>
@@ -3426,6 +3728,131 @@ const InboundById = () => {
           )}
         </div>
       </div>
+
+      <Modal
+        isOpen={isReplaceOutboundOpen}
+        onClose={() => {
+          if (isReplacingOutbound) return;
+          setIsReplaceOutboundOpen(false);
+          setSelectedReplaceOutboundId(null);
+        }}
+        title="แทนที่ Outbound"
+        width={1000}
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <div style={{ display: "flex", gap: 10 }}>
+            <input
+              type="text"
+              className="inbound-search-input"
+              value={replaceOutboundSearch}
+              onChange={(e) => setReplaceOutboundSearch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSearchReplaceOutbound();
+              }}
+              placeholder="Search Outbound"
+              disabled={isLoadingReplaceOutbound || isReplacingOutbound}
+            />
+
+            <button
+              type="button"
+              className="inbound-batch-generate-btn secondary"
+              onClick={handleSearchReplaceOutbound}
+              disabled={isLoadingReplaceOutbound || isReplacingOutbound}
+            >
+              ค้นหา
+            </button>
+          </div>
+
+          <div style={{ fontSize: 14, opacity: 0.8 }}>
+            แสดงเฉพาะ Outbound ที่สินค้า / lot / exp / จำนวน ตรงกับ Inbound
+            ทุกอย่าง
+          </div>
+
+          <div className="table__wrapper">
+            <Table
+              headers={
+                [
+                  "เลือก",
+                  "Outbound",
+                  "Origin",
+                  "Reference",
+                  "Department",
+                  "สถานะ",
+                ] as any
+              }
+            >
+              {isLoadingReplaceOutbound ? (
+                <tr>
+                  <td colSpan={6} className="no-data">
+                    Loading...
+                  </td>
+                </tr>
+              ) : matchedReplaceOutboundRows.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="no-data">
+                    ไม่พบ Outbound ที่ตรงกับสินค้าใน Inbound นี้
+                  </td>
+                </tr>
+              ) : (
+                matchedReplaceOutboundRows.map((row) => {
+                  const match = checkOutboundMatchedInbound(row);
+
+                  return (
+                    <tr key={row.id}>
+                      <td>
+                        <input
+                          type="radio"
+                          name="replaceOutbound"
+                          checked={selectedReplaceOutboundId === row.id}
+                          onChange={() => setSelectedReplaceOutboundId(row.id)}
+                          disabled={!match.ok || isReplacingOutbound}
+                        />
+                      </td>
+                      <td style={{ fontWeight: 700 }}>{row.no}</td>
+                      <td>{row.origin || "-"}</td>
+                      <td>{row.reference || "-"}</td>
+                      <td>{row.department || "-"}</td>
+                      <td style={{ color: match.ok ? "#2e7d32" : "#d32f2f" }}>
+                        {match.reason}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </Table>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              gap: 12,
+              marginTop: 8,
+            }}
+          >
+            <button
+              type="button"
+              className="inbound-btn-cancel"
+              onClick={() => {
+                setIsReplaceOutboundOpen(false);
+                setSelectedReplaceOutboundId(null);
+              }}
+              disabled={isReplacingOutbound}
+            >
+              ยกเลิก
+            </button>
+
+            <button
+              type="button"
+              className="inbound-btn-confirm"
+              onClick={handleConfirmReplaceOutbound}
+              disabled={!selectedReplaceOutboundId || isReplacingOutbound}
+            >
+              {isReplacingOutbound ? "กำลังยืนยัน..." : "ยืนยันแทนที่"}
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       <DetailLocaModal
         isOpen={isDetailLocaOpen}

@@ -70,6 +70,7 @@ type InvoiceListModalProps = {
     lot_serial: string | null;
     name?: string;
   }) => void;
+  returnMode?: "PICK" | "PD" | "RTC" | "BOR";
 };
 
 /* ================= Component ================= */
@@ -82,6 +83,7 @@ const InvoiceListModal = ({
   batchName,
   onUpdated,
   onChooseReturnTarget,
+  returnMode,
 }: InvoiceListModalProps) => {
   const [rows, setRows] = useState<InvoiceRow[]>([]);
   const [allRows, setAllRows] = useState<InvoiceRow[]>([]);
@@ -132,16 +134,16 @@ const InvoiceListModal = ({
   };
 
   useEffect(() => {
-  if (isOpen && code && batchName) {
-    fetchInvoiceList(code, lot_serial);
-  }
-}, [isOpen, code, lot_serial, batchName]);
+    if (isOpen && code && batchName) {
+      fetchInvoiceList(code, lot_serial);
+    }
+  }, [isOpen, code, lot_serial, batchName]);
 
   /* ================= Select ================= */
 
-const toggleItem = (id: string) => {
-  setSelectedId((prev) => (prev === id ? null : id));
-};
+  const toggleItem = (id: string) => {
+    setSelectedId((prev) => (prev === id ? null : id));
+  };
   /* ================= Bulk Delete ================= */
 
   // const handleBulkDelete = async () => {
@@ -209,34 +211,38 @@ const toggleItem = (id: string) => {
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div className="invoice-list-modal-content">
-       <div className="invoice-list-modal-header">
-  <h2 className="invoice-list-modal-title">List ใบสินค้า</h2>
+        <div className="invoice-list-modal-header">
+          <h2 className="invoice-list-modal-title">List ใบสินค้า</h2>
 
-  <div className="invoice-list-header-actions">
-    <button
-      type="button"
-      className="invoice-list-return-btn"
-      disabled={!selectedId}
-      onClick={() => {
-        const row = rows.find((r) => r.id === selectedId);
-        if (!row) {
-          toast.warning("กรุณาเลือกใบงาน");
-          return;
-        }
+          <div className="invoice-list-header-actions">
+            <button
+              type="button"
+              className="invoice-list-return-btn"
+              disabled={!selectedId}
+              onClick={() => {
+                const row = rows.find((r) => r.id === selectedId);
+                if (!row) {
+                  toast.warning("กรุณาเลือกใบงาน");
+                  return;
+                }
 
-        onChooseReturnTarget({
-          outbound_no: row.no,
-          goods_out_item_id: row.goods_out_item_id,
-          code: row.item.code ?? "",
-          lot_serial: row.item.lot_serial ?? null,
-          name: row.item.name ?? "",
-        });
-      }}
-    >
-      Return Pick
-    </button>
-  </div>
-</div>
+                onChooseReturnTarget({
+                  outbound_no: row.no,
+                  goods_out_item_id: row.goods_out_item_id,
+                  code: row.item.code ?? "",
+                  lot_serial: row.item.lot_serial ?? null,
+                  name: row.item.name ?? "",
+                });
+              }}
+            >
+              {returnMode === "BOR"
+                ? "Return BOR"
+                : returnMode === "RTC"
+                  ? "Return RTC"
+                  : "Return Pick"}
+            </button>
+          </div>
+        </div>
 
         {loading ? (
           <div className="invoice-list-loading">Loading...</div>
@@ -245,7 +251,7 @@ const toggleItem = (id: string) => {
             <table className="invoice-list-table">
               <thead>
                 <tr>
-                 <th style={{ textAlign: "center", width: 90 }}>เลือก</th>
+                  <th style={{ textAlign: "center", width: 90 }}>เลือก</th>
                   <th>Doc No.</th>
                   <th>Invoice</th>
                   <th>Origin</th>
@@ -276,9 +282,7 @@ const toggleItem = (id: string) => {
                       <td>{row.no}</td>
                       <td>{row.invoice || "-"}</td>
                       <td>{row.origin || "-"}</td>
-                      <td>
-                        {allRows.filter((r) => r.no === row.no).length}
-                      </td>
+                      <td>{allRows.filter((r) => r.no === row.no).length}</td>
                       <td>
                         {allRows
                           .filter((r) => r.no === row.no)
@@ -288,11 +292,14 @@ const toggleItem = (id: string) => {
                         {(() => {
                           const pick = Number(row.item.pick ?? 0);
                           if (pick > 0) return pick;
-                          const locPicks = Array.isArray((row.item as any).location_picks)
+                          const locPicks = Array.isArray(
+                            (row.item as any).location_picks,
+                          )
                             ? (row.item as any).location_picks
                             : [];
                           const locPickSum = locPicks.reduce(
-                            (sum: number, lp: any) => sum + Number(lp?.qty_pick ?? 0),
+                            (sum: number, lp: any) =>
+                              sum + Number(lp?.qty_pick ?? 0),
                             0,
                           );
                           return locPickSum > 0 ? locPickSum : pick;

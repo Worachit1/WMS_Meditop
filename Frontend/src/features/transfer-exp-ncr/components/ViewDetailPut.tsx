@@ -268,7 +268,7 @@ const ViewDetailPut = () => {
 
     const fetchDetailList = async () => {
       try {
-        const limit = 100;
+        const limit = 5000;
         let page = 1;
         let totalPages = 1;
         const allRows: any[] = [];

@@ -10,6 +10,7 @@ import IconButton from "../../../components/Button/IconButton";
 // import Swal from "sweetalert2";
 // import { http } from "../../../services/http";
 // import IconButton from "../../../components/Button/IconButton";
+type StockLocationMode = "default" | "exp_ncr" | "location_pack";
 
 type Props = {
   stocks: StockType[];
@@ -31,6 +32,8 @@ type Props = {
   onClearAllColumns: () => void;
   currentPage?: number;
   itemsPerPage?: number;
+  locationMode: StockLocationMode;
+  onLocationModeChange: (mode: StockLocationMode) => void;
 };
 
 const StockTable = ({
@@ -46,6 +49,8 @@ const StockTable = ({
   onClearAllColumns,
   currentPage = 1,
   itemsPerPage = 10,
+  locationMode,
+  onLocationModeChange,
 }: Props) => {
   // const [isSyncing, setIsSyncing] = useState(false);
   const tableHeaders = [
@@ -106,6 +111,32 @@ const StockTable = ({
         <div className="page-title">Stocks</div>
 
         <div className="toolbar">
+          <label className="filter-option">
+            <input
+              type="checkbox"
+              checked={locationMode === "default"}
+              onChange={() => onLocationModeChange("default")}
+            />
+            <span>Default</span>
+          </label>
+
+          <label className="filter-option">
+            <input
+              type="checkbox"
+              checked={locationMode === "exp_ncr"}
+              onChange={() => onLocationModeChange("exp_ncr")}
+            />
+            <span>EXP&NCR</span>
+          </label>
+
+          <label className="filter-option">
+            <input
+              type="checkbox"
+              checked={locationMode === "location_pack"}
+              onChange={() => onLocationModeChange("location_pack")}
+            />
+            <span>Location_Pack</span>
+          </label>
           <div className="search-box">
             <i className="fa fa-search search-icon" />
 
@@ -134,7 +165,8 @@ const StockTable = ({
 
             {showFilterDropdown && (
               <div className="filter-dropdown-2">
-                <div className="filter-title">Search In Columns
+                <div className="filter-title">
+                  Search In Columns
                   <button
                     type="button"
                     className="filter-clear-btn"

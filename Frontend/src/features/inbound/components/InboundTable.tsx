@@ -383,10 +383,7 @@ const InboundTable = ({
                     state={{
                       status: activeTab,
                       detailList: viewRows.map((x) => ({ no: x.no })),
-                      detailTotal:
-                        activeTab === "completed"
-                          ? statusCounts.completed
-                          : statusCounts.pending,
+                      detailTotal: viewRows.length,
                     }}
                     className="inbound-details-btn"
                   >

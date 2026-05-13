@@ -1,90 +1,119 @@
-{
-    "params": {
-        "adjusts": [
-            {
-                "is_system_generated": false,
-                "inventory_id": 555,
-                "no": "ADJ/2025/00223",
-                "reference": false,
-                "description": "Adj",
-                "department": [
-                    {
-                        "department_id": 6,
-                        "department": "DIA - Diagnostic Division"
-                    }
-                ],
-                "items": [
-                    {
-                        "sequence": 2196285,
-                        "product_id": 5664,
-                        "code": "DIR-231010601001",
-                        "name": "DIRUI H11-500 strip (100 pcs/Bott)  ",
-                        "unit": "BOTT",
-                        "location_id": 14,
-                        "location": "Inventory adjustment",
-                        "location_owner": [],
-                        "location_owner_display": [],
-                        "location_dest_id": 8,
-                        "location_dest": "MDT",
-                        "location_dest_owner": [],
-                        "location_dest_owner_display": [],
-                        "tracking": "lot",
-                        "lot_id": 130134,
-                        "lot_serial": "TC321",
-                        "expire_date": false,
-                        "qty": 8,
-                        "barcodes": []
-                    },
-                    {
-                        "sequence": 2196286,
-                        "product_id": 5778,
-                        "code": "SMN-DM-10445022",
-                        "name": "DM MALB Calibrator 1ML Fill 2 Sets/CA (2x5x1 ml)  ",
-                        "unit": "PACK",
-                        "location_id": 14,
-                        "location": "Inventory adjustment",
-                        "location_owner": [],
-                        "location_owner_display": [],
-                        "location_dest_id": 8,
-                        "location_dest": "MDT",
-                        "location_dest_owner": [],
-                        "location_dest_owner_display": [],
-                        "tracking": "lot",
-                        "lot_id": 119112,
-                        "lot_serial": "5BD049",
-                        "expire_date": "2026-02-01",
-                        "qty": 3,
-                        "barcodes": [
-                            {
-                                "barcode_id": 411,
-                                "barcode": "00842768004896"
-                            }
-                        ]
-                    },
-                    {
-                        "sequence": 2196287,
-                        "product_id": 22818,
-                        "code": "SYM-1BV661822",
-                        "name": "XN Check L1 (3 ml)  ",
-                        "unit": "PCS",
-                        "location_id": 8,
-                        "location": "MDT",
-                        "location_owner": [],
-                        "location_owner_display": [],
-                        "location_dest_id": 14,
-                        "location_dest": "Inventory adjustment",
-                        "location_dest_owner": [],
-                        "location_dest_owner_display": [],
-                        "tracking": "lot",
-                        "lot_id": 130110,
-                        "lot_serial": "X5454",
-                        "expire_date": "2026-09-30",
-                        "qty": 1,
-                        "barcodes": []
-                    }
-                ]
-            }
-        ]
-    },
-    "jsonrpc": "2.0"
-}
+ {
+            "id": 101,
+            "no": "",
+            "picking_id": 0,
+            "location_id": 8,
+            "location": "",
+            "location_dest_id": 5,
+            "location_dest": "",
+            "department_id": "",
+            "department": "",
+            "department_code": null,
+            "department_raw": null,
+            "reference": null,
+            "origin": "",
+            "date": "2026-04-27T10:07:12.943Z",
+            "out_type": "DO",
+            "invoice": "",
+            "in_process": false,
+            "outbound_barcode": "",
+            "created_at": "2026-04-27T10:07:33.439Z",
+            "updated_at": null,
+            "items": [
+                {
+                    "id": 0,
+                    "outbound_id": 0,
+                    "sequence": 1,
+                    "product_id":0,
+                    "code": "",
+                    "name": "",
+                    "unit": "",
+                    "tracking": "lot",
+                    "lot_id": 0,
+                    "lot_serial": "",
+                    "lot_adjustment_id": null,
+                    "exp": null,
+                    "qty": 9,
+                    "pick": 9,
+                    "confirmed_pick": 0,
+                    "pack": 0,
+                    "rtc": 0,
+                    "rtc_check": false,
+                    "return": 0,
+                    "return_check": false,
+                    "status": "",
+                    "barcode_id": null,
+                    "user_pick": null,
+                    "user_pack": null,
+                    "barcode_text": "",
+                    "input_number": true,
+                    "lock_no": [
+                        ""
+                    ],
+                    "lock_locations": [
+                        {
+                            "location_id": 1,
+                            "location_name": "",
+                            "qty": 39
+                        }
+                    ],
+                    "location_picks": [
+                        {
+                            "location_id": 1,
+                            "location_name": "",
+                            "qty_pick": 9
+                        }
+                    ],
+                    "location_confirms": [],
+                    "return_locations": [],
+                    "barcode": null,
+                    "boxes": []
+                }
+            ],
+            "batch_name": "",
+            "batch_status": "process",
+            "pd_inbounds": [
+                {
+                    "id": 71,
+                    "no": "",
+                    "picking_id": 596485,
+                    "in_type": "PD",
+                    "origin": "",
+                    "invoice": null,
+                    "reference": null,
+                    "status": "pending",
+                    "location_id": 5,
+                    "location": "",
+                    "location_dest_id": 8,
+                    "location_dest": "",
+                    "department_id": "",
+                    "department": "",
+                    "created_at": "2026-05-11T04:31:18.370Z",
+                    "updated_at": null,
+                    "matched_outbound_by": "",
+                    "matched_outbound_value": "",
+                    "items": [
+                        {
+                            "id": "",
+                            "inbound_id": 0,
+                            "sequence": 10,
+                            "product_id": 0,
+                            "code": "",
+                            "name": "",
+                            "unit": "",
+                            "tracking": "",
+                            "lot_id": 0,
+                            "lot_serial": "",
+                            "barcode_id": null,
+                            "barcode_text": "",
+                            "qty": 3,
+                            "quantity": null,
+                            "quantity_count": 0,
+                            "status": null,
+                            "created_at": "2026-05-11T04:31:18.373Z",
+                            "updated_at": "2026-05-11T04:31:18.372Z"
+                        }
+                    ]
+                }
+            ]
+        }

@@ -175,13 +175,41 @@ const AdjustManual: React.FC = () => {
 
     setDoc(data);
 
-    const nextItems = Array.isArray(data?.items)
+    const incomingItems = Array.isArray(data?.items)
       ? data.items
       : Array.isArray(data?.lines)
         ? data.lines
         : [];
 
-    setItems(nextItems);
+    setItems((prevItems) => {
+      const prevMap = new Map<string, any>();
+
+      for (const oldItem of prevItems) {
+        const key = String(oldItem?.id ?? oldItem?.adjustment_item_id ?? "");
+        if (key) prevMap.set(key, oldItem);
+      }
+
+      return incomingItems.map((newItem: any) => {
+        const key = String(newItem?.id ?? newItem?.adjustment_item_id ?? "");
+        const oldItem = key ? prevMap.get(key) : null;
+
+        return {
+          ...oldItem,
+          ...newItem,
+
+          // ✅ Preserve zone_type if scanLocation payload does not return it
+          zone_type:
+            newItem?.zone_type ??
+            newItem?.zoneType ??
+            oldItem?.zone_type ??
+            oldItem?.zoneType ??
+            "-",
+
+          // optional: preserve input_number too if it also disappears
+          input_number: newItem?.input_number ?? oldItem?.input_number ?? null,
+        };
+      });
+    });
   }, []);
 
   const loadDetail = useCallback(async () => {
@@ -714,6 +742,7 @@ const AdjustManual: React.FC = () => {
                 <th className="adj-mn-col-impact">Impact</th>
                 <th className="adj-mn-col-qty">QTY</th>
                 <th className="adj-mn-col-unit">หน่วย</th>
+                <th className="adj-mn-col-unit">Zone Temp</th>
                 <th className="adj-mn-col-locdest">Location_dest</th>
                 <th className="adj-mn-col-lot">Lot. Serial</th>
                 <th className="adj-mn-col-exp">Expire Date</th>
@@ -735,7 +764,7 @@ const AdjustManual: React.FC = () => {
                 </tr>
               ) : items.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="adj-mn-empty">
+                  <td colSpan={10} className="adj-mn-empty">
                     No items found.
                   </td>
                 </tr>
@@ -768,6 +797,7 @@ const AdjustManual: React.FC = () => {
                         {safeText(it?.qty_pick)}
                       </td>
                       <td className="adj-mn-center">{safeText(it?.unit)}</td>
+                      <td>{safeText(it?.zone_type)}</td>
                       <td>
                         {safeText(
                           (doc as any)?.location_dest ?? it?.location_dest,
@@ -782,7 +812,7 @@ const AdjustManual: React.FC = () => {
 
               {!loading && !errorMsg && items.length > 0 && (
                 <tr>
-                  <td colSpan={9} className="adj-mn-action-row">
+                  <td colSpan={10} className="adj-mn-action-row">
                     <div className="adj-mn-footer">
                       <button
                         type="button"

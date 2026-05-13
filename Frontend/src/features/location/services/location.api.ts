@@ -61,4 +61,6 @@ export const locationApi = {
     }
   },
   remove: (id: number) => http.delete(`/locations/delete/${id}`),
+
+  getLocationPack: (params?: any) => http.get("/locations/get/location-pack", {params})
 };

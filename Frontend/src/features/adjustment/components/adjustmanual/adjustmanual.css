@@ -158,17 +158,21 @@
 
 /* ✅ แถว action อยู่ในตาราง (ใต้ td ไหลตามข้อมูล) */
 .adj-mn-action-row {
-  padding: 14px 12px !important;
-  background: #fff;
-  border-top: 1px solid #eee;
+  padding-top: 14px !important;
+  padding-bottom: 14px !important;
+  padding-left: 12px !important;
+  padding-right: 5px !important;
 }
 
 /* ===== Footer buttons (ไม่ fixed แล้ว) ===== */
 .adj-mn-footer {
   display: flex;
   justify-content: flex-end;
-  gap: 12px;
   align-items: center;
+  gap: 12px;
+
+  width: 100%;
+  margin-left: auto;
 }
 
 .adj-mn-btn {

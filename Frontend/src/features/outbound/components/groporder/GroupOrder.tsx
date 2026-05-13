@@ -149,6 +149,34 @@ type RtcModalState = {
   rtc_qty: string;
 };
 
+type PdInboundRow = {
+  id?: number | string;
+  no: string;
+  origin?: string | null;
+  invoice?: string | null;
+  code?: string | null;
+  name?: string | null;
+  qty?: number | string | null;
+  lot_serial?: string | null;
+};
+
+type PdModalState = {
+  open: boolean;
+  docNo: string;
+  rows: PdInboundRow[];
+};
+
+type RtcInboundRow = {
+  id?: number | string;
+  no: string;
+  origin?: string | null;
+  invoice?: string | null;
+  code?: string | null;
+  name?: string | null;
+  qty?: number | string | null;
+  lot_serial?: string | null;
+};
+
 const parseOutboundDate = (value: unknown): Date | null => {
   if (!value) return null;
   const date = new Date(String(value));
@@ -204,6 +232,30 @@ const getBackendPickFromLines = (it: BatchItem) => {
   return lines.reduce((sum, x) => sum + Number(x.pick ?? 0), 0);
 };
 
+const getReturnDisplayType = (inv: any): "RTC" | "BOR" => {
+  const outType = String(inv?.out_type ?? "")
+    .trim()
+    .toUpperCase();
+
+  // ✅ out_type BO = BOR
+  if (outType === "BO") return "BOR";
+
+  const inbounds = Array.isArray(inv?.rtc_inbounds) ? inv.rtc_inbounds : [];
+
+  const hasBor = inbounds.some((x: any) => {
+    const no = String(x?.no ?? "")
+      .trim()
+      .toUpperCase();
+    const type = String(x?.in_type ?? "")
+      .trim()
+      .toUpperCase();
+
+    return type === "BOR" || no.startsWith("BOR");
+  });
+
+  return hasBor ? "BOR" : "RTC";
+};
+
 const GroupOrder = () => {
   const navigate = useNavigate();
 
@@ -219,6 +271,13 @@ const GroupOrder = () => {
   const [batchItems, setBatchItems] = useState<BatchItem[]>([]);
   const [batchTitle, setBatchTitle] = useState<string>("-");
   const [batchRemark, setBatchRemark] = useState<string>("");
+
+  const [pdInboundRows, setPdInboundRows] = useState<PdInboundRow[]>([]);
+  const [pdModal, setPdModal] = useState<PdModalState>({
+    open: false,
+    docNo: "",
+    rows: [],
+  });
 
   const location = useLocation();
 
@@ -261,6 +320,11 @@ const GroupOrder = () => {
     return localStorage.getItem("grouporder_invoice_panel_collapsed") === "1";
   });
 
+  const [rtcInboundRows, setRtcInboundRows] = useState<RtcInboundRow[]>([]);
+  const [rtcOutboundNoSet, setRtcOutboundNoSet] = useState<Set<string>>(
+    new Set(),
+  );
+
   useEffect(() => {
     localStorage.setItem(
       "grouporder_invoice_panel_collapsed",
@@ -298,6 +362,8 @@ const GroupOrder = () => {
 
   type ReturnTarget = {
     outbound_no: string;
+    goods_out_item_id?: number;
+    return_mode?: "PICK" | "PD" | "RTC" | "BOR" | "COMPLETED";
   };
 
   type ReturnRow = {
@@ -322,9 +388,25 @@ const GroupOrder = () => {
     rtc_qty: "",
   });
 
+  const keepPendingTabOnReturnRef = useRef(false);
+
+  const isRtcReturnFlow = useMemo(() => {
+    return returnTargets.some(
+      (x) => x.return_mode === "RTC" || x.return_mode === "BOR",
+    );
+  }, [returnTargets]);
+
   const [viewTab, setViewTab] = useState<"pending" | "done" | "rtc" | "return">(
     isReadOnly ? "done" : "pending",
   );
+
+  const canReturnMode = useMemo(() => {
+    return isReadOnly || pdInboundRows.length > 0 || rtcInboundRows.length > 0;
+  }, [isReadOnly, pdInboundRows, rtcInboundRows]);
+
+  const isPdReturnFlow = useMemo(() => {
+    return !isReadOnly && pdInboundRows.length > 0;
+  }, [isReadOnly, pdInboundRows]);
 
   const [selectedReturnTarget, setSelectedReturnTarget] = useState<{
     outbound_no: string;
@@ -334,8 +416,98 @@ const GroupOrder = () => {
     name?: string;
   } | null>(null);
 
+  const normalizeDocRef = (value: unknown) =>
+    String(value ?? "")
+      .trim()
+      .toLowerCase();
+
+  const getPdRowsForInvoice = useCallback(
+    (inv: InvoiceData) => {
+      const invoiceRef = normalizeDocRef(inv.invoice);
+      const originRef = normalizeDocRef(inv.origin);
+
+      return pdInboundRows.filter((pd) => {
+        const pdOrigin = normalizeDocRef(pd.origin);
+
+        if (!pdOrigin) return false;
+
+        return (
+          (invoiceRef && pdOrigin === invoiceRef) ||
+          (originRef && pdOrigin === originRef)
+        );
+      });
+    },
+    [pdInboundRows],
+  );
+
+  const getRtcRowsForInvoice = useCallback(
+    (inv: InvoiceData) => {
+      const invoiceRef = normalizeDocRef(inv.invoice);
+      const originRef = normalizeDocRef(inv.origin);
+
+      return rtcInboundRows.filter((rtc) => {
+        const rtcOrigin = normalizeDocRef(rtc.origin);
+        const rtcInvoice = normalizeDocRef(rtc.invoice);
+
+        if (!rtcOrigin && !rtcInvoice) return false;
+
+        return (
+          (invoiceRef &&
+            (rtcOrigin === invoiceRef || rtcInvoice === invoiceRef)) ||
+          (originRef && (rtcOrigin === originRef || rtcInvoice === originRef))
+        );
+      });
+    },
+    [rtcInboundRows],
+  );
+
+  const hasRtcInbound = useCallback(
+    (inv: InvoiceData) => getRtcRowsForInvoice(inv).length > 0,
+    [getRtcRowsForInvoice],
+  );
+
+  const hasRtcFlagInInvoice = useCallback((inv: InvoiceData) => {
+    return Array.isArray(inv.items)
+      ? inv.items.some((item: any) => {
+          return (
+            Number(item?.rtc ?? 0) > 0 ||
+            Boolean(item?.rtc_check) ||
+            Boolean(item?.has_rtc) ||
+            Boolean(item?.is_rtc)
+          );
+        })
+      : false;
+  }, []);
+
+  const isRtcInvoice = useCallback(
+    (inv: InvoiceData) => hasRtcInbound(inv) || hasRtcFlagInInvoice(inv),
+    [hasRtcInbound, hasRtcFlagInInvoice],
+  );
+
+  const isRtcOutboundNo = useCallback(
+    (outboundNo: string) => {
+      const no = String(outboundNo ?? "").trim();
+      if (!no) return false;
+      return rtcOutboundNoSet.has(no);
+    },
+    [rtcOutboundNoSet],
+  );
+
+  const hasPdInbound = useCallback(
+    (inv: InvoiceData) => getPdRowsForInvoice(inv).length > 0,
+    [getPdRowsForInvoice],
+  );
+
   const normalizeLockNo = (value: string) => {
     return value.replace(/\(จำนวน\s*\d+\)/g, "").trim();
+  };
+
+  const isHiddenLockNo = (value: unknown) => {
+    const text = normalizeLockNo(String(value ?? ""))
+      .trim()
+      .toUpperCase();
+
+    return text.endsWith("_EXP&NCR") || text.endsWith("_LOCATION_PACK");
   };
 
   const normalizeLocName = (value: unknown) => {
@@ -347,10 +519,16 @@ const GroupOrder = () => {
   };
 
   const toLockList = (v: any): string[] => {
-    if (!v) return [];
-    if (Array.isArray(v))
-      return v.map((x) => String(x ?? "").trim()).filter(Boolean);
-    return [String(v).trim()].filter(Boolean);
+    const rows = !v
+      ? []
+      : Array.isArray(v)
+        ? v.map((x) => String(x ?? "").trim())
+        : [String(v).trim()];
+
+    return rows.filter((x) => {
+      if (!x) return false;
+      return !isHiddenLockNo(x);
+    });
   };
 
   const lockOptions = useMemo(() => {
@@ -728,6 +906,108 @@ const GroupOrder = () => {
         ? response.data.data
         : [];
 
+      const pdRows: PdInboundRow[] = rows.flatMap((outboundRow: any) => {
+        const pdInbounds = Array.isArray(outboundRow?.pd_inbounds)
+          ? outboundRow.pd_inbounds
+          : [];
+
+        return pdInbounds.flatMap((pd: any) => {
+          const pdItems = Array.isArray(pd?.items) ? pd.items : [];
+
+          if (pdItems.length === 0) {
+            return [
+              {
+                id: pd?.id,
+                no: String(pd?.no ?? "").trim(),
+                origin: pd?.origin ?? null,
+                invoice: pd?.invoice ?? null,
+                code: null,
+                name: null,
+                qty: 0,
+                lot_serial: null,
+              },
+            ];
+          }
+
+          return pdItems.map((item: any) => ({
+            id: pd?.id,
+            no: String(pd?.no ?? "").trim(),
+            origin: pd?.origin ?? null,
+            invoice: pd?.invoice ?? null,
+            code: item?.code ?? null,
+            name: item?.name ?? null,
+            qty: item?.qty ?? item?.quantity_receive ?? item?.quantity ?? 0,
+            lot_serial: item?.lot_serial ?? item?.lot ?? null,
+          }));
+        });
+      });
+
+      setPdInboundRows(pdRows);
+
+      const rtcRows: RtcInboundRow[] = rows.flatMap((outboundRow: any) => {
+        const rtcInbounds = Array.isArray(outboundRow?.rtc_inbounds)
+          ? outboundRow.rtc_inbounds
+          : [];
+
+        return rtcInbounds.flatMap((rtc: any) => {
+          const rtcItems = Array.isArray(rtc?.items) ? rtc.items : [];
+
+          if (rtcItems.length === 0) {
+            return [
+              {
+                id: rtc?.id,
+                no: String(rtc?.no ?? "").trim(),
+                origin: rtc?.origin ?? null,
+                invoice: rtc?.invoice ?? null,
+                code: null,
+                name: null,
+                qty: 0,
+                lot_serial: null,
+              },
+            ];
+          }
+
+          return rtcItems.map((item: any) => ({
+            id: rtc?.id,
+            no: String(rtc?.no ?? "").trim(),
+            origin: rtc?.origin ?? null,
+            invoice: rtc?.invoice ?? null,
+            code: item?.code ?? null,
+            name: item?.name ?? null,
+            qty: item?.qty ?? item?.quantity_receive ?? item?.quantity ?? 0,
+            lot_serial: item?.lot_serial ?? item?.lot ?? null,
+          }));
+        });
+      });
+
+      setRtcInboundRows(rtcRows);
+
+      const rtcMatchedOutboundNos = rows
+        .filter((outboundRow: any) => {
+          const rtcInbounds = Array.isArray(outboundRow?.rtc_inbounds)
+            ? outboundRow.rtc_inbounds
+            : [];
+
+          const hasRtcByInbound = rtcInbounds.length > 0;
+
+          const hasRtcByItem = Array.isArray(outboundRow?.items)
+            ? outboundRow.items.some((item: any) => {
+                return (
+                  Number(item?.rtc ?? 0) > 0 ||
+                  Boolean(item?.rtc_check) ||
+                  Boolean(item?.has_rtc) ||
+                  Boolean(item?.is_rtc)
+                );
+              })
+            : false;
+
+          return hasRtcByInbound || hasRtcByItem;
+        })
+        .map((x: any) => String(x?.no ?? "").trim())
+        .filter(Boolean);
+
+      setRtcOutboundNoSet(new Set(rtcMatchedOutboundNos));
+
       const batchNameFromResponse = String(
         response?.data?.batch_name ?? "",
       ).trim();
@@ -780,6 +1060,110 @@ const GroupOrder = () => {
   useEffect(() => {
     loadRecentOutbounds();
   }, [loadRecentOutbounds]);
+
+  const alertedRtcNosRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!invoiceList.length || !rtcInboundRows.length) return;
+
+    const getReturnDisplayTypeByOutboundNos = (
+      outboundNos: string[],
+    ): "RTC" | "BOR" => {
+      const outboundNoSet = new Set(
+        outboundNos
+          .map((x) =>
+            String(x ?? "")
+              .trim()
+              .toLowerCase(),
+          )
+          .filter(Boolean),
+      );
+
+      const matchedReturnRows = rtcInboundRows.filter((row: any) => {
+        const rowKeys = [
+          row?.outbound_no,
+          row?.matched_outbound_value,
+          row?.origin,
+          row?.invoice,
+          row?.reference,
+          row?.no,
+        ]
+          .map((x) =>
+            String(x ?? "")
+              .trim()
+              .toLowerCase(),
+          )
+          .filter(Boolean);
+
+        return rowKeys.some((key) => outboundNoSet.has(key));
+      });
+
+      const hasBor = matchedReturnRows.some((row: any) => {
+        const docNo = String(row?.no ?? "")
+          .trim()
+          .toUpperCase();
+        const inType = String(row?.in_type ?? "")
+          .trim()
+          .toUpperCase();
+
+        return inType === "BOR" || docNo.startsWith("BOR");
+      });
+
+      return hasBor ? "BOR" : "RTC";
+    };
+
+    const matched = invoiceList
+      .filter((inv) => hasRtcInbound(inv))
+      .map((inv) => inv.no)
+      .filter(Boolean);
+
+    const newNos = matched.filter((no) => !alertedRtcNosRef.current.has(no));
+
+    if (newNos.length === 0) return;
+
+    const returnType = invoiceList
+      .filter((inv) => newNos.includes(inv.no))
+      .some((inv) => getReturnDisplayType(inv) === "BOR")
+      ? "BOR"
+      : getReturnDisplayTypeByOutboundNos(newNos);
+
+    const hasAnyPick = batchItems.some((it) => getBackendPickFromLines(it) > 0);
+
+    newNos.forEach((no) => alertedRtcNosRef.current.add(no));
+
+    if (!hasAnyPick) {
+      Swal.fire({
+        icon: "warning",
+        title: `มี ${returnType} เข้ามา`,
+        html: `พบ ${returnType} ที่ Invoice หรือ Origin ตรงกับใบใน Batch นี้<br/><br/>${newNos
+          .map((no) => `<b>${no}</b>`)
+          .join(
+            "<br/>",
+          )}<br/><br/>ระบบจะกลับไปหน้า Outbound Picking เพื่อโหลดข้อมูลใหม่`,
+        confirmButtonText: "ตกลง",
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+      }).then(() => {
+        navigate("/outbound?view=picking", { replace: true });
+        setTimeout(() => {
+          window.location.reload();
+        }, 50);
+      });
+
+      return;
+    }
+
+    Swal.fire({
+      icon: "warning",
+      title: `มี ${returnType} เข้ามา`,
+      html: `พบ ${returnType} ที่ Invoice หรือ Origin ตรงกับใบใน Batch นี้<br/><br/>${newNos
+        .map((no) => `<b>${no}</b>`)
+        .join(
+          "<br/>",
+        )}<br/><br/>กรุณาไปที่ Invoice List แล้วกด <b>Return ${returnType}</b>`,
+      confirmButtonText: "รับทราบ",
+    });
+  }, [invoiceList, rtcInboundRows, batchItems, hasRtcInbound, navigate]);
 
   useEffect(() => {
     const fetchDetailList = async () => {
@@ -841,18 +1225,43 @@ const GroupOrder = () => {
     // ไม่ควรเอามา overwrite batchItems ของทั้ง batch
   }, []);
 
-  useEffect(() => {
-    const outboundNos = invoiceList
-      .map((x) => String(x?.no ?? "").trim())
-      .filter(Boolean);
+  const batchItemsRef = useRef<BatchItem[]>([]);
+  const rtcAlertOpenRef = useRef(false);
 
+  useEffect(() => {
+    batchItemsRef.current = batchItems;
+  }, [batchItems]);
+
+  const outboundRoomKey = useMemo(() => {
+    return Array.from(
+      new Set(
+        invoiceList.map((x) => String(x?.no ?? "").trim()).filter(Boolean),
+      ),
+    )
+      .sort()
+      .join("|");
+  }, [invoiceList]);
+
+  useEffect(() => {
+    const outboundNos = outboundRoomKey ? outboundRoomKey.split("|") : [];
     if (outboundNos.length === 0) return;
 
     outboundNos.forEach((no) => {
-      socket.emit("join_room", `outbound:${no}`);
+      socket.emit("outbound:join", { no });
     });
 
+    const isPayloadForThisBatch = (payload: any) => {
+      const payloadOutboundNo = String(
+        payload?.outbound_no ?? payload?.outboundNo ?? payload?.no ?? "",
+      ).trim();
+
+      if (!payloadOutboundNo) return true;
+      return outboundNos.includes(payloadOutboundNo);
+    };
+
     const onScanBarcode = (payload: any) => {
+      if (!isPayloadForThisBatch(payload)) return;
+
       const lines = Array.isArray(payload?.lines)
         ? payload.lines
         : payload?.matchedLine
@@ -867,8 +1276,61 @@ const GroupOrder = () => {
       loadRecentOutbounds();
     };
 
-    const onConfirmPick = (_payload: any) => {
+    const onConfirmPick = (payload: any) => {
+      if (!isPayloadForThisBatch(payload)) return;
       loadRecentOutbounds();
+    };
+
+    const onRtcRealtime = async (payload: any) => {
+      if (!isPayloadForThisBatch(payload)) return;
+      if (rtcAlertOpenRef.current) return;
+
+      rtcAlertOpenRef.current = true;
+
+      try {
+        const payloadOutboundNo = String(
+          payload?.outbound_no ?? payload?.outboundNo ?? payload?.no ?? "",
+        ).trim();
+
+        const alertNos = payloadOutboundNo ? [payloadOutboundNo] : outboundNos;
+
+        const hasAnyPick = batchItemsRef.current.some(
+          (it) => getBackendPickFromLines(it) > 0,
+        );
+
+        await Swal.fire({
+          icon: "warning",
+          title: "มี RTC เข้ามา",
+          html: hasAnyPick
+            ? `พบ RTC ที่ตรงกับใบใน Batch นี้<br/><br/>${alertNos
+                .map((no) => `<b>${no}</b>`)
+                .join(
+                  "<br/>",
+                )}<br/><br/>กรุณาไปที่ Invoice List แล้วกด <b>Return RTC</b>`
+            : `พบ RTC ที่ตรงกับใบใน Batch นี้<br/><br/>${alertNos
+                .map((no) => `<b>${no}</b>`)
+                .join(
+                  "<br/>",
+                )}<br/><br/>Batch นี้ยังไม่มี Pick ระบบจะกลับไปหน้า Outbound Picking เพื่อโหลดข้อมูลใหม่`,
+          confirmButtonText: hasAnyPick ? "รับทราบ" : "ตกลง",
+          allowOutsideClick: false,
+          allowEscapeKey: false,
+          showConfirmButton: true,
+        });
+
+        if (!hasAnyPick) {
+          navigate("/outbound?view=picking", { replace: true });
+          return;
+        }
+
+        try {
+          await loadRecentOutbounds();
+        } catch {
+          navigate("/outbound?view=picking", { replace: true });
+        }
+      } finally {
+        rtcAlertOpenRef.current = false;
+      }
     };
 
     socket.on("outbound:scan_location", onScanLocation);
@@ -876,25 +1338,31 @@ const GroupOrder = () => {
     socket.on("outbound:scan_barcode", onScanBarcode);
     socket.on("outbound:scan_return", onScanBarcode);
     socket.on("outbound:confirm_pick", onConfirmPick);
-    socket.on("outbound:rtc_adjusted", onConfirmPick);
-    socket.on("outbound:rtc_to_inbound", onConfirmPick);
-    socket.on("outbound:item_rtc_updated", onConfirmPick);
+
+    socket.on("outbound:rtc_adjusted", onRtcRealtime);
+    socket.on("outbound:rtc_to_inbound", onRtcRealtime);
+    socket.on("outbound:item_rtc_updated", onRtcRealtime);
+    socket.on("outbound:rtc_matched", onRtcRealtime);
+    socket.on("inbound:rtc_created", onRtcRealtime);
 
     return () => {
       socket.off("outbound:scan_location", onScanLocation);
       socket.off("outbound:scan_pick", onScanBarcode);
       socket.off("outbound:scan_barcode", onScanBarcode);
-      socket.off("outbound:confirm_pick", onConfirmPick);
-      socket.off("outbound:rtc_adjusted", onConfirmPick);
-      socket.off("outbound:rtc_to_inbound", onConfirmPick);
-      socket.off("outbound:item_rtc_updated", onConfirmPick);
       socket.off("outbound:scan_return", onScanBarcode);
+      socket.off("outbound:confirm_pick", onConfirmPick);
+
+      socket.off("outbound:rtc_adjusted", onRtcRealtime);
+      socket.off("outbound:rtc_to_inbound", onRtcRealtime);
+      socket.off("outbound:item_rtc_updated", onRtcRealtime);
+      socket.off("outbound:rtc_matched", onRtcRealtime);
+      socket.off("inbound:rtc_created", onRtcRealtime);
 
       outboundNos.forEach((no) => {
-        socket.emit("leave_room", `outbound:${no}`);
+        socket.emit("outbound:leave", { no });
       });
     };
-  }, [invoiceList, loadRecentOutbounds, onScanLocation]);
+  }, [outboundRoomKey, loadRecentOutbounds, onScanLocation, navigate]);
 
   const normStr = (v: any) => String(v ?? "").trim();
   const normLot = (v: any) => normStr(v);
@@ -1917,23 +2385,32 @@ const GroupOrder = () => {
 
   const startReturnMode = useCallback(
     async (targets: ReturnTarget[]) => {
-      const nos = targets
-        .map((x) => String(x.outbound_no ?? "").trim())
-        .filter(Boolean);
+      const cleaned = targets
+        .map((x) => ({
+          outbound_no: String(x.outbound_no ?? "").trim(),
+          goods_out_item_id: x.goods_out_item_id,
+          return_mode: x.return_mode ?? "PICK",
+        }))
+        .filter((x) => x.outbound_no);
 
-      if (nos.length === 0) {
+      if (cleaned.length === 0) {
         toast.warning("กรุณาเลือก Doc No. สำหรับ Return");
         return;
       }
 
-      setReturnTargets(nos.map((outbound_no) => ({ outbound_no })));
+      setReturnTargets(cleaned);
       setReturnRows([]);
       setIsReturnMode(true);
 
-      // ✅ บังคับไป tab done เสมอ
-      setViewTab("done");
+      // ✅ กด Return Pick แล้ว ถ้ายังมี pending ให้ค้างที่ pending
+      const hasPendingRows = batchItems.some(
+        (x) => getEffectivePick(x) < Number(x.quantity ?? 0),
+      );
 
-      // focus location ก่อน
+      keepPendingTabOnReturnRef.current = hasPendingRows;
+
+      setViewTab(hasPendingRows ? "pending" : "done");
+
       setIsLocationScanActive(true);
       setIsItemScanActive(false);
 
@@ -1945,7 +2422,7 @@ const GroupOrder = () => {
 
       setTimeout(() => locationInputRef.current?.focus(), 120);
     },
-    [currentBatchKey],
+    [currentBatchKey, batchItems, getEffectivePick],
   );
 
   const stopReturnMode = useCallback(() => {
@@ -1959,6 +2436,7 @@ const GroupOrder = () => {
     setIsLocationScanActive(false);
     setIsItemScanActive(false);
     persistConfirmedLocation(currentBatchKey, null);
+    keepPendingTabOnReturnRef.current = false;
   }, [currentBatchKey]);
 
   const isScannedItemLockMismatch = useCallback(
@@ -2085,48 +2563,73 @@ const GroupOrder = () => {
     );
   };
 
+  const normalizeReturnLocationKey = (value: unknown) => {
+    return String(value ?? "")
+      .replace(/\(จำนวน\s*\d+\)/g, "")
+      .trim()
+      .replace(/\s+/g, " ")
+      .toLowerCase();
+  };
+
   const makeReturnRowKey = (row: Partial<ReturnRow>) => {
     return [
-      row.outbound_no ?? "",
-      row.product_id ?? row.code ?? "",
-      row.lot_serial ?? "",
-      String(row.location_full_name ?? "").trim(),
+      String(row.outbound_no ?? "").trim(),
+      String(row.goods_out_item_id ?? "").trim(),
+      String(row.product_id ?? row.code ?? "").trim(),
+      String(row.lot_serial ?? "").trim(),
+      normalizeReturnLocationKey(row.location_full_name),
     ].join("|");
   };
 
   const returnDisplayRows = useMemo<ReturnRow[]>(() => {
     const map = new Map<string, ReturnRow>();
 
+    const putRow = (row: ReturnRow, mode: "server" | "local") => {
+      const key = makeReturnRowKey(row);
+      const existing = map.get(key);
+
+      if (!existing) {
+        map.set(key, row);
+        return;
+      }
+
+      // ถ้า server มีแล้ว ไม่ต้องบวก local ซ้ำ
+      if (mode === "local") {
+        return;
+      }
+
+      map.set(key, {
+        ...existing,
+        ...row,
+        qty: Math.max(Number(existing.qty ?? 0), Number(row.qty ?? 0)),
+        location_full_name:
+          row.location_full_name || existing.location_full_name,
+      });
+    };
+
     for (const inv of invoiceList) {
       for (const item of inv.items as any[]) {
         const returnQty = getReturnQty(item);
         if (returnQty <= 0) continue;
 
-        const row: ReturnRow = {
-          outbound_no: inv.no,
-          goods_out_item_id: Number(item.id ?? item.goods_out_item_id ?? 0),
-          product_id: item.product_id ?? null,
-          code: item.code ?? null,
-          name: item.name ?? null,
-          lot_serial: item.lot_serial ?? null,
-          qty: returnQty,
-          location_full_name: getReturnLocationText(item),
-        };
-
-        const key = makeReturnRowKey(row);
-
-        if (!map.has(key)) {
-          map.set(key, row);
-        }
+        putRow(
+          {
+            outbound_no: inv.no,
+            goods_out_item_id: Number(item.id ?? item.goods_out_item_id ?? 0),
+            product_id: item.product_id ?? null,
+            code: item.code ?? null,
+            name: item.name ?? null,
+            lot_serial: item.lot_serial ?? null,
+            qty: returnQty,
+            location_full_name: getReturnLocationText(item),
+          },
+          "server",
+        );
       }
     }
 
     for (const row of returnRows) {
-      const key = makeReturnRowKey(row);
-
-      if (!map.has(key)) {
-        map.set(key, row);
-      }
+      putRow(row, "local");
     }
 
     return Array.from(map.values());
@@ -2216,20 +2719,35 @@ const GroupOrder = () => {
         return;
       }
 
+      const selectedMode =
+        returnTargets.find((x) => selectedReturnNos.includes(x.outbound_no))
+          ?.return_mode ?? "PICK";
+
+      const isPdReturnMode = selectedMode === "PD";
+      const isRtcReturnMode = selectedMode === "RTC" || selectedMode === "BOR";
+
+      const shouldUseReturnProductFlow =
+        isReadOnly || isPdReturnMode || isRtcReturnMode;
+
       let resp: any = null;
       let lastErr: any = null;
 
       for (const outboundNo of targetNos) {
         try {
-          if (isReadOnly) {
-            // completed: เพิ่ม return เพื่อรอ confirm เอากลับ location
-            resp = await goodsoutApi.scanReturnProduct(outboundNo, {
+          if (isRtcReturnMode) {
+            resp = await goodsoutApi.scanReturn(outboundNo, {
               barcode: raw,
               location_full_name: confirmedLocation.full_name,
               qty_input: qtyInput,
             });
+          } else if (shouldUseReturnProductFlow) {
+            resp = await goodsoutApi.scanReturnProduct(outboundNo, {
+              barcode: raw,
+              location_full_name: confirmedLocation.full_name,
+              qty_input: qtyInput,
+              return_mode: isPdReturnMode ? "PD" : "COMPLETED",
+            });
           } else {
-            // process: return แบบเก่า = ลบ pick เดิม
             resp = await goodsoutApi.scanReturn(outboundNo, {
               barcode: raw,
               location_full_name: confirmedLocation.full_name,
@@ -2252,7 +2770,7 @@ const GroupOrder = () => {
 
       const data = resp?.data?.data ?? resp?.data ?? {};
 
-      if (isReadOnly) {
+      if (shouldUseReturnProductFlow) {
         const nextRow: ReturnRow = {
           outbound_no: String(data.outbound_no ?? "").trim(),
           goods_out_item_id: Number(data.goods_out_item_id ?? 0),
@@ -2268,6 +2786,7 @@ const GroupOrder = () => {
 
         setReturnRows((prev) => {
           const key = `${nextRow.outbound_no}_${nextRow.goods_out_item_id}_${nextRow.location_full_name}`;
+
           const found = prev.some(
             (x) =>
               `${x.outbound_no}_${x.goods_out_item_id}_${x.location_full_name}` ===
@@ -2305,7 +2824,9 @@ const GroupOrder = () => {
         });
 
         await loadRecentOutbounds();
+        setViewTab("return");
         setItemBarcodeInput("");
+        setTimeout(() => itemInputRef.current?.focus(), 120);
         return;
       }
 
@@ -2328,7 +2849,9 @@ const GroupOrder = () => {
 
         if (requestedQty > remainingAtScannedLocation) {
           toast.error(
-            `สินค้าใน ${confirmedLocation?.full_name ?? "Location นี้"} มีไม่พอ (เหลือ ${remainingAtScannedLocation})`,
+            `สินค้าใน ${
+              confirmedLocation?.full_name ?? "Location นี้"
+            } มีไม่พอ (เหลือ ${remainingAtScannedLocation})`,
           );
           setItemBarcodeInput("");
           setTimeout(() => itemInputRef.current?.focus(), 120);
@@ -2387,9 +2910,11 @@ const GroupOrder = () => {
 
       await loadRecentOutbounds();
       setItemBarcodeInput("");
+      setTimeout(() => itemInputRef.current?.focus(), 120);
     } catch (err: any) {
       toast.error(err?.message || "สแกนสินค้าไม่สำเร็จ");
       setItemBarcodeInput("");
+      setTimeout(() => itemInputRef.current?.focus(), 120);
     }
   };
 
@@ -2520,6 +3045,30 @@ const GroupOrder = () => {
   const pendingCount = filteredRows.filter((x) => !isDoneRow(x)).length;
   const doneCount = filteredRows.filter(isDoneRow).length;
 
+  useEffect(() => {
+    // ถ้า pending หมดแล้ว และยังอยู่ tab pending
+    // ให้ switch ไป done อัตโนมัติ
+    // แต่ห้าม switch ระหว่าง return mode
+    const hasPendingRows = filteredRows.some((x) => !isDoneRow(x));
+
+    if (keepPendingTabOnReturnRef.current && hasPendingRows) {
+      if (viewTab !== "pending") {
+        setViewTab("pending");
+      }
+      return;
+    }
+
+    if (
+      !isReadOnly &&
+      !isReturnMode &&
+      !hasPendingRows &&
+      doneCount > 0 &&
+      viewTab === "pending"
+    ) {
+      setViewTab("done");
+    }
+  }, [pendingCount, doneCount, viewTab, isReadOnly, isReturnMode]);
+
   const rtcCandidates = useMemo<RtcCandidate[]>(() => {
     return batchItems
       .filter((it: any) => Boolean(it?.rtc_check) || Number(it?.rtc ?? 0) > 0)
@@ -2605,6 +3154,36 @@ const GroupOrder = () => {
     return Array.from(map.values());
   }, [invoiceList]);
 
+  const getPdQtyForBatchItem = useCallback(
+    (it: BatchItem) => {
+      const relatedInvoices = invoiceList.filter((inv) => {
+        const outboundNos = getRowLineDetails(it).map((x) => x.outbound_no);
+        return (
+          outboundNos.includes(inv.no) || inv.no === (it as any).outbound_no
+        );
+      });
+
+      const pdRows = relatedInvoices.flatMap((inv) => getPdRowsForInvoice(inv));
+
+      return pdRows
+        .filter((pd) => {
+          const sameCode =
+            !pd.code ||
+            !it.code ||
+            String(pd.code).trim() === String(it.code).trim();
+
+          const sameLot =
+            !pd.lot_serial ||
+            !it.lot_serial ||
+            String(pd.lot_serial).trim() === String(it.lot_serial).trim();
+
+          return sameCode && sameLot;
+        })
+        .reduce((sum, pd) => sum + Number(pd.qty ?? 0), 0);
+    },
+    [invoiceList, getPdRowsForInvoice],
+  );
+
   const handleSubmit = async () => {
     if (batchItems.length === 0) {
       Swal.fire({
@@ -2628,7 +3207,14 @@ const GroupOrder = () => {
       return;
     }
 
-    const result = await confirmAlert("ยืนยันการ Pick ?");
+    const shouldConfirmPdReturnWithPick =
+      isPdReturnFlow && returnDisplayRows.length > 0;
+
+    const confirmText = shouldConfirmPdReturnWithPick
+      ? "ยืนยันการ Pick และ Return สินค้า ?"
+      : "ยืนยันการ Pick ?";
+
+    const result = await confirmAlert(confirmText);
     if (!result.isConfirmed) return;
 
     try {
@@ -2641,6 +3227,12 @@ const GroupOrder = () => {
         );
         return;
       }
+
+      const pdReturnNos = [
+        ...new Set(
+          returnDisplayRows.map((x) => String(x.outbound_no ?? "").trim()),
+        ),
+      ].filter(Boolean);
 
       const byOutbound = new Map<string, BatchItem[]>();
 
@@ -2665,10 +3257,12 @@ const GroupOrder = () => {
         }
       }
 
+      // ✅ 1) Confirm Pick ก่อน
+      // เพื่อให้ stock ถูกตัดจาก location ที่ pick จริงก่อน
       for (const [outboundNo, items] of byOutbound.entries()) {
         const locationLineMap = new Map<
           string,
-          Array<{ goods_out_item_id: number }>
+          Array<{ goods_out_item_id: number; pick: number }>
         >();
 
         for (const item of items) {
@@ -2688,6 +3282,7 @@ const GroupOrder = () => {
 
               prev.push({
                 goods_out_item_id: line.goods_out_item_id,
+                pick: Number(locPick.qty_pick ?? 0),
               });
             }
 
@@ -2706,8 +3301,9 @@ const GroupOrder = () => {
 
             return {
               location_full_name,
-              lines: Array.from(mergedItemIds).map((goods_out_item_id) => ({
-                goods_out_item_id: String(goods_out_item_id),
+              lines: rawLines.map((line) => ({
+                goods_out_item_id: String(line.goods_out_item_id),
+                pick: Number(line.pick ?? 0),
               })),
             };
           })
@@ -2721,14 +3317,33 @@ const GroupOrder = () => {
         });
       }
 
-      await successAlert("ยืนยันการ Pick สำเร็จ");
+      // ✅ 2) PD case: Confirm Return หลัง Confirm Pick
+      // เพื่อให้ stock กลับเข้า location return หลังจากตัด pick แล้ว
+      if (shouldConfirmPdReturnWithPick) {
+        for (const outboundNo of pdReturnNos) {
+          await goodsoutApi.confirmReturn(outboundNo);
+        }
+      }
+
+      await successAlert(
+        shouldConfirmPdReturnWithPick
+          ? "ยืนยัน Pick และ Return สำเร็จ"
+          : "ยืนยันการ Pick สำเร็จ",
+      );
 
       persistConfirmedLocation(currentBatchKey, null);
 
       const allFullyPicked = batchItems.every((it) => {
-        const qty = Number(it.quantity ?? 0);
-        if (qty <= 0) return true;
-        return getEffectivePick(it) >= qty;
+        const qty = Math.max(0, Number(it.quantity ?? 0));
+        const pdQty = getPdQtyForBatchItem(it);
+        const requiredQty = Math.max(0, qty - pdQty);
+
+        const backendPicked = getRowLineDetails(it).reduce(
+          (sum, line) => sum + Number(line.pick ?? 0),
+          0,
+        );
+
+        return backendPicked >= requiredQty;
       });
 
       const currentBatchName =
@@ -2737,14 +3352,15 @@ const GroupOrder = () => {
         batchTitle;
 
       if (allFullyPicked && currentBatchName && currentBatchName !== "-") {
-        try {
-          await batchApi.updateStatus(currentBatchName, "completed");
-        } catch {
-          //
-        }
+        await batchApi.updateStatus(currentBatchName, "completed");
       }
 
       await handleInvoiceUpdate();
+
+      if (shouldConfirmPdReturnWithPick) {
+        stopReturnMode();
+      }
+
       navigate("/outbound");
     } catch (error: any) {
       toast.error(error?.message || "ไม่สามารถยืนยันการ Pick ได้");
@@ -2791,6 +3407,15 @@ const GroupOrder = () => {
       },
     );
   }, [detailList, currentNavKey, navigate, isReadOnly, navView]);
+
+  const returnType = returnTargets.some(
+  (x) => x.return_mode === "BOR",
+)
+  ? "BOR"
+  : "RTC";
+
+const returnActionLabel =
+  returnType === "BOR" ? "Return BOR" : "Return RTC";
 
   return (
     <div className="group-order-container">
@@ -2901,7 +3526,19 @@ const GroupOrder = () => {
                 })
                 .map((inv) => (
                   <div key={inv.no} className="invoice-item">
-                    <span>{inv.no}</span>
+                    <span>
+                      {hasPdInbound(inv) && (
+                        <span className="pd-doc-badge">PD</span>
+                      )}
+
+                      {(isRtcInvoice(inv) || isRtcOutboundNo(inv.no)) && (
+                        <span className="pd-doc-badge">
+                          {getReturnDisplayType(inv)}
+                        </span>
+                      )}
+
+                      {inv.no}
+                    </span>
                     <span>{inv.invoice || "-"}</span>
                     <span>{inv.origin || "-"}</span>
 
@@ -2929,7 +3566,7 @@ const GroupOrder = () => {
         </div>
 
         <div className="groupOrder-main-panel">
-          {(!isReadOnly || isReturnMode) && (
+          {(!isReadOnly || canReturnMode || isReturnMode) && (
             <div className="scan-panel-sticky-wrap">
               <div className="scan-panel">
                 <div className="scan-row">
@@ -3041,7 +3678,7 @@ const GroupOrder = () => {
               </div>
 
               <div className="groupOrder-view-tabs" style={{ marginTop: 10 }}>
-                {!isReadOnly && (
+                {!isReadOnly && pendingCount > 0 && (
                   <button
                     type="button"
                     className={`groupOrder-tab ${viewTab === "pending" ? "active" : ""}`}
@@ -3072,7 +3709,7 @@ const GroupOrder = () => {
                   </button>
                 )}
 
-                {isReadOnly &&
+                {canReturnMode &&
                   (isReturnMode || returnDisplayRows.length > 0) && (
                     <button
                       type="button"
@@ -3086,7 +3723,7 @@ const GroupOrder = () => {
               </div>
             </div>
 
-            {isReadOnly && viewTab === "return" ? (
+            {canReturnMode && viewTab === "return" ? (
               <div className="table-scroll">
                 <table className="picking-batch-table">
                   <thead>
@@ -3121,7 +3758,7 @@ const GroupOrder = () => {
                           />
                         </button>
                       </th>
-                      <th>QTY</th>
+                      <th>Pick</th>
                       <th>Lock.No</th>
                     </tr>
                   </thead>
@@ -3295,21 +3932,68 @@ const GroupOrder = () => {
                           <td>{item.code}</td>
                           <td>{item.name}</td>
 
-                          <td>{item.quantity}</td>
+                          <td>
+                            {(() => {
+                              const relatedInvoices = invoiceList.filter(
+                                (inv) => {
+                                  const lineDetails = getRowLineDetails(item);
+                                  const outboundNos = lineDetails.map(
+                                    (x) => x.outbound_no,
+                                  );
+                                  return (
+                                    outboundNos.includes(inv.no) ||
+                                    inv.no === item.outbound_no
+                                  );
+                                },
+                              );
+
+                              const pdRows = relatedInvoices.flatMap((inv) =>
+                                getPdRowsForInvoice(inv),
+                              );
+                              const hasPd = pdRows.length > 0;
+
+                              if (!hasPd) return item.quantity;
+
+                              return (
+                                <button
+                                  type="button"
+                                  className="pd-qty-link"
+                                  onClick={() =>
+                                    setPdModal({
+                                      open: true,
+                                      docNo: relatedInvoices
+                                        .map((x) => x.no)
+                                        .join(", "),
+                                      rows: pdRows,
+                                    })
+                                  }
+                                  title="ดูรายการ PD"
+                                >
+                                  {item.quantity}
+                                </button>
+                              );
+                            })()}
+                          </td>
                           <td>
                             {(item as any).lot_name ?? item.lot_serial ?? "-"}
                           </td>
 
                           <td>
-                            {Array.isArray((item as any).lock_no) ? (
-                              (item as any).lock_no.map(
+                            {(() => {
+                              const displayLocks = toLockList(
+                                (item as any).lock_no,
+                              );
+
+                              if (displayLocks.length === 0) {
+                                return <div>-</div>;
+                              }
+
+                              return displayLocks.map(
                                 (lock: string, idx: number) => (
-                                  <div key={idx}>{lock || "-"}</div>
+                                  <div key={idx}>{lock}</div>
                                 ),
-                              )
-                            ) : (
-                              <div>{(item as any).lock_no || "-"}</div>
-                            )}
+                              );
+                            })()}
                           </td>
 
                           <td>
@@ -3546,39 +4230,73 @@ const GroupOrder = () => {
           </button>
         )}
 
-        {isReturnMode && isReadOnly && (
+        {isReturnMode && canReturnMode && !isPdReturnFlow && (
           <button
             className="groupOrder-btn-submit"
             disabled={isSubmitting || returnDisplayRows.length === 0}
             onClick={async () => {
+             
+
               if (selectedReturnNos.length === 0) {
-                toast.error("ไม่พบ Doc No. สำหรับ Confirm Return");
+                toast.error(
+                  isRtcReturnFlow
+                    ? `ไม่พบ Doc No. สำหรับ ${returnActionLabel}`
+                    : "ไม่พบ Doc No. สำหรับ Confirm Return",
+                );
                 return;
               }
 
               const c = await confirmAlert(
-                "ยืนยัน Return สินค้ากลับ Location ?",
+                isRtcReturnFlow
+                  ? `ยืนยันการ ${returnActionLabel} ?`
+                  : "ยืนยัน Return สินค้ากลับ Location ?",
               );
+
               if (!c.isConfirmed) return;
 
               try {
                 setIsSubmitting(true);
 
                 for (const outboundNo of selectedReturnNos) {
-                  await goodsoutApi.confirmReturn(outboundNo);
+                  // ✅ ใช้ route เดียวกับ RTC
+                  if (isRtcReturnFlow) {
+                    await goodsoutApi.confirmRtcToStock(outboundNo);
+                  } else {
+                    await goodsoutApi.confirmReturn(outboundNo, {
+                      return_mode: "PICK",
+                    });
+                  }
                 }
 
-                await successAlert("Confirm Return สำเร็จ");
+                await successAlert(
+                  isRtcReturnFlow
+                    ? `${returnActionLabel} สำเร็จ`
+                    : "Confirm Return สำเร็จ",
+                );
+
                 stopReturnMode();
                 await loadRecentOutbounds();
+
+                if (isRtcReturnFlow) {
+                  navigate("/outbound?view=picking", { replace: true });
+                }
               } catch (err: any) {
-                toast.error(err?.message || "Confirm Return ไม่สำเร็จ");
+                toast.error(
+                  err?.message ||
+                    (isRtcReturnFlow
+                      ? `${returnActionLabel} ไม่สำเร็จ`
+                      : "Confirm Return ไม่สำเร็จ"),
+                );
               } finally {
                 setIsSubmitting(false);
               }
             }}
           >
-            ยืนยัน Return
+            {isRtcReturnFlow
+              ? returnType === "BOR"
+                ? "Return BOR"
+                : "Return RTC"
+              : "ยืนยัน Return"}
           </button>
         )}
       </div>
@@ -3642,7 +4360,9 @@ const GroupOrder = () => {
                 className="lock-filter-btn"
                 onClick={applyLockFilter}
               >
-                ยืนยัน
+                {isPdReturnFlow && returnDisplayRows.length > 0
+                  ? "ยืนยัน Return + Pick"
+                  : "ยืนยัน"}
               </button>
             </div>
           </div>
@@ -3823,6 +4543,77 @@ const GroupOrder = () => {
         </div>
       )}
 
+      {pdModal.open && (
+        <div
+          className="lock-filter-overlay"
+          onMouseDown={() =>
+            setPdModal({
+              open: false,
+              docNo: "",
+              rows: [],
+            })
+          }
+        >
+          <div className="pd-modal" onMouseDown={(e) => e.stopPropagation()}>
+            <div className="lock-filter-header">
+              <div className="lock-filter-title">
+                PD Inbound : {pdModal.docNo || "-"}
+              </div>
+
+              <button
+                className="lock-filter-x"
+                type="button"
+                onClick={() =>
+                  setPdModal({
+                    open: false,
+                    docNo: "",
+                    rows: [],
+                  })
+                }
+              >
+                <i className="fa-solid fa-xmark" />
+              </button>
+            </div>
+
+            <div className="pd-modal-body">
+              <table className="pd-popup-table">
+                <thead>
+                  <tr>
+                    <th>NO</th>
+                    <th>PD No.</th>
+                    <th>สินค้า</th>
+                    <th>ชื่อ</th>
+                    <th>จำนวน</th>
+                    <th>Lot. Serial</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {pdModal.rows.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} style={{ textAlign: "center" }}>
+                        ไม่พบรายการ PD
+                      </td>
+                    </tr>
+                  ) : (
+                    pdModal.rows.map((row, index) => (
+                      <tr key={`${row.no}_${index}`}>
+                        <td>{index + 1}</td>
+                        <td>{row.no || "-"}</td>
+                        <td>{row.code || "-"}</td>
+                        <td>{row.name || "-"}</td>
+                        <td>{row.qty ?? "-"}</td>
+                        <td>{row.lot_serial || "-"}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
       <InvoiceListModal
         key={
           selectedItemKey
@@ -3838,19 +4629,45 @@ const GroupOrder = () => {
         }
         batchName={currentBatchKey ?? ""}
         onChooseReturnTarget={(target) => {
-          const outboundNo = String(
-            target?.outbound_no ?? target?.outbound_no ?? "",
-          ).trim();
+          const outboundNo = String(target?.outbound_no ?? "").trim();
 
           if (!outboundNo) {
             toast.error("ไม่พบ Doc No. สำหรับ Return");
             return;
           }
 
+          const targetInvoice = invoiceList.find(
+            (inv) => String(inv.no ?? "").trim() === outboundNo,
+          );
+          const mode =
+            targetInvoice &&
+            (isRtcInvoice(targetInvoice) || isRtcOutboundNo(outboundNo))
+              ? getReturnDisplayType(targetInvoice)
+              : "PICK";
+
           setSelectedReturnTarget(target);
           setIsInvoiceListModalOpen(false);
-          startReturnMode([{ outbound_no: outboundNo }]);
+
+          startReturnMode([
+            {
+              outbound_no: outboundNo,
+              goods_out_item_id: target?.goods_out_item_id,
+              return_mode: mode,
+            },
+          ]);
         }}
+        returnMode={
+          selectedItemKey &&
+          invoiceList.some(
+            (inv) => isRtcInvoice(inv) || isRtcOutboundNo(inv.no),
+          )
+            ? getReturnDisplayType(
+                invoiceList.find(
+                  (inv) => isRtcInvoice(inv) || isRtcOutboundNo(inv.no),
+                ),
+              )
+            : "PICK"
+        }
       />
     </div>
   );
